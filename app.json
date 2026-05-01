@@ -13,6 +13,7 @@
       "bundleIdentifier": "com.m2dt.adler",
       "appleTeamId": "8Q97322X2M",
       "supportsTablet": false,
+      "usesAppleSignIn": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
