@@ -2,8 +2,7 @@
  * Universal Skia-based progress bar with gradient fill and inner shadows.
  *
  * Usage:
- *   <ProgressBar progress={0.6} colors={signalColors.lp} />
- *   <ProgressBar progress={0.3} colors={signalColors.mp} height={10} />
+ *   <ProgressBar progress={0.6} colors={signalColors.accent} />
  */
 import React, { useEffect, useState } from "react";
 import { View } from "react-native";
@@ -26,7 +25,7 @@ import type { ThemePalette } from "@/constants/ThemePalettes";
 interface ProgressBarProps {
   /** Progress value between 0 and 1 */
   progress: number;
-  /** Color palette with 400/500/600 keys (e.g. signalColors.lp) */
+  /** Color palette with 400/500/600 keys (e.g. signalColors.accent) */
   colors: ThemePalette;
   /** Bar height in pixels (default: 14) */
   height?: number;

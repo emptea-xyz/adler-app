@@ -1,20 +1,18 @@
 /**
- * Theme color configuration for the app's theming system.
- * Each theme provides a full Tailwind palette (50-950) for app-wide styling.
+ * Theme palette for Adler. One palette: mono. Two appearances: light and
+ * dark — produced by inverting the palette at render time. Multi-accent
+ * theming is intentionally out of scope.
  *
- * Usage:
- * - theme[50]: App background, lightest surfaces
- * - theme[100-200]: Card backgrounds, subtle borders
- * - theme[300-400]: Secondary text, disabled states
- * - theme[500]: Primary accent, buttons
- * - theme[600-700]: Hover states, emphasis
- * - theme[800-900]: Primary text, headings
- * - theme[950]: Darkest elements
+ * Shade conventions:
+ * - theme[50]: app background, lightest surfaces
+ * - theme[100-200]: card backgrounds, subtle borders
+ * - theme[300-400]: secondary text, disabled states
+ * - theme[500]: primary accent (sky-blue brand color)
+ * - theme[600-700]: hover states, emphasis
+ * - theme[800-900]: primary text, headings
+ * - theme[950]: darkest elements
  */
 import { TailwindColors } from "./TailwindColors";
-
-export type ThemeName =
-    'mono' | 'red' | 'orange' | 'yellow' | 'emerald' | 'blue' | 'violet' | 'pink';
 
 export interface ThemePalette {
     50: string;
@@ -30,35 +28,23 @@ export interface ThemePalette {
     950: string;
 }
 
-export const THEME_COLORS: Record<ThemeName, ThemePalette> = {
-    mono: {
-        50: TailwindColors.neutral[50],   // #fafafa — softened from pure white
-        100: TailwindColors.neutral[100],
-        200: TailwindColors.neutral[200],
-        300: TailwindColors.neutral[300],
-        400: TailwindColors.neutral[400],
-        500: TailwindColors.sky[500],     // brand accent — sky-blue
-        600: TailwindColors.neutral[600],
-        700: TailwindColors.neutral[700],
-        800: TailwindColors.neutral[800],
-        900: TailwindColors.neutral[900],
-        950: TailwindColors.neutral[950], // #0a0a0a — softened from pure black
-    },
-    red: TailwindColors.red,
-    orange: TailwindColors.orange,
-    yellow: TailwindColors.yellow,
-    emerald: TailwindColors.emerald,
-    blue: TailwindColors.blue,
-    violet: TailwindColors.violet,
-    pink: TailwindColors.pink,
+export const MONO_PALETTE: ThemePalette = {
+    50: TailwindColors.neutral[50],
+    100: TailwindColors.neutral[100],
+    200: TailwindColors.neutral[200],
+    300: TailwindColors.neutral[300],
+    400: TailwindColors.neutral[400],
+    500: TailwindColors.sky[500],     // brand accent — sky-blue
+    600: TailwindColors.neutral[600],
+    700: TailwindColors.neutral[700],
+    800: TailwindColors.neutral[800],
+    900: TailwindColors.neutral[900],
+    950: TailwindColors.neutral[950],
 };
 
-export const DEFAULT_THEME: ThemeName = 'mono';
-
-
 /**
- * Inverts a palette for dark mode: swaps light ↔ dark shades.
- * Shade 500 (accent midpoint) stays in place.
+ * Inverts a palette for dark mode: swaps light ↔ dark shades. Shade 500
+ * (accent midpoint) stays in place.
  */
 export function invertPalette(palette: ThemePalette): ThemePalette {
     return {
@@ -77,8 +63,8 @@ export function invertPalette(palette: ThemePalette): ThemePalette {
 }
 
 /**
- * SIGNAL PALETTE — 8-color accent palette for charts, data series, and decorative elements.
- * Sourced from Tailwind's default palette (Figma reference).
+ * SIGNAL PALETTE — accent palette for charts, data series, and decorative
+ * elements. Sourced from Tailwind's default palette.
  *
  * Usage: SIGNAL_PALETTE.blue[500], SIGNAL_PALETTE.red[400], etc.
  */
@@ -93,18 +79,14 @@ export const SIGNAL_PALETTE = {
     pink: TailwindColors.pink,
 } as const;
 
-
 /**
- * SINGLE SOURCE OF TRUTH for signal colors.
- *
- * These slots are consistent across ALL themes. Names are kept short and
- * abstract so callers can reuse them across the marketplace surfaces
- * (heatmap accents, action buttons, etc.). Use via:
- *   const { signalColors } = useTheme();
+ * Static signal slots used across the app's accent surfaces. Values are
+ * theme-independent (we only have one theme) — `useTheme().signalColors` is
+ * just this object.
  */
 export const SIGNAL_COLORS = {
-    /** Primary action accent, e.g. floating action button gradient */
-    action: SIGNAL_PALETTE.sky,
+    /** Primary brand accent (buttons, highlights, active states) */
+    accent: SIGNAL_PALETTE.sky,
     /** Multi-step intensity ramp for relationship/heatmap visuals */
     ramp: {
         '50': TailwindColors.emerald[500],
@@ -119,11 +101,4 @@ export const SIGNAL_COLORS = {
         '900': TailwindColors.pink[500],
         '950': TailwindColors.rose[500],
     },
-    /** Generic accent slot 1 (e.g. activity heatmap "active" days) */
-    lp: SIGNAL_PALETTE.sky,
-    /** Generic accent slot 2 (e.g. positive-delta indicators) */
-    mp: SIGNAL_PALETTE.green,
-    /** Generic accent slot 3 (e.g. milestone / highlight) */
-    pr: SIGNAL_PALETTE.sky,
 } as const;
-

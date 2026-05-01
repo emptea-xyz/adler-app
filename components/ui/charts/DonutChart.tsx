@@ -32,7 +32,7 @@ interface DonutChartProps {
   showLegend?: boolean;
   /**
    * Optional palette for segments. Defaults to a descending ramp of the
-   * brand-accent shades (signalColors.lp 700→300) so segment ranking is
+   * brand-accent shades (signalColors.accent 700→300) so segment ranking is
    * encoded in the shade.
    */
   colors?: string[];
@@ -53,11 +53,11 @@ export function DonutChart({
   const palette = useMemo(
     () =>
       colors ?? [
-        signalColors.lp[700],
-        signalColors.lp[600],
-        signalColors.lp[500],
-        signalColors.lp[400],
-        signalColors.lp[300],
+        signalColors.accent[700],
+        signalColors.accent[600],
+        signalColors.accent[500],
+        signalColors.accent[400],
+        signalColors.accent[300],
       ],
     [colors, signalColors],
   );

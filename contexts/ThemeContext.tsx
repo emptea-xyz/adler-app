@@ -1,54 +1,35 @@
 /**
- * ThemeContext - Manages user's theme color and color scheme preferences.
+ * ThemeContext — single mono palette, light/dark inverted at render time.
  *
- * Two independent settings:
- * 1. Theme name (mono, red, blue, etc.) — controls the color palette
- * 2. Color scheme (system, light, dark) — controls light/dark appearance
- *
- * When dark mode is active, the palette is inverted (50↔950) so all
- * existing `theme[N]` usages automatically adapt.
+ * The user can pick `system | light | dark`. Multi-accent theming is
+ * intentionally not exposed; if we ever want it back, restore from git.
  */
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { useColorScheme as useSystemColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEYS } from '@/lib/constants/storageKeys';
 import {
-    ThemeName,
     ThemePalette,
-    THEME_COLORS,
-    DEFAULT_THEME,
+    MONO_PALETTE,
     SIGNAL_COLORS,
     SIGNAL_PALETTE,
     invertPalette,
 } from '@/constants/ThemePalettes';
+
 export type ColorScheme = 'system' | 'light' | 'dark';
 const DEFAULT_SCHEME: ColorScheme = 'system';
 
-/**
- * Brand-accent slots whose color resolves from the active theme. Mono uses sky,
- * other themes use their own palette — see ThemeProvider.
- */
-type ResolvedSignalColors = Omit<typeof SIGNAL_COLORS, 'action' | 'lp' | 'pr'> & {
-    action: ThemePalette;
-    lp: ThemePalette;
-    pr: ThemePalette;
-};
-
 interface ThemeContextType {
-    /** Current selected theme name */
-    themeName: ThemeName;
     /** Resolved palette (inverted when dark mode is active) */
     theme: ThemePalette;
-    /** Signal colors for contextual accents (action/lp/pr resolve per theme) */
-    signalColors: ResolvedSignalColors;
-    /** 8-color accent palette for charts, data series, and decorative elements */
+    /** Static signal colors (accent + ramp) */
+    signalColors: typeof SIGNAL_COLORS;
+    /** Reusable Tailwind-sourced accent palette */
     signalPalette: typeof SIGNAL_PALETTE;
     /** Whether the current appearance is dark */
     isDark: boolean;
     /** Current color scheme preference */
     colorScheme: ColorScheme;
-    /** Change and persist the theme selection */
-    setTheme: (name: ThemeName) => Promise<void>;
     /** Change and persist the color scheme */
     setColorScheme: (scheme: ColorScheme) => Promise<void>;
     /** Whether the context is still loading from storage */
@@ -59,103 +40,50 @@ const ThemeContext = createContext<ThemeContextType | null>(null);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const systemScheme = useSystemColorScheme();
-    const [themeName, setThemeName] = useState<ThemeName>(DEFAULT_THEME);
     const [colorScheme, setColorSchemeState] = useState<ColorScheme>(DEFAULT_SCHEME);
     const [isLoading, setIsLoading] = useState(true);
 
-    // Load cached preferences on mount
     useEffect(() => {
-        const load = async () => {
+        (async () => {
             try {
-                const [storedTheme, storedScheme] = await Promise.all([
-                    AsyncStorage.getItem(STORAGE_KEYS.ACCENT_COLOR),
-                    AsyncStorage.getItem(STORAGE_KEYS.COLOR_SCHEME),
-                ]);
-
-                if (storedTheme) {
-                    // Migrate legacy obsidian users → mono + dark
-                    if (storedTheme === 'obsidian') {
-                        setThemeName('mono');
-                        setColorSchemeState('dark');
-                        await Promise.all([
-                            AsyncStorage.setItem(STORAGE_KEYS.ACCENT_COLOR, 'mono'),
-                            AsyncStorage.setItem(STORAGE_KEYS.COLOR_SCHEME, 'dark'),
-                        ]);
-                    } else if (storedTheme in THEME_COLORS) {
-                        setThemeName(storedTheme as ThemeName);
-                    }
+                const stored = await AsyncStorage.getItem(STORAGE_KEYS.COLOR_SCHEME);
+                if (stored && ['system', 'light', 'dark'].includes(stored)) {
+                    setColorSchemeState(stored as ColorScheme);
                 }
-
-                if (storedScheme && ['system', 'light', 'dark'].includes(storedScheme)) {
-                    // Skip scheme load if we just migrated from obsidian
-                    if (storedTheme !== 'obsidian') {
-                        setColorSchemeState(storedScheme as ColorScheme);
-                    }
-                }
-            } catch (error) {
-                if (__DEV__) console.warn('Failed to load theme preferences:', error);
+            } catch (err) {
+                if (__DEV__) console.warn('Failed to load color scheme:', err);
             } finally {
                 setIsLoading(false);
             }
-        };
-        load();
-    }, []);
-
-    const setTheme = useCallback(async (name: ThemeName) => {
-        setThemeName(name);
-        try {
-            await AsyncStorage.setItem(STORAGE_KEYS.ACCENT_COLOR, name);
-        } catch (error) {
-            if (__DEV__) console.error('Failed to save theme:', error);
-        }
+        })();
     }, []);
 
     const setColorScheme = useCallback(async (scheme: ColorScheme) => {
         setColorSchemeState(scheme);
         try {
             await AsyncStorage.setItem(STORAGE_KEYS.COLOR_SCHEME, scheme);
-        } catch (error) {
-            if (__DEV__) console.error('Failed to save color scheme:', error);
+        } catch (err) {
+            if (__DEV__) console.error('Failed to save color scheme:', err);
         }
     }, []);
 
-    const value = useMemo(() => {
-        const effectiveTheme = themeName;
-        const effectiveScheme = colorScheme;
-
-        // Resolve whether we're in dark mode
-        const isDark = effectiveScheme === 'system'
+    const value = useMemo<ThemeContextType>(() => {
+        const isDark = colorScheme === 'system'
             ? systemScheme === 'dark'
-            : effectiveScheme === 'dark';
+            : colorScheme === 'dark';
 
-        // Invert palette for dark mode
-        const basePalette = THEME_COLORS[effectiveTheme];
-        const theme = isDark ? invertPalette(basePalette) : basePalette;
-
-        // Brand accent: sky-blue for mono, the theme's own palette otherwise.
-        // Drives signalColors.lp/pr/action so per-theme branding stays consistent.
-        const brandPalette =
-            effectiveTheme === 'mono' ? SIGNAL_PALETTE.sky : THEME_COLORS[effectiveTheme];
-
-        const signalColors = {
-            ...SIGNAL_COLORS,
-            action: brandPalette,
-            lp: brandPalette,
-            pr: brandPalette,
-        };
+        const theme = isDark ? invertPalette(MONO_PALETTE) : MONO_PALETTE;
 
         return {
-            themeName: effectiveTheme,
             theme,
-            signalColors,
+            signalColors: SIGNAL_COLORS,
             signalPalette: SIGNAL_PALETTE,
             isDark,
-            colorScheme: effectiveScheme,
-            setTheme,
+            colorScheme,
             setColorScheme,
             isLoading,
         };
-    }, [themeName, colorScheme, systemScheme, setTheme, setColorScheme, isLoading]);
+    }, [colorScheme, systemScheme, setColorScheme, isLoading]);
 
     return (
         <ThemeContext.Provider value={value}>

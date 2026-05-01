@@ -87,7 +87,7 @@ export function CalendarHeatmap({ activeDates, variant = "outline", className, o
   // empty grid cells go one step away (theme[200]) to stay visible.
   const emptyColor = theme[200];
   const futureColor = theme[300];
-  const activeColor = signalColors.lp[500];
+  const activeColor = signalColors.accent[500];
   const todayColor = theme[950];
 
   const getCellColor = (isToday: boolean, isActive: boolean, isFuture?: boolean) => {
