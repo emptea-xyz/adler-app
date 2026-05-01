@@ -1,0 +1,12 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "ignore": [
+    "functions/**"
+  ],
+  "ignoreDependencies": [
+    "babel-plugin-transform-remove-console"
+  ],
+  "entry": [
+    "metro.config.js"
+  ]
+}

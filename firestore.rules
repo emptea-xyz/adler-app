@@ -1,0 +1,93 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthed() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isAuthed() && request.auth.uid == uid;
+    }
+
+    // Profiles are public-readable so listings can show seller info; writes
+    // only by the profile owner.
+    match /profiles/{userId} {
+      allow read: if true;
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if false;
+    }
+
+    // Active packages are public-readable; only the seller can mutate. Sellers
+    // can also read their own paused/sold listings.
+    match /packages/{packageId} {
+      allow read: if (resource == null || resource.data.status == 'active') ||
+                     (isAuthed() && resource.data.sellerId == request.auth.uid);
+      allow create: if isAuthed() &&
+                      request.resource.data.sellerId == request.auth.uid &&
+                      request.resource.data.status == 'active';
+      allow update: if isAuthed() && resource.data.sellerId == request.auth.uid;
+      allow delete: if false;
+    }
+
+    // Open gigs are public-readable; only the brand can mutate. Brands can
+    // also read their own awarded/closed gigs.
+    match /gigs/{gigId} {
+      allow read: if (resource == null || resource.data.status == 'open') ||
+                     (isAuthed() && resource.data.brandId == request.auth.uid);
+      allow create: if isAuthed() &&
+                      request.resource.data.brandId == request.auth.uid &&
+                      request.resource.data.status == 'open';
+      allow update: if isAuthed() && resource.data.brandId == request.auth.uid;
+      allow delete: if false;
+    }
+
+    // Applications: visible to the creator who applied AND the brand running
+    // the gig. Creators write the doc on apply; brands update status to
+    // shortlist / award / reject.
+    match /gigApplications/{applicationId} {
+      allow read: if isAuthed() && (
+        resource.data.creatorId == request.auth.uid ||
+        get(/databases/$(database)/documents/gigs/$(resource.data.gigId)).data.brandId == request.auth.uid
+      );
+      allow create: if isAuthed() &&
+                      request.resource.data.creatorId == request.auth.uid &&
+                      request.resource.data.status == 'pending';
+      allow update: if isAuthed() && (
+        get(/databases/$(database)/documents/gigs/$(resource.data.gigId)).data.brandId == request.auth.uid
+      );
+      allow delete: if false;
+    }
+
+    // Orders: visible to buyer and seller. Buyer creates the pending doc;
+    // either party can update status (signature/delivered/complete).
+    match /orders/{orderId} {
+      allow read: if isAuthed() && (
+        resource.data.buyerId == request.auth.uid ||
+        resource.data.sellerId == request.auth.uid
+      );
+      allow create: if isAuthed() &&
+                      request.resource.data.buyerId == request.auth.uid &&
+                      request.resource.data.status == 'pending';
+      allow update: if isAuthed() && (
+        resource.data.buyerId == request.auth.uid ||
+        resource.data.sellerId == request.auth.uid
+      );
+      allow delete: if false;
+    }
+
+    // Reviews are public-readable; only the reviewer can create / update their
+    // own. Reviewer must be a participant in the referenced order.
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isAuthed() &&
+                      request.resource.data.reviewerId == request.auth.uid &&
+                      get(/databases/$(database)/documents/orders/$(request.resource.data.orderId)).data.buyerId in [request.auth.uid, request.resource.data.revieweeId] &&
+                      get(/databases/$(database)/documents/orders/$(request.resource.data.orderId)).data.sellerId in [request.auth.uid, request.resource.data.revieweeId];
+      allow update: if isAuthed() && resource.data.reviewerId == request.auth.uid;
+      allow delete: if false;
+    }
+  }
+}

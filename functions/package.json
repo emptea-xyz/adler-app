@@ -1,0 +1,17 @@
+{
+  "name": "adler-functions",
+  "private": true,
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test:functions": "node --test"
+  },
+  "engines": {
+    "node": "22"
+  },
+  "dependencies": {
+    "@privy-io/server-auth": "^1.18.0",
+    "firebase-admin": "^13.1.0",
+    "firebase-functions": "^6.3.1"
+  }
+}
