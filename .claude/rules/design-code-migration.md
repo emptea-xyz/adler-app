@@ -1,6 +1,8 @@
-# Crank — Design ↔ Code Migration
+# Adler — Design ↔ Code Migration
 
 Rules for transcribing between the Figma canvas and the React Native codebase in either direction. Follow these to avoid the visual drift that makes the two sides stop matching each other.
+
+> Adler doesn't yet have a canonical Figma file. These rules apply once design work begins. Until then, treat them as the bar to clear when interpreting design references shared via screenshots or specs.
 
 ---
 
@@ -8,7 +10,7 @@ Rules for transcribing between the Figma canvas and the React Native codebase in
 
 **No exceptions. No approximations. No simplifications. No "close enough."**
 
-An SVG is a piece of path data. When migrating between code and design, transfer **the exact path strings, verbatim**. Never redraw, retrace, round off, or simplify any part of any SVG — not the body map, not an icon, not a logo, not a decorative glyph.
+An SVG is a piece of path data. When migrating between code and design, transfer **the exact path strings, verbatim**. Never redraw, retrace, round off, or simplify any part of any SVG — not an icon, not a logo, not a decorative glyph.
 
 If you can't access the source path data, **stop and find it** (grep the repo, read the component file, copy from the canonical lucide source). Do not substitute a look-alike and move on.
 
@@ -21,7 +23,6 @@ Forbidden:
 - Drawing a "simplified silhouette" because the original has many paths
 - Using Figma's pen tool to recreate an icon by eye
 - Rewriting path commands by hand
-- Dropping sub-paths (e.g. skipping one of the `neck` paths because they look similar)
 - Replacing with a "visually close" icon from a different set
 
 If a migration step would require drawing rather than copying, that's the signal you're off the rails — go back and find the source path data.
@@ -43,29 +44,16 @@ If a migration step would require drawing rather than copying, that's the signal
 
 ### Vectors — 1:1 path transfer (see also: Rule Zero)
 
-- **Always find the source path data first.** Grep the repo for the component name, open the file, copy the literal path strings. Common homes: Skia path strings (`SkiaFrontBody.tsx`, `SkiaBackBody.tsx`, `ActionBlitz.tsx`, `CrankLogo.tsx`), inline SVGs under `components/`, exercise/badge assets, lucide icon names.
+- **Always find the source path data first.** Grep the repo for the component name, open the file, copy the literal path strings.
 - In Figma: paste the raw SVG into `figma.createNodeFromSvg()`, or use `figma.createVector()` with `vectorPaths`. Preserve the original `viewBox` aspect ratio and `rescale()` to target size. Nothing gets retyped.
 - Lucide icons: grab the canonical SVG from lucide's source and import verbatim. Match `strokeWidth`, `strokeLinecap`, `strokeLinejoin` to the code's usage (default in RN is `strokeWidth={2}`, rounded caps/joins).
-- Multi-part assets (body map, logo, badges): extract **every** sub-path from the source. Missing a `neck[3]` path leaves a visible gap — Rule Zero says all of them, not most of them.
+- Multi-part assets: extract **every** sub-path from the source. Missing one path leaves a visible gap — Rule Zero says all of them, not most of them.
 - Going Figma → code: export the Figma node as SVG, paste the path strings into a Skia `<Path>` or inline component. Don't retrace geometry by hand.
 
 ### Raster — copy the file, don't recreate
 
-- If an asset lives as a PNG in `assets/` or a URL in `lib/constants/mediaUrls.ts`, **copy the file directly** — upload the same PNG into Figma (drag-in, or `figma.createImage()` → `imageHash`). Don't vectorize or recreate it.
-- Badge images, illustrations, onboarding graphics, avatar fallbacks: same rule — one binary source of truth, copied across.
-- Going Figma → code: export at 1x/2x/3x from Figma and commit under `assets/`, referenced via `require()` or the existing CDN wrapper. Don't re-encode or crop manually.
-
-### Asset source-of-truth map
-
-| Asset | Source |
-|---|---|
-| Body silhouette paths | `components/features/body/skia/Skia(Front\|Back)Body.tsx` |
-| ActionBlitz lightning bolt | `components/ui/icons/ActionBlitz.tsx` (`BLITZ_PATH`) |
-| Crank logo | `components/ui/icons/CrankLogo.tsx` |
-| Muscle → body-part mapping | `lib/constants/MuscleConfig.ts` |
-| Badge images (PNG) | `lib/constants/BadgeImages.ts` |
-| Remote media URLs | `lib/constants/mediaUrls.ts` |
-| Exercise library | `lib/constants/exercises.ts` |
+- If an asset lives as a PNG in `assets/` or as a remote URL, **copy the file directly** — upload the same PNG into Figma (drag-in, or `figma.createImage()` → `imageHash`). Don't vectorize or recreate it.
+- Going Figma → code: export at 1x/2x/3x from Figma and commit under `assets/`, referenced via `require()`. Don't re-encode or crop manually.
 
 ---
 
@@ -95,7 +83,7 @@ If a migration step would require drawing rather than copying, that's the signal
 - `figma.createNodeFromSvg` with decimal `width`/`height` attributes (e.g. `width="32.7"`) silently produces an **empty frame**. Fix: use integer `viewBox`, omit `width`/`height`, then `rescale()` to the target size.
 - The import returns a *frame* with vector children. When recoloring, only target `type === 'VECTOR'` — applying a fill to the parent frame produces a solid block.
 - Stroke-based icons (lucide) → set `strokes`, clear `fills`, `strokeWeight = 2`, `strokeCap/Join = 'ROUND'`.
-- Fill-based icons (ActionBlitz, body parts, logo) → set `fills` on vectors, clear `strokes`.
+- Fill-based icons → set `fills` on vectors, clear `strokes`.
 
 ### Fonts
 
@@ -106,11 +94,11 @@ If a migration step would require drawing rather than copying, that's the signal
 
 - Figma paint `color` uses 0–1 RGB (`{ r, g, b }`). No `a` field on a paint color — alpha lives on `paint.opacity`, or on gradient stops.
 - Map via theme token, not hex: `theme[200]` → `#e5e5e5`, `theme[950]` → `#0a0a0a`. Source of truth: `constants/ThemePalettes.ts`.
-- Accents like emerald use `TailwindColors.emerald[500]` — same token name in Figma and code.
+- Accents use `TailwindColors.<name>[500]` — same token name in Figma and code.
 
 ### Floating elements
 
-- Anything `position: 'absolute'` in RN floats *over* content (tab bar, interaction bar, toasts, sheets). In Figma, make it an absolutely-positioned sibling via `layoutPositioning = 'ABSOLUTE'` so auto-layout doesn't shrink other children around it.
+- Anything `position: 'absolute'` in RN floats *over* content (tab bar, toasts, sheets). In Figma, make it an absolutely-positioned sibling via `layoutPositioning = 'ABSOLUTE'` so auto-layout doesn't shrink other children around it.
 - Reserve the floating element's visual space mentally — don't clip body content for it, let it overlap.
 
 ---
@@ -141,8 +129,8 @@ If a migration step would require drawing rather than copying, that's the signal
 
 ### Constants first, literals never
 
-- Use `TAB_BAR_HEIGHT`, `TAB_BAR_GRADIENT_HEIGHT`, screen paddings from `constants/LayoutConstants.ts` — never hardcode `60`/`40`.
-- Use `theme[n]` from `useTheme()` — never hardcode hex.
+- Use `TAB_BAR_HEIGHT`, `BottomInset.*` from `constants/LayoutConstants.ts` — never hardcode magic numbers.
+- Use `theme[n]` from `useTheme()` — never hardcode hex (one exception: the destructive `#DC143C` token, which is intentionally fixed).
 - Use `TailwindColors.*` for non-theme accents.
 - If a needed constant doesn't exist, add it in `constants/`. Don't duplicate a literal across files.
 
@@ -162,6 +150,6 @@ If a migration step would require drawing rather than copying, that's the signal
 - [ ] Fonts loaded (`loadFontAsync`) / fallback decided (Geist ↔ Inter)
 - [ ] Colors referenced by token, not hex
 - [ ] Auto-layout ↔ flex semantics match (direction, gap, padding, sizing modes)
-- [ ] **Every vector asset imported 1:1 from its source path data — no approximations, no simplified silhouettes**
+- [ ] **Every vector asset imported 1:1 from its source path data — no approximations**
 - [ ] **Every raster asset copied from the source file — no redraws, no re-encodes**
 - [ ] Screenshot/render compared against the other side before moving to the next element

@@ -1,6 +1,6 @@
-# Crank
+# Adler
 
-**Crank** is a professional, industrial-inspired mobile fitness app with RPG mechanics and body mapping, built with Expo, TypeScript, Firebase, Skia, Reanimated, and NativeWind.
+**Adler** is a two-sided UGC marketplace built with Expo, TypeScript, Privy (embedded Solana wallets), Firebase, Reanimated, and NativeWind. Creators list content packages for brands to purchase; brands post gigs that creators apply to. Payments settle as direct SOL transfers on Solana devnet.
 
 The design philosophy is **industrial precision** — clean structural hierarchy, high-contrast data-forward interfaces, and zero visual noise. Every pixel earns its place.
 

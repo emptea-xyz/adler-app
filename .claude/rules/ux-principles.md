@@ -1,55 +1,55 @@
-# Crank — Industrial Fitness App Design System
+# Adler — Industrial Marketplace Design System
 
-You are building **Crank**, a professional, industrial-inspired mobile fitness application with RPG mechanics and body mapping. Every component, layout, and interaction you generate must conform to the principles below. These are not suggestions — they are engineering constraints.
+You are building **Adler**, a professional, industrial-inspired UGC marketplace where creators sell content packages and brands post gigs. Every component, layout, and interaction you generate must conform to the principles below. These are not suggestions — they are engineering constraints.
 
-The design philosophy is **industrial precision**: clean structural hierarchy, high-contrast data-forward interfaces, and zero visual noise. The interface must feel like a purpose-built instrument, not a lifestyle brand. Think Strava's data density meets a cockpit gauge cluster — every pixel earns its place.
+The design philosophy is **industrial precision**: clean structural hierarchy, high-contrast data-forward interfaces, and zero visual noise. The interface must feel like a purpose-built instrument, not a lifestyle brand. Think Stripe Dashboard's data density meets a cockpit gauge cluster — every pixel earns its place.
 
 ---
 
 ## 1. Onboarding & First-Run Architecture
 
 ### Time-to-Value Target: 60 Seconds
-Users must go from first launch to their first tracked workout in under 60 seconds. The flow is strictly linear: **goal selection → plan generation → start workout**. No branching paths, no optional detours during initial setup.
+Users must go from first launch to a tangible first action (browsing a listing, posting a gig, listing a package) in under 60 seconds. The flow is strictly linear: **sign in → role select → land on Browse**. No branching paths, no optional detours during initial setup.
 
 ### Smart Defaults
-Pre-select goals from simple, high-level choices (e.g., tapping a "Build Muscle" or "Lose Weight" card). Minimize data-entry fields. Every input that can be inferred or deferred, must be.
+Pre-fill anything that can be inferred. The role selector picks one bold high-level choice (Creator vs Brand). Display name + username are auto-generated on first sign-in via the `ensureProfileExists` transaction; users can rename later. Every input that can be inferred or deferred, must be.
 
-### Guest Mode
-Allow full exploration of the core workout experience without mandatory account creation. Show the user what the app does for them before asking who they are. Gate only social and cloud-sync features behind authentication.
+### No Guest Mode (yet)
+Adler payments depend on having an embedded Solana wallet, which requires Privy auth. Browse-without-signup is a v2 consideration; for now, sign-in is mandatory before any marketplace interaction.
 
 ---
 
 ## 2. Navigation & Information Architecture
 
 ### Flat Navigation with Bottom Tabs
-Use a persistent bottom tab bar limited to **3–5 core areas**. This adheres to Miller's Law of working memory. Never use deep, nested menu hierarchies that require excessive tapping and memorization.
+The custom `AdlerTabBar` exposes exactly 4 destinations: **Browse**, **Inbox**, **Create** (oversized center action), **Profile**. This adheres to Miller's Law of working memory. Never use deep, nested menu hierarchies that require excessive tapping and memorization.
 
-### Dashboard as Command Center
-The home screen is a centralized hub. It surfaces the most critical daily information at a glance — bold typography, distinct color-coded sections, and zero extraneous visual noise. The most important KPI is visible without scrolling, rendered in the largest type on screen.
+### Browse as Command Center
+The Browse tab is the home screen. It surfaces the most critical at-a-glance info — the user's wallet balance pill, role chip, and a feed of listings. Bold typography, distinct hierarchy, zero extraneous noise. The wallet balance is visible without scrolling.
 
 ### Spatial Layout: F/Z Scanning Patterns
-Position the most critical global metrics in the **top-left quadrant**. Structure vertically: most important data at top, global overviews in the middle, granular breakdowns at the bottom. Users scan left-to-right in F and Z patterns — design for this.
+Position the most decision-relevant data in the **top-left quadrant**. On every list card and detail screen, the SOL price (or budget) goes top-left in the heaviest type; status / kind labels go top-right; descriptive content flows below. Users scan left-to-right in F and Z patterns — design for this.
 
 ### Gesture Navigation
-Supplement buttons with gestures: swipe between time periods, pinch to zoom maps, long-press for contextual options. Always respect system-level gestures (iOS swipe-back, Android edge swipes) — never override them. Gestures are invisible, so always pair them with immediate visual/haptic feedback and provide button-based fallbacks for accessibility.
+Supplement buttons with gestures: pull-to-refresh on feeds, swipe-back on stack screens, long-press for contextual options. Always respect system-level gestures (iOS swipe-back, Android edge swipes) — never override them. Pair every gesture with immediate visual/haptic feedback and provide button-based fallbacks for accessibility.
 
 ---
 
-## 3. Active Workout States
+## 3. Single-Task Focus States
 
 ### One Action Per Screen
-During active workout tracking, cognitive load must approach zero. Present:
-- **One** primary button (pause/complete)
-- **One** core metric (current set, rep count, or timer)
+On checkout, role-select, and any flow that demands a deliberate decision, cognitive load must approach zero. Present:
+- **One** primary button (Pay / Continue / Confirm)
+- **One** core data point (the SOL amount, the role choice, the order status)
 - **One** decision at a time
 
-Eliminate secondary choices, menus, and non-essential UI during the active tracking phase.
+Eliminate secondary choices, menus, and non-essential UI during these screens. The Pay button on Checkout is pinned to the bottom thumb zone with the SOL amount visible above; nothing else competes.
 
 ### Thumb Zone Placement
-Place all critical controls — filters, action buttons, primary interactions — in the **bottom 40%** of the screen. This is the natural, unstrained single-hand reach zone. Placing critical elements at the top forces uncomfortable hand adjustments and risks device drops during exertion.
+Place all critical controls — primary CTAs, action buttons — in the **bottom 40%** of the screen. This is the natural single-hand reach zone. Placing critical elements at the top forces uncomfortable hand adjustments.
 
-### Touch Targets for Exertion
-All interactive elements must be large enough for imprecise input from sweating, trembling, or fatigued hands. Touch targets must significantly exceed standard web guidelines. During active workout states, primary buttons should be oversized, high-contrast, and impossible to miss.
+### Touch Targets
+All interactive elements must be ≥44x44pt. During payment flows in particular, the primary button is oversized (Button `size="lg"`), high-contrast, and impossible to miss.
 
 ---
 
@@ -60,78 +60,74 @@ Every screen has exactly **one** primary action. Competing primary buttons creat
 
 | Type | Visual Treatment | Usage |
 |------|-----------------|-------|
-| **Primary** | Full-width, bold type, high-contrast solid fill | The single most important action ("Start Workout", "Log Set") |
-| **Secondary** | Ghost outline, muted fill, or lower opacity | Complementary actions ("Edit Routine", "Skip Warmup") |
-| **Tertiary** | Text-only, no background or border | Low-priority navigation ("Learn More", "Cancel") |
-| **Destructive** | Warning color (red/crimson), distinct icon | Irreversible actions requiring high friction ("Delete", "Discard") |
+| **Primary** | Full-width, bold type, high-contrast solid fill | The single most important action ("Pay 0.5 SOL", "Submit application") |
+| **Secondary** | Ghost outline, muted fill, or lower opacity | Complementary actions ("Edit", "Save draft") |
+| **Tertiary** | Text-only, no background or border | Low-priority navigation ("Back to email", "Cancel") |
+| **Destructive** | Warning color (`#DC143C`), distinct icon | Irreversible actions ("Sign out", "Delete listing") |
 
 ### Button Labels
 - Maximum **3 words**, action-oriented
-- State exactly what happens on tap ("Log Set", not "Submit")
-- Sufficient internal padding for legibility and interactive affordance
+- State exactly what happens on tap ("Pay 0.5 SOL", not "Submit"; "Award 1 SOL", not "Confirm")
+- Sufficient internal padding for legibility
 
 ### Modal Placement
-In alert modals: secondary button on the left, primary confirmatory button on the right (aligns with forward-progression mental models).
+In alert modals: secondary button on the left, primary confirmatory button on the right (forward-progression mental model).
 
 ### Buttons vs. Links
-Buttons trigger state changes. Links trigger navigation. Never interchange them.
+Buttons trigger state changes (payments, mutations). Links trigger navigation. Never interchange them.
 
 ---
 
 ## 5. Typography System
 
 ### Font Selection
-Use system fonts as the baseline — **SF Pro / SF Rounded** (iOS) or **Roboto** (Android). These are optimized at the OS level with dynamic optical sizing that adjusts spacing and weight per point size. If using custom type for brand identity, choose **sans-serif only** — serif details blur and vibrate on shaking devices.
+Geist Regular (400) + SemiBold (600) via `expo-google-fonts`. Defined as variants in `components/base/ThemedText.tsx`. Use the variant prop, not arbitrary inline sizes.
 
 ### Anatomical Requirements
-Optimal fitness fonts have:
-- **Large x-heights** (tall lowercase relative to uppercase)
-- **Open counters** (unclosed space inside letters like 'e', 'c', 'o')
-
-These prevent characters from collapsing into illegible blocks at small sizes.
+The selected sans-serif has large x-heights and open counters — both prevent character collapse at small sizes. Don't substitute for stylistic effect.
 
 ### Contrast Softening
-Never render pure black (`#000000`) on pure white (`#FFFFFF`). Use dark gray (`#222222`) on white backgrounds to soften visual vibration while passing all accessibility standards.
+Never render pure black (`#000000`) on pure white (`#FFFFFF`). Use the theme palette (`theme[950]` on `theme[50]`) — that's near-black on near-white, softer to the eye while passing accessibility.
 
 ### Capitalization Rules
-- **ALL CAPS** is prohibited for body text, descriptions, and notifications — it forms uniform rectangular blocks that eliminate word-shape recognition and reduce reading speed
-- ALL CAPS is acceptable only for short labels, badges, or single-word emphasis (e.g., "PRO", "NEW")
+- **ALL CAPS** is prohibited for body text, descriptions, and notifications — it forms uniform rectangular blocks that eliminate word-shape recognition and reduce reading speed.
+- ALL CAPS is acceptable only for short labels, badges, or single-word emphasis (`PACKAGE`, `GIG`, `DEVNET`, `CREATOR`, `BRAND`). Always pair with `caption-semibold` or `caption-semibold` + letterSpacing 0.6 for breathing room.
 
 ### Metric Typography
-Bring figures and units tightly together ("49 kg" not "49  kg") so the brain processes them as a single entity. Align slashes and operators vertically with numbers for mathematical balance.
+Bring figures and units tightly together (`0.5 SOL` not `0.5  SOL`) so the brain processes them as a single entity. Align slashes and operators vertically with numbers.
 
 ---
 
 ## 6. Data Visualization
 
-### Chart Type Selection
+Reserved for marketplace analytics (seller earnings, response rates, gig conversion) — kept available via `components/ui/charts/` but not used on v1 screens.
 
-Choose chart types based on proven mobile viability. Standardize on familiar types to minimize learning curves during exercise.
+### Chart Type Selection (when we ship analytics)
 
-| Chart Type | Mobile Viability | Use Case | Adaptation |
-|-----------|-----------------|----------|------------|
-| **Horizontal Bar** | Excellent | Comparing volumes (calories, daily steps, muscle groups) | Labels on left axis; long lists vertically scrollable; baseline always starts at zero |
-| **Sparkline** | Excellent | Micro-trends beside KPIs (resting heart rate, weekly volume) | Scale to fit unobtrusively beside large KPI typography |
-| **Line Chart** | Good | Continuous trends over time (session heart rate, weight progression) | Max 1–2 concurrent series; tap-to-reveal tooltips; pinch-to-zoom |
-| **Donut/Pie** | Moderate | Ratio breakdowns (macros, muscle group distribution) | Strict max 5 segments; legend below chart, never beside it |
-| **Calendar Heatmap** | Good | Activity frequency and consistency patterns | Monochromatic luminosity scale; bypasses color blindness issues |
+| Chart Type | Mobile Viability | Use Case |
+|-----------|-----------------|----------|
+| **Horizontal Bar** | Excellent | Comparing volumes (orders by category, applications per gig) |
+| **Sparkline** | Excellent | Micro-trends beside a KPI |
+| **Line Chart** | Good | Continuous trends over time (cumulative earnings, active listings) |
+| **Donut/Pie** | Moderate | Ratio breakdowns (status distribution); strict max 5 segments |
+| **Calendar Heatmap** | Good | Activity frequency / consistency patterns; monochromatic luminosity scale |
 
 ### Charts to Avoid
 - **3D charts** — perspective distortion makes accurate reading impossible
-- **Scatter plots** — individual points are too small for touch selection
+- **Scatter plots** — points too small for touch selection
 - **Pie charts with >5 slices** — segments become indistinguishable
 
 ### Chart Interaction Rules
-- **No hover states** — they don't exist on touch. Use tap-to-reveal tooltips, offset so the finger doesn't obscure them. Tap elsewhere to dismiss.
-- **No scroll hijacking** — charts must never capture vertical scroll events. Chart zoom requires explicit two-finger pinch or a dedicated fullscreen button.
+- **No hover states** — they don't exist on touch. Use tap-to-reveal tooltips, offset so the finger doesn't obscure them.
+- **No scroll hijacking** — charts must never capture vertical scroll. Chart zoom requires explicit two-finger pinch.
 - **Bar chart ordering** — sort ascending or descending unless the axis is chronological.
-- **Reduce axis clutter** — place numerical values directly on chart elements when possible to eliminate redundant axes.
-- **Pre-aggregate data** — for large datasets (GPS tracks, second-by-second data), aggregate server-side so the mobile renderer only handles summaries.
+- **Reduce axis clutter** — place numerical values directly on chart elements when possible.
+- **Pre-aggregate data** — for large datasets, aggregate server-side so the mobile renderer only handles summaries.
 
-### Progressive Disclosure (3-Level Drill-Down)
-1. **Level 1** — Large KPI + directional indicator (arrow, color)
-2. **Level 2** — Tap to reveal supporting chart (line, bar)
-3. **Level 3** — Tap chart to reveal raw tabular data
+### Progressive Disclosure
+1. Large KPI + directional indicator
+2. Tap to reveal supporting chart
+3. Tap chart to reveal raw tabular data
 
 Every visualization must include contextual comparison against a previous period or target — isolated numbers lack meaning.
 
@@ -140,13 +136,13 @@ Every visualization must include contextual comparison against a previous period
 ## 7. Dashboard & Card Layout
 
 ### "One Screen, One Thought"
-Each screen answers exactly one question with clarity. Do not replicate desktop analytical density on mobile.
+Each screen answers exactly one question with clarity. Don't replicate desktop analytical density on mobile.
 
 ### Prioritization Test
-If the user could see only one number before pocketing their phone, that number must be visible without scrolling, in the largest type on screen.
+If the user could see only one number before pocketing their phone, that number must be visible without scrolling, in the largest type on screen. On Browse, that's the wallet balance pill. On a package detail, it's the price (`h2`). On checkout, it's the amount (`h1`).
 
 ### Card System
-Encapsulate individual charts, metrics, and their titles/legends in modular cards. Cards create a predictable visual rhythm and enable progressive disclosure through tap-to-expand patterns.
+Encapsulate sections in modular `Card` components (variants: `outline`, `filled`, `borderless`, `border-bottom`). Cards create predictable visual rhythm and enable progressive disclosure.
 
 ### Whitespace as Structure
 Use generous whitespace within and between cards. This enforces the Gestalt principle of proximity — users distinguish related from unrelated data groups without relying on heavy borders or dividers.
@@ -164,73 +160,62 @@ Use generous whitespace within and between cards. This enforces the Gestalt prin
 | Icons and UI graphics | **3:1** against background |
 
 ### Color Blindness Safety
-- **Never** rely solely on red vs. green to communicate status (success/failure, good/bad)
-- Always pair color with structural cues: icons (checkmark, warning triangle), typography weight, or pattern
-- **Blue** is the safest foundational data color
+- **Never** rely solely on red vs. green to communicate status
+- Always pair color with structural cues: icons, typography weight, or pattern
 - For multi-series charts, pair blue with **orange** for maximum distinction across all color vision deficiencies
 
 ### Accessible Status Palette
 
-| Status | Default Color | Accessible Approach |
-|--------|--------------|-------------------|
-| Success / Goal Met | Green | Use teal (`#008080`) or green with 3:1 dark outline + checkmark icon |
-| Warning / Alert | Orange (`#FA5B3D`) | High luminosity on dark backgrounds + warning icon |
-| Error / Danger | Red (`#DC143C`) | Never adjacent to green; use crimson + bold type |
-| Neutral Data | Gray | Blue (`#0073E6`) + Orange (`#F57600`) pairing |
+| Status | Default Color | Notes |
+|--------|--------------|-------|
+| Success / Confirmed | Green | Pair with checkmark icon |
+| Warning / Alert | Orange | Pair with warning icon |
+| Error / Destructive | Crimson `#DC143C` | Bold type; never adjacent to green |
+| Neutral data | Theme grays | `theme[500]` for secondary, `theme[700]` for tertiary |
 
 ### Monochromatic Palettes
-For heatmaps and relationship charts, use light-to-dark shades of a single base color. This relies on luminosity rather than hue, bypassing color blindness entirely. If any palette fails contrast tests, wrap chart elements with solid dark outlines.
+For heatmaps and relationship charts, use light-to-dark shades of a single base color — relies on luminosity rather than hue, bypassing color blindness entirely.
 
 ### Dark Mode
-Dark mode is a core requirement, not an afterthought. It provides:
-- Superior usability in dim gym environments
-- Reduced eye strain during prolonged sessions
-- Battery savings on OLED screens
-
-Pair colors from opposite ends of the lightness spectrum for maximum contrast in both modes.
+Dark mode is a core requirement. The palette is invertable: `theme[50]` ↔ `theme[950]` flip on dark mode (`invertPalette` in `constants/ThemePalettes.ts`). Every color reference goes through `theme[N]` from `useTheme()` — never hardcode hex (one exception: the destructive `#DC143C` token).
 
 ---
 
 ## 9. Multi-Sensory Feedback
 
-### Haptic Language
-Haptics provide non-visual confirmation so users don't need to look at the screen during exercise.
+### Haptic Vocabulary
+Defined in `lib/utils/haptic.ts`. Use the same intensity for the same conceptual moment everywhere.
 
 | Intensity | Trigger | Example |
 |-----------|---------|---------|
-| **Light tap** | Minor interactions | Button press confirmation, page transition |
-| **Medium pulse** | Progress milestones | Set completed, rep target hit |
-| **Heavy thud** | Major events | Workout completed, personal record, level-up |
-| **Rising pattern** | Approaching threshold | Nearing max heart rate, timer countdown |
-| **Sharp double-tap** | Alerts and warnings | Rest timer expired, form reminder |
+| **Light** | Minor interactions | Tab press, card tap, role pill toggle |
+| **Medium** | Confirmable actions | Pay tap, apply submit, award tap |
+| **Heavy** | Major events | Payment confirmed on-chain, award succeeded |
+| **Sharp double-tap** | Alerts and warnings | Wallet error, transaction failed |
 
 ### Haptic Rules
-- **Moderation is critical** — excessive vibration causes sensory fatigue, user annoyance, and battery drain
-- Maintain a consistent haptic vocabulary across the entire app
-- Every haptic pattern must pair with a corresponding visual state change as fallback
-
-### Auditory Feedback
-Synchronize audio cues with haptics for a holistic experience. Audio allows continuous data transmission without screen interaction — critical for users who cannot read the screen during exercise (visual impairment, headphone users, or simply mid-set).
+- **Moderation is critical** — excessive vibration causes sensory fatigue.
+- Maintain a consistent haptic vocabulary across the entire app.
+- Every haptic pattern must pair with a corresponding visual state change as fallback.
 
 ---
 
 ## 10. Empty States
 
-Empty states are prime real estate for education and activation, not dead ends.
+Empty states are prime real estate for activation, not dead ends. All empty-state copy is centralized in `lib/utils/copy.ts` so we can iterate without grepping.
 
 ### Required Elements
-1. **On-brand illustration** — engaging, not generic
-2. **Empathetic copy** — acknowledge the empty state, explain what goes here
-3. **Primary CTA button** — direct the user to populate the screen
+1. **Empathetic, on-brand title** — "Quiet on the wire", "No purchases yet"
+2. **Action-oriented description** — explain what happens here and how to populate it
+3. **Primary CTA** (when relevant) — direct the user to populate the screen
 
 ### Scenario Handling
 
-| Scenario | Objective | Example |
-|----------|-----------|---------|
-| First-time use | Feature education + activation | "Build Your First Routine" when workout tab is empty |
-| No results | Guide parameter adjustment | Suggest broader search terms or offer templates |
-| Post-completion | Celebrate + suggest next cycle | Celebrate a finished program, suggest the next tier |
-| Network failure | Explain + offer offline alternatives | Acknowledge lost connection, offer cached routines |
+| Scenario | Objective |
+|----------|-----------|
+| First-time use | Activation: "Hit the Create tab to publish your first one" |
+| No results | Guide parameter adjustment |
+| Network failure | Acknowledge offline state, offer cached alternatives |
 
 Never display a blank screen or generic "No data found" text.
 
@@ -244,9 +229,9 @@ Never display a blank screen or generic "No data found" text.
 - Keep copy concise and direct
 
 ### Placement Rules
-- **Never** block an active workout timer with a full-screen modal
-- Use non-intrusive inline banners or bottom sheets for recoverable errors
-- Continue tracking in the background whenever possible (e.g., estimate distance via pedometer if GPS drops)
+- **Never** block a payment-in-progress UI with a full-screen modal
+- Use non-intrusive inline banners or toast errors for recoverable issues
+- For wallet/network errors mid-checkout, surface the error and keep the order doc in `pending` so a retry is possible
 
 ### Error Hierarchy
 
@@ -254,8 +239,8 @@ Never display a blank screen or generic "No data found" text.
 |----------|-----------|
 | Informational | Subtle inline indicator, auto-dismiss |
 | Warning | Persistent banner with dismiss action |
-| Blocking | Bottom sheet with recovery steps; never interrupt active workout |
-| Critical (data loss risk) | Modal with clear explanation + two actions (retry / save offline) |
+| Blocking | Bottom sheet with recovery steps |
+| Critical (data loss / failed payment) | Modal with clear explanation + two actions (retry / cancel) |
 
 ---
 
@@ -265,10 +250,10 @@ Never display a blank screen or generic "No data found" text.
 - Place legend markup **before** chart data in the DOM so screen readers provide context before raw numbers
 - Add descriptive `<title>` and `<desc>` tags to all chart components
 - Provide alternative accessible data tables for complex visualizations
-- Make each data point in time-series charts a focusable element with temporal context in its label (e.g., "Monday: 12,400 steps")
+- Make each data point in time-series charts a focusable element with temporal context in its label
 
 ### Narrative Summaries
-For complex charts, include text "highlight cards" that summarize the trend in plain language (e.g., "Your weekly volume is up 8% compared to last month"). This lets assistive technology users grasp the insight without navigating individual data points.
+For complex charts, include text "highlight cards" that summarize the trend in plain language ("Your weekly volume is up 8% compared to last month"). This lets assistive technology users grasp the insight without navigating individual data points.
 
 ### Consistent Navigation
-When reading chart data via VoiceOver/TalkBack, read values for every time slot including empty ones to maintain spatial consistency and avoid confusion.
+When reading chart data via VoiceOver/TalkBack, read values for every time slot including empty ones to maintain spatial consistency.
