@@ -113,6 +113,9 @@
       },
       "router": {}
     },
+    "updates": {
+      "enabled": false
+    },
     "runtimeVersion": {
       "policy": "appVersion"
     }
