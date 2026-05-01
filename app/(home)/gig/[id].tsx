@@ -7,6 +7,7 @@ import { ThemedText } from '@/components/base/ThemedText';
 import { ThemedView } from '@/components/base/ThemedView';
 import { ScreenHeader } from '@/components/base/ScreenHeader';
 import Card from '@/components/ui/Card';
+import EmptyState from '@/components/ui/EmptyState';
 import { Button } from '@/components/ui/Button';
 import TextInput from '@/components/ui/TextInput';
 import { useAuth } from '@/contexts/AuthContext';
@@ -14,10 +15,78 @@ import { useUser } from '@/contexts/UserContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { getGig, updateGigStatus } from '@/lib/services/gigService';
 import { getProfile } from '@/lib/services/profileService';
-import { applyToGig, listApplicationsForGig, updateApplicationStatus } from '@/lib/services/applicationService';
+import {
+  applyToGig,
+  listApplicationsForGig,
+  updateApplicationStatus,
+} from '@/lib/services/applicationService';
 import { useSolanaPayment } from '@/hooks/useSolanaPayment';
 import { GIG_KEYS, APPLICATION_KEYS, PROFILE_KEYS } from '@/lib/constants/queryKeys';
 import { toast } from '@/lib/utils/toast';
+import { haptic } from '@/lib/utils/haptic';
+import { EMPTY_GIG_APPLICATIONS } from '@/lib/utils/copy';
+import type { GigApplication, Gig } from '@/types/marketplace';
+
+function ApplicationCard({
+  application,
+  gig,
+  onAward,
+  awarding,
+  disabled,
+}: {
+  application: GigApplication;
+  gig: Gig;
+  onAward: () => void;
+  awarding: boolean;
+  disabled: boolean;
+}) {
+  const { theme } = useTheme();
+  const profileQuery = useQuery({
+    queryKey: PROFILE_KEYS.profile(application.creatorId),
+    queryFn: () => getProfile(application.creatorId),
+  });
+
+  return (
+    <Card>
+      <View className="flex-row items-center justify-between mb-2">
+        <View className="flex-1">
+          <ThemedText type="body-md-semibold" numberOfLines={1}>
+            {profileQuery.data?.displayName ?? '—'}
+          </ThemedText>
+          <ThemedText type="body-sm" style={{ color: theme[500] }} numberOfLines={1}>
+            @{profileQuery.data?.username ?? '—'}
+          </ThemedText>
+        </View>
+        <View
+          className="px-2 py-0.5 rounded-full"
+          style={{ backgroundColor: theme[100] }}
+        >
+          <ThemedText
+            type="caption-semibold"
+            style={{ color: theme[700], letterSpacing: 0.5 }}
+          >
+            {application.status.toUpperCase()}
+          </ThemedText>
+        </View>
+      </View>
+      <ThemedText type="body-md" numberOfLines={4}>
+        {application.message}
+      </ThemedText>
+      {application.status === 'pending' && (
+        <View className="mt-3">
+          <Button
+            title={`Award ${gig.budgetSol} SOL`}
+            onPress={onAward}
+            loading={awarding}
+            disabled={disabled}
+            variant="primary"
+            size="sm"
+          />
+        </View>
+      )}
+    </Card>
+  );
+}
 
 export default function GigDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -30,6 +99,7 @@ export default function GigDetailScreen() {
 
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [awardingId, setAwardingId] = useState<string | null>(null);
 
   const gigQuery = useQuery({
     queryKey: id ? GIG_KEYS.detail(id) : ['gig', 'unknown'],
@@ -43,15 +113,15 @@ export default function GigDetailScreen() {
     queryFn: () => getProfile(gigQuery.data!.brandId),
   });
 
-  const applicationsQuery = useQuery({
-    queryKey: id ? APPLICATION_KEYS.forGig(id) : ['applications', 'gig', 'unknown'],
-    enabled: !!id && !!user && !!gigQuery.data && gigQuery.data.brandId === user.id,
-    queryFn: () => listApplicationsForGig(id!),
-  });
-
   const gig = gigQuery.data;
   const isCreator = profile?.role === 'creator';
   const isOwnGig = !!user && gig?.brandId === user.id;
+
+  const applicationsQuery = useQuery({
+    queryKey: id ? APPLICATION_KEYS.forGig(id) : ['applications', 'gig', 'unknown'],
+    enabled: !!id && !!user && !!gig && gig.brandId === user.id,
+    queryFn: () => listApplicationsForGig(id!),
+  });
 
   const submitApplication = useCallback(async () => {
     if (!gig || !message.trim()) {
@@ -66,6 +136,7 @@ export default function GigDetailScreen() {
         queryClient.invalidateQueries({ queryKey: APPLICATION_KEYS.byCreator(user.id) });
       }
       setMessage('');
+      haptic('medium');
       toast.success('Application submitted');
     } catch (err: any) {
       toast.error(err?.message ?? 'Failed to apply');
@@ -74,25 +145,36 @@ export default function GigDetailScreen() {
     }
   }, [gig, message, queryClient, user]);
 
-  const award = useCallback(async (applicationId: string, creatorId: string) => {
-    if (!gig) return;
-    try {
-      // Pay first; only mark awarded if the transfer succeeds.
-      const { signature } = await pay({
-        type: 'gig',
-        referenceId: gig.id,
-        sellerId: creatorId,
-        amountSol: gig.budgetSol,
-      });
-      await updateApplicationStatus(applicationId, 'awarded');
-      await updateGigStatus(gig.id, 'awarded');
-      queryClient.invalidateQueries({ queryKey: GIG_KEYS.detail(gig.id) });
-      queryClient.invalidateQueries({ queryKey: APPLICATION_KEYS.forGig(gig.id) });
-      toast.success(`Awarded · tx ${signature.slice(0, 8)}…`);
-    } catch (err: any) {
-      toast.error(err?.message ?? 'Award failed');
-    }
-  }, [gig, pay, queryClient]);
+  const award = useCallback(
+    async (applicationId: string, creatorId: string) => {
+      if (!gig) return;
+      haptic('medium');
+      setAwardingId(applicationId);
+      try {
+        const { signature } = await pay({
+          type: 'gig',
+          referenceId: gig.id,
+          sellerId: creatorId,
+          amountSol: gig.budgetSol,
+        });
+        await updateApplicationStatus(applicationId, 'awarded');
+        await updateGigStatus(gig.id, 'awarded');
+        queryClient.invalidateQueries({ queryKey: GIG_KEYS.detail(gig.id) });
+        queryClient.invalidateQueries({ queryKey: APPLICATION_KEYS.forGig(gig.id) });
+        haptic('heavy');
+        toast.success(`Awarded · tx ${signature.slice(0, 8)}…`);
+      } catch (err: any) {
+        toast.error(err?.message ?? 'Award failed');
+      } finally {
+        setAwardingId(null);
+      }
+    },
+    [gig, pay, queryClient],
+  );
+
+  const showApplyForm = !!gig && isCreator && !isOwnGig && gig.status === 'open';
+  const showApplications = !!gig && isOwnGig;
+  const applications = applicationsQuery.data ?? [];
 
   return (
     <ThemedView className="flex-1">
@@ -110,44 +192,71 @@ export default function GigDetailScreen() {
             </ThemedText>
           </View>
         ) : (
-          <ScrollView contentContainerStyle={{ padding: 24, gap: 16 }}>
+          <ScrollView
+            contentContainerStyle={{
+              paddingHorizontal: 24,
+              paddingTop: 8,
+              paddingBottom: 32,
+              gap: 16,
+            }}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* Top-left KPI: budget + unit. Status + kind label top-right. */}
             <View>
-              <ThemedText type="caption-semibold" style={{ color: theme[500] }}>
-                {gig.budgetSol} SOL · {gig.status.toUpperCase()}
-              </ThemedText>
-              <ThemedText type="h3" className="mt-1">
+              <View className="flex-row items-baseline gap-2">
+                <ThemedText type="h2" className="tracking-tight">
+                  {gig.budgetSol}
+                </ThemedText>
+                <ThemedText type="body-md-semibold" style={{ color: theme[500] }}>
+                  SOL
+                </ThemedText>
+                <View className="flex-1" />
+                <ThemedText
+                  type="caption-semibold"
+                  style={{ color: theme[700], letterSpacing: 0.6 }}
+                >
+                  GIG · {gig.status.toUpperCase()}
+                </ThemedText>
+              </View>
+              <ThemedText type="h4" className="mt-3">
                 {gig.title}
               </ThemedText>
             </View>
 
             <Card>
-              <ThemedText type="caption-semibold" style={{ color: theme[500] }}>
+              <ThemedText
+                type="caption-semibold"
+                style={{ color: theme[500], letterSpacing: 0.6 }}
+              >
                 BRIEF
               </ThemedText>
               <ThemedText type="body-md" className="mt-2">
                 {gig.description}
               </ThemedText>
-              {!!gig.requirements && (
-                <>
-                  <ThemedText
-                    type="caption-semibold"
-                    style={{ color: theme[500] }}
-                    className="mt-4"
-                  >
-                    REQUIREMENTS
-                  </ThemedText>
-                  <ThemedText type="body-md" className="mt-1">
-                    {gig.requirements}
-                  </ThemedText>
-                </>
-              )}
             </Card>
 
+            {!!gig.requirements && (
+              <Card>
+                <ThemedText
+                  type="caption-semibold"
+                  style={{ color: theme[500], letterSpacing: 0.6 }}
+                >
+                  REQUIREMENTS
+                </ThemedText>
+                <ThemedText type="body-md" className="mt-2">
+                  {gig.requirements}
+                </ThemedText>
+              </Card>
+            )}
+
             <Card>
-              <ThemedText type="caption-semibold" style={{ color: theme[500] }}>
+              <ThemedText
+                type="caption-semibold"
+                style={{ color: theme[500], letterSpacing: 0.6 }}
+              >
                 BRAND
               </ThemedText>
-              <ThemedText type="body-md-semibold" className="mt-1">
+              <ThemedText type="body-md-semibold" className="mt-2">
                 {brandQuery.data?.displayName ?? '—'}
               </ThemedText>
               <ThemedText type="body-sm" style={{ color: theme[500] }}>
@@ -155,9 +264,12 @@ export default function GigDetailScreen() {
               </ThemedText>
             </Card>
 
-            {isCreator && !isOwnGig && gig.status === 'open' && (
+            {showApplyForm && (
               <Card>
-                <ThemedText type="caption-semibold" style={{ color: theme[500] }}>
+                <ThemedText
+                  type="caption-semibold"
+                  style={{ color: theme[500], letterSpacing: 0.6 }}
+                >
                   APPLY
                 </ThemedText>
                 <View className="mt-2 gap-3">
@@ -178,30 +290,39 @@ export default function GigDetailScreen() {
               </Card>
             )}
 
-            {isOwnGig && gig.status === 'open' && (
+            {isCreator && !isOwnGig && gig.status !== 'open' && (
+              <ThemedText type="body-sm" align="center" style={{ color: theme[500] }}>
+                This gig is no longer open for applications.
+              </ThemedText>
+            )}
+
+            {showApplications && (
               <View className="gap-3">
-                <ThemedText type="caption-semibold" style={{ color: theme[500] }}>
-                  APPLICATIONS
+                <ThemedText
+                  type="caption-semibold"
+                  style={{ color: theme[500], letterSpacing: 0.6 }}
+                >
+                  APPLICATIONS · {applications.length}
                 </ThemedText>
-                {(applicationsQuery.data ?? []).length === 0 ? (
-                  <ThemedText type="body-sm" style={{ color: theme[500] }}>
-                    No applications yet.
-                  </ThemedText>
+                {applicationsQuery.isLoading ? (
+                  <ActivityIndicator color={theme[500]} />
+                ) : applications.length === 0 ? (
+                  <View className="pt-4">
+                    <EmptyState
+                      title={EMPTY_GIG_APPLICATIONS.title}
+                      description={EMPTY_GIG_APPLICATIONS.description}
+                    />
+                  </View>
                 ) : (
-                  (applicationsQuery.data ?? []).map((app) => (
-                    <Card key={app.id}>
-                      <ThemedText type="body-md" numberOfLines={3}>
-                        {app.message}
-                      </ThemedText>
-                      <View className="mt-3">
-                        <Button
-                          title={`Award ${gig.budgetSol} SOL`}
-                          onPress={() => award(app.id, app.creatorId)}
-                          variant="primary"
-                          size="sm"
-                        />
-                      </View>
-                    </Card>
+                  applications.map((app) => (
+                    <ApplicationCard
+                      key={app.id}
+                      application={app}
+                      gig={gig}
+                      onAward={() => award(app.id, app.creatorId)}
+                      awarding={awardingId === app.id}
+                      disabled={!!awardingId || gig.status !== 'open'}
+                    />
                   ))
                 )}
               </View>

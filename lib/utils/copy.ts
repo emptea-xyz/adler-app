@@ -32,3 +32,8 @@ export const EMPTY_GIGS_BY_BRAND = {
     title: 'No gigs yet',
     description: 'Hit the Create tab to post your first brief.',
 } as const;
+
+export const EMPTY_GIG_APPLICATIONS = {
+    title: 'No applications yet',
+    description: 'When creators apply, their pitches show up here.',
+} as const;
