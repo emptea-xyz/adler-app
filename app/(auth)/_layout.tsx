@@ -12,7 +12,7 @@ import { useUser } from '@/contexts/UserContext';
 export default function AuthLayout() {
   const { user, isReady, isBridging } = useAuth();
   const { profile, loading } = useUser();
-  const segments = useSegments();
+  const segments = useSegments() as string[];
 
   if (isReady && !isBridging && user && !loading) {
     if (profile?.role) {
