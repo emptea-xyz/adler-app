@@ -20,6 +20,7 @@ import {
   EMPTY_INBOX_PURCHASES,
   EMPTY_INBOX_SALES,
 } from '@/lib/utils/copy';
+import { haptic } from '@/lib/utils/haptic';
 
 const CREATOR_TABS = ['Sales', 'Applications'] as const;
 const BRAND_TABS = ['Purchases'] as const;
@@ -149,7 +150,12 @@ export default function InboxScreen() {
               </View>
             }
             renderItem={({ item }) => (
-              <Pressable onPress={() => router.push(item.href as any)}>
+              <Pressable
+                onPress={() => {
+                  haptic('light');
+                  router.push(item.href as any);
+                }}
+              >
                 <Card>
                   <ThemedText type="body-lg-semibold">{item.title}</ThemedText>
                   <ThemedText

@@ -15,6 +15,7 @@ import { FEED_KEYS } from '@/lib/constants/queryKeys';
 import type { FeedItem } from '@/types/marketplace';
 import { TAB_BAR_HEIGHT } from '@/constants/LayoutConstants';
 import { EMPTY_BROWSE } from '@/lib/utils/copy';
+import { haptic } from '@/lib/utils/haptic';
 
 export default function BrowseScreen() {
   const { theme } = useTheme();
@@ -77,6 +78,7 @@ export default function BrowseScreen() {
               return (
                 <Pressable
                   onPress={() => {
+                    haptic('light');
                     if (item.kind === 'package') router.push(`/package/${item.data.id}`);
                     else router.push(`/gig/${item.data.id}`);
                   }}
