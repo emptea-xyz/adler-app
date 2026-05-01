@@ -1,6 +1,10 @@
 const fs = require('fs');
 const path = require('path');
 
+// Postinstall patches for known iOS-side Expo SDK incompatibilities. Each
+// target is `existsSync`-guarded so the script stays a no-op when a package
+// isn't installed.
+
 function patchFile(target, label, replacer) {
   if (!fs.existsSync(target)) {
     console.log(`[${label}] Skipped: file not found`);
@@ -20,16 +24,6 @@ function patchFile(target, label, replacer) {
   return true;
 }
 
-const notificationsBadgeTarget = path.join(
-  process.cwd(),
-  'node_modules',
-  'expo-notifications',
-  'ios',
-  'ExpoNotifications',
-  'Badge',
-  'BadgeModule.swift'
-);
-
 const rctFatalTargets = [
   path.join(
     process.cwd(),
@@ -41,41 +35,14 @@ const rctFatalTargets = [
   path.join(
     process.cwd(),
     'node_modules',
-    'expo-audio',
-    'ios',
-    'AudioRecordingRequester.swift'
-  ),
-  path.join(
-    process.cwd(),
-    'node_modules',
     'expo-camera',
     'ios',
     'Common',
     'CameraPermissionsRequester.swift'
-  )
+  ),
 ];
 
 let changed = false;
-
-changed =
-  patchFile(notificationsBadgeTarget, 'patch-expo-notifications-badge', (source) => {
-    let patched = source;
-    patched = patched.replaceAll(
-      'return RCTSharedApplication()?.applicationIconBadgeNumber ?? 0',
-      'return UIApplication.shared.applicationIconBadgeNumber'
-    );
-    patched = patched.replaceAll(
-      'RCTSharedApplication()?.applicationIconBadgeNumber = badgeCount',
-      'UIApplication.shared.applicationIconBadgeNumber = badgeCount'
-    );
-
-    // Correct earlier broad replacements if they were already applied.
-    patched = patched.replaceAll(
-      'return UIApplication.shared.applicationIconBadgeNumber ?? 0',
-      'return UIApplication.shared.applicationIconBadgeNumber'
-    );
-    return patched;
-  }) || changed;
 
 for (const target of rctFatalTargets) {
   const label = `patch-rctfatal-${path.basename(target)}`;
