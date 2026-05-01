@@ -7,11 +7,13 @@ import { ThemedText } from '@/components/base/ThemedText';
 import { ThemedView } from '@/components/base/ThemedView';
 import Card from '@/components/ui/Card';
 import EmptyState from '@/components/ui/EmptyState';
+import { AdlerHomeHeader } from '@/components/features/home/AdlerHomeHeader';
 import { useTheme } from '@/contexts/ThemeContext';
 import { listActivePackages } from '@/lib/services/packageService';
 import { listOpenGigs } from '@/lib/services/gigService';
 import { FEED_KEYS } from '@/lib/constants/queryKeys';
 import type { FeedItem } from '@/types/marketplace';
+import { TAB_BAR_HEIGHT } from '@/constants/LayoutConstants';
 
 export default function BrowseScreen() {
   const { theme } = useTheme();
@@ -33,15 +35,12 @@ export default function BrowseScreen() {
     },
   });
 
+  const onPressBalance = () => router.push('/settings/wallet');
+
   return (
     <ThemedView className="flex-1">
       <SafeAreaView edges={['top']} className="flex-1">
-        <View className="px-6 pt-4 pb-2">
-          <ThemedText type="h3">Browse</ThemedText>
-          <ThemedText type="body-sm" style={{ color: theme[500] }}>
-            Packages and gigs from the network
-          </ThemedText>
-        </View>
+        <AdlerHomeHeader onPressBalance={onPressBalance} />
 
         {isLoading ? (
           <View className="flex-1 items-center justify-center">
@@ -51,7 +50,12 @@ export default function BrowseScreen() {
           <FlatList
             data={data ?? []}
             keyExtractor={(item) => `${item.kind}:${item.data.id}`}
-            contentContainerStyle={{ padding: 16, gap: 12 }}
+            contentContainerStyle={{
+              paddingHorizontal: 16,
+              paddingTop: 4,
+              paddingBottom: TAB_BAR_HEIGHT + 32,
+              gap: 10,
+            }}
             refreshControl={
               <RefreshControl
                 refreshing={isRefetching}
@@ -62,43 +66,61 @@ export default function BrowseScreen() {
             ListEmptyComponent={
               <View className="px-6 pt-12">
                 <EmptyState
-                  title="Nothing here yet"
-                  description="When creators list packages and brands post gigs, they'll show up here."
+                  title="No listings yet"
+                  description="When creators publish packages and brands post gigs, they'll show up here."
                 />
               </View>
             }
-            renderItem={({ item }) => (
-              <Pressable
-                onPress={() => {
-                  if (item.kind === 'package') router.push(`/package/${item.data.id}`);
-                  else router.push(`/gig/${item.data.id}`);
-                }}
-              >
-                <Card>
-                  <View className="flex-row items-center justify-between mb-1">
-                    <ThemedText type="caption-semibold" style={{ color: theme[500] }}>
-                      {item.kind === 'package' ? 'PACKAGE' : 'GIG'}
+            renderItem={({ item }) => {
+              const amount =
+                item.kind === 'package' ? item.data.priceSol : item.data.budgetSol;
+              const kindLabel = item.kind === 'package' ? 'PACKAGE' : 'GIG';
+              const accent = item.kind === 'package' ? theme[950] : theme[700];
+              return (
+                <Pressable
+                  onPress={() => {
+                    if (item.kind === 'package') router.push(`/package/${item.data.id}`);
+                    else router.push(`/gig/${item.data.id}`);
+                  }}
+                >
+                  <Card>
+                    {/* F/Z scanning: price + kind in the top-left, status hint
+                        on the right. Eye lands on the most decision-relevant
+                        data first (cost, then "what is this"). */}
+                    <View className="flex-row items-baseline gap-2">
+                      <ThemedText type="body-xl-semibold">
+                        {amount}
+                      </ThemedText>
+                      <ThemedText type="body-sm" style={{ color: theme[500] }}>
+                        SOL
+                      </ThemedText>
+                      <View className="flex-1" />
+                      <ThemedText
+                        type="caption-semibold"
+                        style={{ color: accent, letterSpacing: 0.6 }}
+                      >
+                        {kindLabel}
+                      </ThemedText>
+                    </View>
+                    <ThemedText
+                      type="body-md-semibold"
+                      numberOfLines={2}
+                      className="mt-2"
+                    >
+                      {item.data.title}
                     </ThemedText>
-                    <ThemedText type="body-sm-semibold">
-                      {item.kind === 'package'
-                        ? `${item.data.priceSol} SOL`
-                        : `${item.data.budgetSol} SOL`}
+                    <ThemedText
+                      type="body-sm"
+                      numberOfLines={2}
+                      className="mt-1"
+                      style={{ color: theme[500] }}
+                    >
+                      {item.data.description}
                     </ThemedText>
-                  </View>
-                  <ThemedText type="body-lg-semibold" numberOfLines={2}>
-                    {item.data.title}
-                  </ThemedText>
-                  <ThemedText
-                    type="body-sm"
-                    numberOfLines={2}
-                    className="mt-1"
-                    style={{ color: theme[500] }}
-                  >
-                    {item.data.description}
-                  </ThemedText>
-                </Card>
-              </Pressable>
-            )}
+                  </Card>
+                </Pressable>
+              );
+            }}
           />
         )}
       </SafeAreaView>
