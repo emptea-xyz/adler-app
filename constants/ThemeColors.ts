@@ -1,7 +1,7 @@
 /**
  * ThemeColors.ts
  *
- * Semantic color tokens for the Crank app.
+ * Semantic color tokens for the Adler app.
  * All colors are derived from TailwindColors to maintain consistency.
  */
 

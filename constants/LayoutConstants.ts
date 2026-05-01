@@ -1,7 +1,7 @@
 /**
  * LayoutConstants.ts
  * 
- * Standardized spacing, sizing, and layout values for the Crank app.
+ * Standardized spacing, sizing, and layout values for the Adler app.
  * Use these instead of hardcoded "magic numbers" throughout the codebase.
  * 
  * Naming Convention:

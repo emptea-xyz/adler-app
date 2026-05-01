@@ -97,21 +97,18 @@ export const SIGNAL_PALETTE = {
 
 
 /**
- * SINGLE SOURCE OF TRUTH for signal colors
- * 
- * These colors are consistent across ALL themes and should be used for:
- * - Level Points (LP) - Sky Blue
- * - Muscle Points (MP) - Green  
- * - Personal Records (PR) - Indigo
- * - Streak/Fire - Orange
- * 
- * Use via: const { signalColors } = useTheme();
+ * SINGLE SOURCE OF TRUTH for signal colors.
+ *
+ * These slots are consistent across ALL themes. Names are kept short and
+ * abstract so callers can reuse them across the marketplace surfaces
+ * (heatmap accents, action buttons, etc.). Use via:
+ *   const { signalColors } = useTheme();
  */
 export const SIGNAL_COLORS = {
-    /** Primary action, e.g. floating action button gradient */
+    /** Primary action accent, e.g. floating action button gradient */
     action: SIGNAL_PALETTE.sky,
-    /** Body map muscle intensity ramp */
-    bodyMap: {
+    /** Multi-step intensity ramp for relationship/heatmap visuals */
+    ramp: {
         '50': TailwindColors.emerald[500],
         '100': TailwindColors.teal[500],
         '200': TailwindColors.cyan[500],
@@ -124,11 +121,11 @@ export const SIGNAL_COLORS = {
         '900': TailwindColors.pink[500],
         '950': TailwindColors.rose[500],
     },
-    /** Level Points (LP) - Sky Blue */
+    /** Generic accent slot 1 (e.g. activity heatmap "active" days) */
     lp: SIGNAL_PALETTE.sky,
-    /** Muscle Points (MP) - Green */
+    /** Generic accent slot 2 (e.g. positive-delta indicators) */
     mp: SIGNAL_PALETTE.green,
-    /** Personal Records (PR) - Sky Blue */
+    /** Generic accent slot 3 (e.g. milestone / highlight) */
     pr: SIGNAL_PALETTE.sky,
 } as const;
 
@@ -142,26 +139,3 @@ export const CHART_ROTATION = SHADE_ORDER.flatMap(
 /** 7-color rotation for folder icons, using [500] shade of each signal color */
 export const FOLDER_COLOR_ROTATION = PALETTE_KEYS.map(key => SIGNAL_PALETTE[key][500]);
 
-/**
- * Get theme-aware level color.
- * Returns bodyMap (sky) palette when themeName === 'mono',
- * otherwise returns theme palette progression (100→900).
- */
-export function getThemeAwareLevelColor(
-    level: number,
-    theme: ThemePalette,
-    themeName: ThemeName
-): string {
-    // Mono theme uses bodyMap signal color (sky)
-    if (themeName === 'mono') {
-        const shadeKeys: Array<keyof ThemePalette> = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950] as const;
-        const clampedLevel = Math.max(0, Math.min(level, shadeKeys.length - 1));
-        return SIGNAL_COLORS.bodyMap[shadeKeys[clampedLevel]];
-    }
-
-    // Other themes use palette progression: 100, 200, 300, 400, 500, 600, 700, 800, 900, 950
-    const paletteKeys: Array<keyof ThemePalette> = [100, 200, 300, 400, 500, 600, 700, 800, 900, 950] as const;
-    const clampedLevel = Math.max(0, Math.min(level, paletteKeys.length - 1));
-    const key = paletteKeys[clampedLevel];
-    return theme[key];
-}
