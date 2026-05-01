@@ -14,6 +14,7 @@ import { listOpenGigs } from '@/lib/services/gigService';
 import { FEED_KEYS } from '@/lib/constants/queryKeys';
 import type { FeedItem } from '@/types/marketplace';
 import { TAB_BAR_HEIGHT } from '@/constants/LayoutConstants';
+import { EMPTY_BROWSE } from '@/lib/utils/copy';
 
 export default function BrowseScreen() {
   const { theme } = useTheme();
@@ -65,10 +66,7 @@ export default function BrowseScreen() {
             }
             ListEmptyComponent={
               <View className="px-6 pt-12">
-                <EmptyState
-                  title="No listings yet"
-                  description="When creators publish packages and brands post gigs, they'll show up here."
-                />
+                <EmptyState title={EMPTY_BROWSE.title} description={EMPTY_BROWSE.description} />
               </View>
             }
             renderItem={({ item }) => {

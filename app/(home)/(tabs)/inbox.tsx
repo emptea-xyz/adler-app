@@ -14,6 +14,12 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { listOrdersByBuyer, listOrdersBySeller } from '@/lib/services/orderService';
 import { listApplicationsByCreator } from '@/lib/services/applicationService';
 import { ORDER_KEYS, APPLICATION_KEYS } from '@/lib/constants/queryKeys';
+import { TAB_BAR_HEIGHT } from '@/constants/LayoutConstants';
+import {
+  EMPTY_INBOX_APPLICATIONS,
+  EMPTY_INBOX_PURCHASES,
+  EMPTY_INBOX_SALES,
+} from '@/lib/utils/copy';
 
 const CREATOR_TABS = ['Sales', 'Applications'] as const;
 const BRAND_TABS = ['Purchases'] as const;
@@ -50,11 +56,13 @@ export default function InboxScreen() {
 
   type InboxRow = { id: string; title: string; subtitle: string; href: string };
 
-  const { items, loading, refetch, refreshing } = useMemo<{
+  const { items, loading, refetch, refreshing, emptyTitle, emptyDescription } = useMemo<{
     items: InboxRow[];
     loading: boolean;
     refetch: () => void;
     refreshing: boolean;
+    emptyTitle: string;
+    emptyDescription: string;
   }>(() => {
     if (isCreator) {
       if (activeTab === 'Sales') {
@@ -68,6 +76,8 @@ export default function InboxScreen() {
           loading: ordersAsSellerQuery.isLoading,
           refetch: ordersAsSellerQuery.refetch,
           refreshing: ordersAsSellerQuery.isRefetching,
+          emptyTitle: EMPTY_INBOX_SALES.title,
+          emptyDescription: EMPTY_INBOX_SALES.description,
         };
       }
       return {
@@ -80,6 +90,8 @@ export default function InboxScreen() {
         loading: applicationsQuery.isLoading,
         refetch: applicationsQuery.refetch,
         refreshing: applicationsQuery.isRefetching,
+        emptyTitle: EMPTY_INBOX_APPLICATIONS.title,
+        emptyDescription: EMPTY_INBOX_APPLICATIONS.description,
       };
     }
     return {
@@ -92,6 +104,8 @@ export default function InboxScreen() {
       loading: ordersAsBuyerQuery.isLoading,
       refetch: ordersAsBuyerQuery.refetch,
       refreshing: ordersAsBuyerQuery.isRefetching,
+      emptyTitle: EMPTY_INBOX_PURCHASES.title,
+      emptyDescription: EMPTY_INBOX_PURCHASES.description,
     };
   }, [isCreator, activeTab, ordersAsBuyerQuery, ordersAsSellerQuery, applicationsQuery]);
 
@@ -120,16 +134,18 @@ export default function InboxScreen() {
           <FlatList
             data={items}
             keyExtractor={(item) => item.id}
-            contentContainerStyle={{ padding: 16, gap: 12 }}
+            contentContainerStyle={{
+              paddingHorizontal: 16,
+              paddingTop: 8,
+              paddingBottom: TAB_BAR_HEIGHT + 32,
+              gap: 12,
+            }}
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={theme[500]} />
             }
             ListEmptyComponent={
               <View className="px-6 pt-12">
-                <EmptyState
-                  title="Nothing here yet"
-                  description="Your activity will show up here."
-                />
+                <EmptyState title={emptyTitle} description={emptyDescription} />
               </View>
             }
             renderItem={({ item }) => (
