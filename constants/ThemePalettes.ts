@@ -76,8 +76,6 @@ export function invertPalette(palette: ThemePalette): ThemePalette {
     };
 }
 
-export const THEME_LIST: ThemeName[] = Object.keys(THEME_COLORS) as ThemeName[];
-
 /**
  * SIGNAL PALETTE — 8-color accent palette for charts, data series, and decorative elements.
  * Sourced from Tailwind's default palette (Figma reference).
@@ -128,14 +126,4 @@ export const SIGNAL_COLORS = {
     /** Generic accent slot 3 (e.g. milestone / highlight) */
     pr: SIGNAL_PALETTE.sky,
 } as const;
-
-const PALETTE_KEYS = ['red', 'yellow', 'green', 'blue', 'indigo', 'purple', 'pink'] as const;
-const SHADE_ORDER = [500, 50, 100, 200, 300, 400, 600, 700, 800, 900, 950] as const;
-
-export const CHART_ROTATION = SHADE_ORDER.flatMap(
-    shade => PALETTE_KEYS.map(key => SIGNAL_PALETTE[key][shade])
-);
-
-/** 7-color rotation for folder icons, using [500] shade of each signal color */
-export const FOLDER_COLOR_ROTATION = PALETTE_KEYS.map(key => SIGNAL_PALETTE[key][500]);
 

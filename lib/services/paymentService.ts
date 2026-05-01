@@ -1,4 +1,4 @@
-import type { PrivyEmbeddedSolanaWalletProvider } from '@privy-io/js-sdk-core';
+import type { PrivyEmbeddedSolanaWalletProvider } from '@privy-io/expo';
 import { transferSol } from '@/lib/solana/transferSol';
 import { createPendingOrder, markOrderPaid, markOrderStatus } from './orderService';
 import { getProfile } from './profileService';

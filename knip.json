@@ -1,12 +1,24 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "app/**/*.{ts,tsx}"
+  ],
   "ignore": [
-    "functions/**"
+    "functions/**",
+    "components/ui/charts/**",
+    "components/ui/{Alert,Avatar,BottomSheet,Dropdown,ErrorState,FadeTransition,HapticRefreshControl,NumberInput,PopoverMenu,ProgressBar,ScreenFadeIn,SegmentedToggle,Skeleton,UnderlineTabBar}.tsx",
+    "components/ui/icons/**",
+    "constants/{ComponentTheme,ThemeColors}.ts",
+    "hooks/{useAsyncState,useDebounce}.ts",
+    "lib/utils/{array,avatars,chartNarrative,dates,firestore,formatNumber,withTimeout}.ts",
+    "lib/services/imageUploadService.ts",
+    "types/{components,navigation}.ts"
   ],
   "ignoreDependencies": [
-    "babel-plugin-transform-remove-console"
-  ],
-  "entry": [
-    "metro.config.js"
+    "babel-plugin-transform-remove-console",
+    "buffer",
+    "expo-blur",
+    "expo-image-manipulator",
+    "@shopify/react-native-skia"
   ]
 }

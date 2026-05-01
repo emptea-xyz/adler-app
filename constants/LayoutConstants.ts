@@ -34,12 +34,6 @@ export const Screen = {
 /** Height of the tab bar (excluding safe-area inset) */
 export const TAB_BAR_HEIGHT = 60;
 
-/** Height of the interaction bar above the tab bar */
-export const INTERACTION_BAR_HEIGHT = 44;
-
-/** Height of the gradient fade zone that extends above the tab icons */
-export const TAB_BAR_GRADIENT_HEIGHT = 40;
-
 // ─────────────────────────────────────────────────────────────────
 // BOTTOM INSETS (for scrollable content inside (home) tab screens)
 // ─────────────────────────────────────────────────────────────────

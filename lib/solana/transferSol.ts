@@ -3,7 +3,7 @@ import {
     SystemProgram,
     Transaction,
 } from '@solana/web3.js';
-import type { PrivyEmbeddedSolanaWalletProvider } from '@privy-io/js-sdk-core';
+import type { PrivyEmbeddedSolanaWalletProvider } from '@privy-io/expo';
 import { getConnection, solToLamports } from './connection';
 
 export interface TransferSolInput {
