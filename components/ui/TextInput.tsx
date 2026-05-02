@@ -59,17 +59,22 @@ function TextInput({
       )}
       <RNTextInput
         className={cn(
-          "text-base font-geist-semibold leading-24 overflow-visible",
-          "rounded-card px-4 py-4",
+          "font-geist text-[14px] leading-[20px] tracking-adler",
+          "rounded-card px-4 py-[14px]",
           leftIcon ? "pl-12" : "",
           rightIcon ? "pr-12" : "",
           className
         )}
         style={[
-          { borderWidth: 1, borderColor: theme[100], color: theme[950] },
+          {
+            backgroundColor: theme[100],
+            color: theme[950],
+            borderWidth: 1,
+            borderColor: 'transparent',
+          },
           isFocused && !error && { borderColor: theme[200] },
           error && { borderColor: TailwindColors.rose[500], backgroundColor: TailwindColors.rose[50] },
-          style
+          style,
         ]}
         placeholderTextColor={placeholderTextColor || theme[400]}
         accessibilityHint={error ? "This field has an error" : undefined}

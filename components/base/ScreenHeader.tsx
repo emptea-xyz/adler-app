@@ -1,143 +1,139 @@
 import React from "react";
-import { View, Pressable } from 'react-native';
+import { View, Pressable } from "react-native";
 import { router } from "expo-router";
-import { haptic } from "@/lib/utils/haptic";
-import { ArrowLeftIcon } from "lucide-react-native";
-import { ThemedText } from "./ThemedText";
+import { ChevronLeft } from "lucide-react-native";
+import { ThemedText } from "@/components/base/ThemedText";
 import { useTheme } from "@/contexts/ThemeContext";
+import { haptic } from "@/lib/utils/haptic";
+
+// Figma node 124:122 — compact 48pt header. Back button on the left, title
+// left-aligned next to it, optional action buttons on the right.
 
 interface ScreenHeaderAction {
-  /** Icon component to render inside the action button */
   icon: React.ComponentType<{ size?: number; color?: string }>;
-  /** Callback invoked when the action button is pressed */
   onPress: () => void;
-  /** Accessibility label for screen readers */
   accessibilityLabel?: string;
-  /** Test ID for automation */
   testID?: string;
 }
 
 interface ScreenHeaderProps {
-  /** The title to display in the header */
   title: string;
-  /** Optional custom back handler */
   onBack?: () => void;
-  /** Whether to show the back button */
   showBackButton?: boolean;
-  /** Optional action button displayed on the right */
   actionButton?: ScreenHeaderAction;
-  /** Optional second action button displayed on the right */
   secondaryActionButton?: ScreenHeaderAction;
-  /** Optional action button displayed on the left (replaces back button if showBackButton is false) */
   leftActionButton?: ScreenHeaderAction;
 }
+
+const SLOT = 44;
+const ICON = 22;
 
 export function ScreenHeader({
   title,
   onBack,
-  showBackButton = false,
+  showBackButton = true,
   actionButton,
   secondaryActionButton,
   leftActionButton,
 }: ScreenHeaderProps) {
   const { theme } = useTheme();
+
   const handleBack = () => {
     if (onBack) {
       onBack();
       return;
     }
-
-    haptic('light');
+    haptic("light");
     router.back();
   };
 
-  const renderBackButton = () => {
+  const renderLeft = () => {
     if (showBackButton) {
       return (
         <Pressable
           onPress={handleBack}
-          className="w-10 active:opacity-70"
           accessibilityRole="button"
           accessibilityLabel="Go back"
           testID="back-button"
+          style={{
+            width: SLOT,
+            height: SLOT,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
         >
-          <ArrowLeftIcon size={24} color={theme[950]} />
+          <ChevronLeft size={ICON} color={theme[950]} strokeWidth={2} />
         </Pressable>
       );
     }
-
     if (leftActionButton) {
-      const IconComponent = leftActionButton.icon;
+      const Icon = leftActionButton.icon;
       return (
         <Pressable
           onPress={() => {
-            haptic('light');
+            haptic("light");
             leftActionButton.onPress();
           }}
           accessibilityRole="button"
           accessibilityLabel={leftActionButton.accessibilityLabel}
-          className="w-10 h-10 rounded-card items-center justify-center active:opacity-70"
+          style={{
+            width: SLOT,
+            height: SLOT,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
         >
-          <IconComponent size={24} color={theme[950]} />
+          <Icon size={ICON} color={theme[950]} />
         </Pressable>
       );
     }
-
-    return <View className="w-10" />;
+    return null;
   };
 
-  const renderActionButton = () => {
-    if (!actionButton) return <View className="w-10" />;
-    const IconComponent = actionButton.icon;
+  const renderActionButton = (action: ScreenHeaderAction) => {
+    const Icon = action.icon;
     return (
       <Pressable
+        key={action.testID ?? action.accessibilityLabel ?? Math.random().toString()}
         onPress={() => {
-          haptic('light');
-          actionButton.onPress();
+          haptic("light");
+          action.onPress();
         }}
         accessibilityRole="button"
-        accessibilityLabel={actionButton.accessibilityLabel}
-        testID={actionButton.testID}
-        className="w-10 h-10 rounded-full items-center justify-center active:opacity-70"
+        accessibilityLabel={action.accessibilityLabel}
+        testID={action.testID}
+        style={{
+          width: SLOT,
+          height: SLOT,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
       >
-        <IconComponent size={24} color={theme[950]} />
+        <Icon size={ICON} color={theme[950]} />
       </Pressable>
     );
   };
 
   return (
-    <View>
-      <View className="flex-row items-center justify-between p-4 pb-0 gap-2 relative h-28">
-        <View className="z-10 bg-transparent flex-row items-center">
-          {renderBackButton()}
-        </View>
-
-        <View
-          pointerEvents="none"
-          className="absolute left-0 right-0 top-0 bottom-0 items-center justify-center pt-4"
-        >
-          <ThemedText type="h4" className="text-center px-14">
-            {title}
-          </ThemedText>
-        </View>
-
-        <View className="flex-row items-center gap-1 z-10 bg-transparent">
-          {secondaryActionButton && (
-            <Pressable
-              onPress={() => {
-                haptic('light');
-                secondaryActionButton.onPress();
-              }}
-              accessibilityRole="button"
-              accessibilityLabel={secondaryActionButton.accessibilityLabel}
-              className="w-10 h-10 rounded-card items-center justify-center active:opacity-70"
-            >
-              <secondaryActionButton.icon size={24} color={theme[950]} />
-            </Pressable>
-          )}
-          {renderActionButton()}
-        </View>
-      </View>
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 8,
+        height: 48,
+        paddingHorizontal: 12,
+      }}
+    >
+      {renderLeft()}
+      <ThemedText
+        type="body-xl-semibold"
+        style={{ color: theme[950], flex: 1 }}
+        numberOfLines={1}
+      >
+        {title}
+      </ThemedText>
+      {secondaryActionButton ? renderActionButton(secondaryActionButton) : null}
+      {actionButton ? renderActionButton(actionButton) : null}
     </View>
   );
 }

@@ -1,21 +1,18 @@
 import React from "react";
 import { ThemedText } from "@/components/base/ThemedText";
+import { useTheme } from "@/contexts/ThemeContext";
+
+// Figma node 36:93 — small caption-style eyebrow above body content. Mixed
+// case (the design's example reads "Section", not "SECTION").
 
 interface SectionLabelProps {
   label: string;
 }
 
-/**
- * Settings section header — small uppercase eyebrow with wide tracking.
- * Use this for grouping rows on settings-style screens. Reads as a
- * structural divider without competing with the screen title.
- */
 export function SectionLabel({ label }: SectionLabelProps) {
+  const { theme } = useTheme();
   return (
-    <ThemedText
-      type="body-xs"
-      className="opacity-50 mb-2 px-screen tracking-widest uppercase"
-    >
+    <ThemedText type="caption-semibold" style={{ color: theme[500] }}>
       {label}
     </ThemedText>
   );

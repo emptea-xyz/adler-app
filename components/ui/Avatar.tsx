@@ -1,39 +1,55 @@
 import React from 'react';
 import { View, Image } from 'react-native';
+import { ThemedText } from '@/components/base/ThemedText';
 import { resolveAvatarUrl } from '@/lib/utils/avatars';
-import { UserRound } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 
+// Figma node 119:128 — avatar with initial fallback. Three discrete sizes.
+
+export type AvatarSize = 'sm' | 'md' | 'lg';
+
 interface AvatarProps {
-    avatarUrl: string | null | undefined;
-    size: number;
+  avatarUrl?: string | null;
+  size?: AvatarSize;
+  initial?: string;
 }
 
-export function Avatar({ avatarUrl, size }: AvatarProps) {
-    const url = resolveAvatarUrl(avatarUrl);
-    const { theme } = useTheme();
+const PX: Record<AvatarSize, number> = { sm: 32, md: 44, lg: 56 };
+const TEXT: Record<AvatarSize, 'body-md-semibold' | 'body-xl-semibold' | 'h4'> = {
+  sm: 'body-md-semibold',
+  md: 'body-xl-semibold',
+  lg: 'h4',
+};
 
-    return (
-        <View
-            style={{
-                width: size,
-                height: size,
-                borderRadius: size / 2,
-                overflow: 'hidden',
-                backgroundColor: theme[300],
-                justifyContent: 'center',
-                alignItems: 'center',
-            }}
-        >
-            {url ? (
-                <Image
-                    source={{ uri: url }}
-                    style={{ width: size, height: size }}
-                    resizeMode="cover"
-                />
-            ) : (
-                <UserRound size={size * 0.45} color={theme[400]} strokeWidth={1.5} />
-            )}
-        </View>
-    );
+export function Avatar({ avatarUrl, size = 'sm', initial }: AvatarProps) {
+  const { theme } = useTheme();
+  const url = resolveAvatarUrl(avatarUrl ?? null);
+  const dim = PX[size];
+  const fallback = (initial?.[0] ?? '·').toUpperCase();
+
+  return (
+    <View
+      style={{
+        width: dim,
+        height: dim,
+        borderRadius: dim / 2,
+        backgroundColor: theme[200],
+        overflow: 'hidden',
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}
+    >
+      {url ? (
+        <Image
+          source={{ uri: url }}
+          style={{ width: dim, height: dim }}
+          resizeMode="cover"
+        />
+      ) : (
+        <ThemedText type={TEXT[size]} style={{ color: theme[950] }}>
+          {fallback}
+        </ThemedText>
+      )}
+    </View>
+  );
 }
