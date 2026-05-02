@@ -67,7 +67,7 @@ export default function BrowseScreen() {
             keyExtractor={(item) => `${item.kind}:${item.data.id}`}
             contentContainerStyle={{
               paddingHorizontal: 16,
-              paddingTop: 14,
+              paddingTop: 16,
               paddingBottom: TAB_BAR_HEIGHT + 32,
               gap: 14,
             }}
@@ -79,7 +79,7 @@ export default function BrowseScreen() {
               />
             }
             ListEmptyComponent={
-              <View className="px-6 pt-12">
+              <View className="pt-12">
                 <EmptyState title={EMPTY_BROWSE.title} description={EMPTY_BROWSE.description} />
               </View>
             }

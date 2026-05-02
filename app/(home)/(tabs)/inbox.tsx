@@ -142,7 +142,7 @@ export default function InboxScreen() {
               <RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={theme[500]} />
             }
             ListEmptyComponent={
-              <View className="px-6 pt-12">
+              <View className="pt-12">
                 <EmptyState title={emptyTitle} description={emptyDescription} />
               </View>
             }

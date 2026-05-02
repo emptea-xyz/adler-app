@@ -18,7 +18,7 @@ export default function SavedScreen() {
 
         <View
           className="flex-1 items-center justify-center"
-          style={{ paddingHorizontal: 24, paddingBottom: TAB_BAR_HEIGHT }}
+          style={{ paddingHorizontal: 16, paddingBottom: TAB_BAR_HEIGHT + 32 }}
         >
           <EmptyState title={EMPTY_SAVED.title} description={EMPTY_SAVED.description} />
         </View>
