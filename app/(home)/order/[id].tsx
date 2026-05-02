@@ -6,11 +6,27 @@ import { useQuery } from '@tanstack/react-query';
 import { ThemedText } from '@/components/base/ThemedText';
 import { ThemedView } from '@/components/base/ThemedView';
 import { ScreenHeader } from '@/components/base/ScreenHeader';
-import Card from '@/components/ui/Card';
+import { SectionLabel } from '@/components/base/SectionLabel';
+import { Button } from '@/components/ui/Button';
+import { KPI } from '@/components/ui/KPI';
+import { Pill, type PillIntent } from '@/components/ui/Pill';
+import { CtaFooter } from '@/components/ui/CtaFooter';
 import { useTheme } from '@/contexts/ThemeContext';
 import { getOrder } from '@/lib/services/orderService';
 import { ORDER_KEYS } from '@/lib/constants/queryKeys';
 import { explorerTxUrl } from '@/lib/solana/connection';
+import { haptic } from '@/lib/utils/haptic';
+import type { OrderStatus } from '@/types/marketplace';
+
+function statusToIntent(status: OrderStatus): PillIntent {
+  if (status === 'paid' || status === 'complete') return 'lime';
+  if (status === 'delivered') return 'cyan';
+  return 'neutral';
+}
+
+function ucfirst(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
 
 export default function OrderDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -39,63 +55,90 @@ export default function OrderDetailScreen() {
             </ThemedText>
           </View>
         ) : (
-          <ScrollView contentContainerStyle={{ padding: 24, gap: 16 }}>
-            <View>
-              <ThemedText type="caption-semibold" style={{ color: theme[500] }}>
-                {order.status.toUpperCase()} · {order.type.toUpperCase()}
-              </ThemedText>
-              <ThemedText type="h3" className="mt-1">
-                {order.amountSol} SOL
-              </ThemedText>
-            </View>
+          <>
+            <ScrollView
+              contentContainerStyle={{
+                paddingHorizontal: 24,
+                paddingTop: 8,
+                paddingBottom: order.txSignature ? 134 : 32,
+                gap: 16,
+              }}
+            >
+              {/* Status pills + KPI */}
+              <View style={{ gap: 8 }}>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <Pill intent={statusToIntent(order.status)} label={ucfirst(order.status)} />
+                  <Pill intent="pink" label={order.type} />
+                </View>
+                <KPI size="md" amount={order.amountSol} unit="SOL" />
+              </View>
 
-            <Card>
-              <View className="flex-row justify-between mb-2">
-                <ThemedText type="body-md" style={{ color: theme[500] }}>
-                  Buyer
-                </ThemedText>
-                <ThemedText type="body-sm">
-                  {order.buyerId.slice(0, 12)}…
-                </ThemedText>
+              {/* Buyer/Seller/Reference */}
+              <View style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12, gap: 8 }}>
+                {[
+                  ['Buyer', order.buyerId],
+                  ['Seller', order.sellerId],
+                  ['Reference', order.referenceId],
+                ].map(([label, value]) => (
+                  <View
+                    key={label}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                    }}
+                  >
+                    <ThemedText type="body-md" style={{ color: theme[500] }}>
+                      {label}
+                    </ThemedText>
+                    <ThemedText type="body-sm" style={{ color: theme[700] }}>
+                      {value.length > 20 ? `${value.slice(0, 12)}…${value.slice(-4)}` : value}
+                    </ThemedText>
+                  </View>
+                ))}
               </View>
-              <View className="flex-row justify-between mb-2">
-                <ThemedText type="body-md" style={{ color: theme[500] }}>
-                  Seller
-                </ThemedText>
-                <ThemedText type="body-sm">
-                  {order.sellerId.slice(0, 12)}…
-                </ThemedText>
-              </View>
-              <View className="flex-row justify-between">
-                <ThemedText type="body-md" style={{ color: theme[500] }}>
-                  Reference
-                </ThemedText>
-                <ThemedText type="body-sm">{order.referenceId.slice(0, 12)}…</ThemedText>
-              </View>
-            </Card>
 
-            {order.txSignature ? (
-              <Pressable onPress={() => Linking.openURL(explorerTxUrl(order.txSignature!))}>
-                <Card>
-                  <ThemedText type="caption-semibold" style={{ color: theme[500] }}>
-                    TX SIGNATURE
+              {/* Tx signature */}
+              {order.txSignature ? (
+                <Pressable
+                  onPress={() => {
+                    haptic('light');
+                    Linking.openURL(explorerTxUrl(order.txSignature!));
+                  }}
+                  style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12, gap: 4 }}
+                >
+                  <SectionLabel label="Tx signature" />
+                  <ThemedText type="body-sm" style={{ color: theme[950] }}>
+                    {order.txSignature.slice(0, 16)}…
                   </ThemedText>
-                  <ThemedText type="body-sm" className="mt-1 underline">
-                    {order.txSignature.slice(0, 24)}…
-                  </ThemedText>
-                  <ThemedText type="caption" className="mt-1" style={{ color: theme[500] }}>
+                  <ThemedText type="caption" style={{ color: theme[500] }}>
                     Tap to open on Solana Explorer
                   </ThemedText>
-                </Card>
-              </Pressable>
-            ) : (
-              <Card>
-                <ThemedText type="body-sm" style={{ color: theme[500] }}>
-                  Waiting for on-chain confirmation…
-                </ThemedText>
-              </Card>
+                </Pressable>
+              ) : (
+                <View style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12 }}>
+                  <ThemedText type="body-sm" style={{ color: theme[500] }}>
+                    Waiting for on-chain confirmation…
+                  </ThemedText>
+                </View>
+              )}
+            </ScrollView>
+
+            {order.txSignature && (
+              <CtaFooter>
+                <Button
+                  title="View on Solana Explorer"
+                  variant="primary"
+                  size="lg"
+                  className="w-full"
+                  onPress={() => {
+                    haptic('light');
+                    Linking.openURL(explorerTxUrl(order.txSignature!));
+                  }}
+                />
+              </CtaFooter>
             )}
-          </ScrollView>
+          </>
         )}
       </SafeAreaView>
     </ThemedView>

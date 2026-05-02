@@ -1,13 +1,13 @@
 import React, { useMemo, useState } from 'react';
-import { View, FlatList, Pressable, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import { ThemedText } from '@/components/base/ThemedText';
 import { ThemedView } from '@/components/base/ThemedView';
-import Card from '@/components/ui/Card';
 import EmptyState from '@/components/ui/EmptyState';
 import { UnderlineTabBar } from '@/components/ui/UnderlineTabBar';
+import { InboxRow } from '@/components/ui/InboxRow';
+import { AdlerHomeHeader } from '@/components/features/home/AdlerHomeHeader';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUser } from '@/contexts/UserContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -20,7 +20,6 @@ import {
   EMPTY_INBOX_PURCHASES,
   EMPTY_INBOX_SALES,
 } from '@/lib/utils/copy';
-import { haptic } from '@/lib/utils/haptic';
 
 const CREATOR_TABS = ['Sales', 'Applications'] as const;
 const BRAND_TABS = ['Purchases'] as const;
@@ -55,10 +54,10 @@ export default function InboxScreen() {
     queryFn: () => listApplicationsByCreator(user!.id),
   });
 
-  type InboxRow = { id: string; title: string; subtitle: string; href: string };
+  type Row = { id: string; title: string; subtitle: string; href: string };
 
   const { items, loading, refetch, refreshing, emptyTitle, emptyDescription } = useMemo<{
-    items: InboxRow[];
+    items: Row[];
     loading: boolean;
     refetch: () => void;
     refreshing: boolean;
@@ -113,12 +112,10 @@ export default function InboxScreen() {
   return (
     <ThemedView className="flex-1">
       <SafeAreaView edges={['top']} className="flex-1">
-        <View className="px-6 pt-4 pb-2">
-          <ThemedText type="h3">Inbox</ThemedText>
-        </View>
+        <AdlerHomeHeader title="Activity" onPressBalance={() => router.push('/settings/wallet')} />
 
         {tabs.length > 1 && (
-          <View className="px-4">
+          <View style={{ paddingHorizontal: 16, marginTop: 8 }}>
             <UnderlineTabBar
               tabs={tabs as readonly string[]}
               activeTab={activeTab as string}
@@ -137,9 +134,9 @@ export default function InboxScreen() {
             keyExtractor={(item) => item.id}
             contentContainerStyle={{
               paddingHorizontal: 16,
-              paddingTop: 8,
+              paddingTop: 16,
               paddingBottom: TAB_BAR_HEIGHT + 32,
-              gap: 12,
+              gap: 16,
             }}
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={refetch} tintColor={theme[500]} />
@@ -150,24 +147,11 @@ export default function InboxScreen() {
               </View>
             }
             renderItem={({ item }) => (
-              <Pressable
-                onPress={() => {
-                  haptic('light');
-                  router.push(item.href as any);
-                }}
-              >
-                <Card>
-                  <ThemedText type="body-lg-semibold">{item.title}</ThemedText>
-                  <ThemedText
-                    type="body-sm"
-                    numberOfLines={2}
-                    className="mt-1"
-                    style={{ color: theme[500] }}
-                  >
-                    {item.subtitle}
-                  </ThemedText>
-                </Card>
-              </Pressable>
+              <InboxRow
+                title={item.title}
+                subline={item.subtitle}
+                onPress={() => router.push(item.href as any)}
+              />
             )}
           />
         )}

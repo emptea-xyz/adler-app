@@ -37,3 +37,8 @@ export const EMPTY_GIG_APPLICATIONS = {
     title: 'No applications yet',
     description: 'When creators apply, their pitches show up here.',
 } as const;
+
+export const EMPTY_SAVED = {
+    title: 'Nothing saved yet',
+    description: 'Bookmark a package or gig from Browse and it lands here.',
+} as const;

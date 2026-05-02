@@ -2,29 +2,32 @@ import React, { useCallback } from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { Compass, Inbox, Plus, User } from 'lucide-react-native';
-import { ThemedText } from '@/components/base/ThemedText';
+import { Compass, Bookmark, Inbox, User } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { haptic } from '@/lib/utils/haptic';
 import { TAB_BAR_HEIGHT } from '@/constants/LayoutConstants';
+import { SolanaUploadArrow } from '@/components/ui/SolanaUploadArrow';
 
-// Visual layout: 3 tabs flanking a prominent circular Create button.
-// Routes (left → right): browse, inbox, create (center CTA), profile.
+// Figma node 132:204 — 5 tabs in the order browse, saved, create, inbox,
+// profile. Icons only (no labels). The center "create" tab renders the
+// gradient upload-arrow Skia icon.
+
 const ICONS: Record<string, React.ComponentType<{ size: number; color: string; strokeWidth?: number }>> = {
     browse: Compass,
+    saved: Bookmark,
     inbox: Inbox,
-    create: Plus,
     profile: User,
 };
 
 const LABELS: Record<string, string> = {
     browse: 'Browse',
+    saved: 'Saved',
     inbox: 'Inbox',
     create: 'Create',
     profile: 'Profile',
 };
 
-const TAB_ORDER = ['browse', 'inbox', 'create', 'profile'] as const;
+const TAB_ORDER = ['browse', 'saved', 'create', 'inbox', 'profile'] as const;
 
 export function AdlerTabBar({ state, navigation }: BottomTabBarProps) {
     const { theme } = useTheme();
@@ -56,7 +59,6 @@ export function AdlerTabBar({ state, navigation }: BottomTabBarProps) {
                 styles.container,
                 {
                     backgroundColor: theme[50],
-                    borderTopColor: theme[200],
                     paddingBottom: insets.bottom,
                     height: TAB_BAR_HEIGHT + insets.bottom,
                 },
@@ -65,7 +67,6 @@ export function AdlerTabBar({ state, navigation }: BottomTabBarProps) {
             {TAB_ORDER.map((name) => {
                 const isCenter = name === 'create';
                 const isFocused = focusedRouteName === name;
-                const Icon = ICONS[name];
 
                 if (isCenter) {
                     return (
@@ -77,21 +78,14 @@ export function AdlerTabBar({ state, navigation }: BottomTabBarProps) {
                             accessibilityRole="button"
                             accessibilityLabel={LABELS[name]}
                         >
-                            <View
-                                style={[
-                                    styles.centerButton,
-                                    {
-                                        backgroundColor: theme[950],
-                                        borderColor: theme[50],
-                                    },
-                                ]}
-                            >
-                                <Icon size={22} color={theme[50]} strokeWidth={2.5} />
+                            <View style={{ opacity: isFocused ? 1 : 0.85 }}>
+                                <SolanaUploadArrow size={52} />
                             </View>
                         </Pressable>
                     );
                 }
 
+                const Icon = ICONS[name];
                 return (
                     <Pressable
                         key={name}
@@ -104,17 +98,8 @@ export function AdlerTabBar({ state, navigation }: BottomTabBarProps) {
                         <Icon
                             size={22}
                             color={isFocused ? theme[950] : theme[400]}
-                            strokeWidth={isFocused ? 2.25 : 2}
+                            strokeWidth={2}
                         />
-                        <ThemedText
-                            type="caption-semibold"
-                            style={{
-                                color: isFocused ? theme[950] : theme[400],
-                                marginTop: 4,
-                            }}
-                        >
-                            {LABELS[name]}
-                        </ThemedText>
                     </Pressable>
                 );
             })}
@@ -125,33 +110,20 @@ export function AdlerTabBar({ state, navigation }: BottomTabBarProps) {
 const styles = StyleSheet.create({
     container: {
         flexDirection: 'row',
-        borderTopWidth: StyleSheet.hairlineWidth,
         alignItems: 'flex-start',
         paddingTop: 8,
+        paddingHorizontal: 16,
     },
     tabSlot: {
         flex: 1,
+        height: TAB_BAR_HEIGHT - 8,
         alignItems: 'center',
-        justifyContent: 'flex-start',
-        paddingTop: 4,
+        justifyContent: 'center',
     },
     centerSlot: {
         flex: 1,
-        alignItems: 'center',
-        justifyContent: 'flex-start',
-        marginTop: -22,
-    },
-    centerButton: {
-        width: 56,
-        height: 56,
-        borderRadius: 28,
+        height: TAB_BAR_HEIGHT - 8,
         alignItems: 'center',
         justifyContent: 'center',
-        borderWidth: 4,
-        shadowColor: '#000',
-        shadowOpacity: 0.15,
-        shadowRadius: 12,
-        shadowOffset: { width: 0, height: 4 },
-        elevation: 6,
     },
 });

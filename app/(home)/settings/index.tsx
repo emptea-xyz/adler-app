@@ -32,7 +32,10 @@ function Row({
         >
             <View className="flex-row items-center gap-3">
                 {icon}
-                <ThemedText type="body-md" style={destructive ? { color: '#DC143C' } : undefined}>
+                <ThemedText
+                    type="body-md"
+                    style={destructive ? { color: '#DC143C' } : { color: theme[950] }}
+                >
                     {title}
                 </ThemedText>
             </View>
@@ -61,8 +64,8 @@ export default function SettingsIndexScreen() {
                 <ScreenHeader title="Settings" onBack={() => router.back()} />
 
                 <ScrollView contentContainerStyle={{ paddingTop: 16 }}>
-                    <View className="px-screen mb-2">
-                        <SectionLabel label="ACCOUNT" />
+                    <View style={{ paddingHorizontal: 16, marginBottom: 8 }}>
+                        <SectionLabel label="Account" />
                     </View>
                     <Row
                         icon={<Wallet color={theme[700]} size={18} />}
@@ -75,8 +78,8 @@ export default function SettingsIndexScreen() {
                         onPress={() => router.push('/settings/role')}
                     />
 
-                    <View className="px-screen mt-6 mb-2">
-                        <SectionLabel label="SESSION" />
+                    <View style={{ paddingHorizontal: 16, marginTop: 24, marginBottom: 8 }}>
+                        <SectionLabel label="Session" />
                     </View>
                     <Row
                         icon={<LogOut color="#DC143C" size={18} />}

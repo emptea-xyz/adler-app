@@ -1,26 +1,30 @@
 import React from 'react';
 import { View } from 'react-native';
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { ThemedText } from '@/components/base/ThemedText';
 import { ThemedView } from '@/components/base/ThemedView';
-import LoadingMotive from '@/components/base/LoadingMotive';
+import { Loader } from '@/components/ui/Loader';
 import { useTheme } from '@/contexts/ThemeContext';
 
-/**
- * LoadingScreen component displays a branded loading interface.
- * Can be used for:
- * - App initialization
- * - Signing in
- * - Signing out
- * - Auth state transitions
- */
-export function LoadingScreen() {
+interface LoadingScreenProps {
+  title?: string;
+}
+
+// Figma frame 57:370 — loader screen. Title at top, spinner centered.
+export function LoadingScreen({ title }: LoadingScreenProps) {
   const { theme } = useTheme();
   return (
     <SafeAreaView className="flex-1" style={{ backgroundColor: theme[50] }}>
-      <ThemedView className="flex-1 justify-center items-center px-8">
-        {/* Loading indicator */}
-        <View className="items-center w-full">
-          <LoadingMotive />
+      <ThemedView className="flex-1 px-6">
+        {title ? (
+          <View style={{ paddingTop: 24 }}>
+            <ThemedText type="h2" style={{ color: theme[950] }}>
+              {title}
+            </ThemedText>
+          </View>
+        ) : null}
+        <View className="flex-1 items-center justify-center">
+          <Loader size={230} />
         </View>
       </ThemedView>
     </SafeAreaView>

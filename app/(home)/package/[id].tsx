@@ -1,25 +1,38 @@
 import React from 'react';
 import { View, ScrollView, ActivityIndicator } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { ThemedText } from '@/components/base/ThemedText';
 import { ThemedView } from '@/components/base/ThemedView';
 import { ScreenHeader } from '@/components/base/ScreenHeader';
-import Card from '@/components/ui/Card';
+import { SectionLabel } from '@/components/base/SectionLabel';
 import { Button } from '@/components/ui/Button';
+import { KPI } from '@/components/ui/KPI';
+import { Pill, type PillIntent } from '@/components/ui/Pill';
+import { CtaFooter } from '@/components/ui/CtaFooter';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { getPackage } from '@/lib/services/packageService';
 import { getProfile } from '@/lib/services/profileService';
 import { PACKAGE_KEYS, PROFILE_KEYS } from '@/lib/constants/queryKeys';
+import type { PackageStatus } from '@/types/marketplace';
+
+function statusToIntent(status: PackageStatus): PillIntent {
+  if (status === 'active') return 'cyan';
+  if (status === 'sold') return 'lime';
+  return 'neutral';
+}
+
+function ucfirst(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
 
 export default function PackageDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
   const { theme } = useTheme();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
 
   const packageQuery = useQuery({
     queryKey: id ? PACKAGE_KEYS.detail(id) : ['package', 'unknown'],
@@ -58,80 +71,73 @@ export default function PackageDetailScreen() {
               contentContainerStyle={{
                 paddingHorizontal: 24,
                 paddingTop: 8,
-                paddingBottom: canBuy ? 120 : 32,
+                paddingBottom: canBuy ? 134 : 32,
                 gap: 16,
               }}
             >
-              {/* Top-left KPI: amount + unit, then kind label, then title.
-                  Eye lands on price first — the most decision-relevant data. */}
-              <View>
-                <View className="flex-row items-baseline gap-2">
-                  <ThemedText type="h2" className="tracking-tight">
-                    {pkg.priceSol}
-                  </ThemedText>
-                  <ThemedText type="body-md-semibold" style={{ color: theme[500] }}>
-                    SOL
-                  </ThemedText>
-                  <View className="flex-1" />
-                  <ThemedText
-                    type="caption-semibold"
-                    style={{ color: theme[700], letterSpacing: 0.6 }}
-                  >
-                    PACKAGE · {pkg.status.toUpperCase()}
-                  </ThemedText>
+              {/* KPI block */}
+              <View style={{ gap: 12 }}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'flex-end',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <KPI size="md" amount={pkg.priceSol} unit="SOL" />
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <Pill intent={statusToIntent(pkg.status)} label={pkg.status} />
+                    <Pill intent="pink" label="Package" />
+                  </View>
                 </View>
-                <ThemedText type="h4" className="mt-3">
+                <ThemedText type="h4" style={{ color: theme[950] }} numberOfLines={3}>
                   {pkg.title}
                 </ThemedText>
               </View>
 
-              <Card>
-                <ThemedText type="caption-semibold" style={{ color: theme[500], letterSpacing: 0.6 }}>
-                  ABOUT
-                </ThemedText>
-                <ThemedText type="body-md" className="mt-2">
+              {/* About */}
+              <View style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12, gap: 8 }}>
+                <SectionLabel label="About" />
+                <ThemedText type="body-md" style={{ color: theme[950] }}>
                   {pkg.description}
                 </ThemedText>
-              </Card>
+              </View>
 
+              {/* Deliverables */}
               {pkg.deliverables.length > 0 && (
-                <Card>
-                  <ThemedText type="caption-semibold" style={{ color: theme[500], letterSpacing: 0.6 }}>
-                    DELIVERABLES
-                  </ThemedText>
-                  <View className="mt-2 gap-1.5">
+                <View style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12, gap: 8 }}>
+                  <SectionLabel label="Deliverables" />
+                  <View style={{ gap: 6 }}>
                     {pkg.deliverables.map((d, i) => (
-                      <View key={i} className="flex-row gap-2">
+                      <View key={i} style={{ flexDirection: 'row', gap: 8 }}>
                         <ThemedText type="body-md" style={{ color: theme[500] }}>
                           ·
                         </ThemedText>
-                        <ThemedText type="body-md" className="flex-1">
+                        <ThemedText type="body-md" style={{ color: theme[950], flex: 1 }}>
                           {d}
                         </ThemedText>
                       </View>
                     ))}
                   </View>
-                </Card>
+                </View>
               )}
 
-              <Card>
-                <ThemedText type="caption-semibold" style={{ color: theme[500], letterSpacing: 0.6 }}>
-                  SELLER
-                </ThemedText>
-                <ThemedText type="body-md-semibold" className="mt-2">
+              {/* Seller */}
+              <View style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12, gap: 4 }}>
+                <SectionLabel label="Seller" />
+                <ThemedText type="body-md-semibold" style={{ color: theme[950] }}>
                   {sellerQuery.data?.displayName ?? '—'}
                 </ThemedText>
                 <ThemedText type="body-sm" style={{ color: theme[500] }}>
                   @{sellerQuery.data?.username ?? '—'}
                 </ThemedText>
-              </Card>
+              </View>
 
               {isOwnPackage && (
                 <ThemedText
                   type="body-sm"
                   align="center"
-                  style={{ color: theme[500] }}
-                  className="mt-2"
+                  style={{ color: theme[500], marginTop: 8 }}
                 >
                   You are the seller of this package.
                 </ThemedText>
@@ -139,16 +145,7 @@ export default function PackageDetailScreen() {
             </ScrollView>
 
             {canBuy && (
-              <View
-                className="px-6"
-                style={{
-                  paddingTop: 12,
-                  paddingBottom: insets.bottom + 12,
-                  backgroundColor: theme[50],
-                  borderTopWidth: 1,
-                  borderTopColor: theme[200],
-                }}
-              >
+              <CtaFooter>
                 <Button
                   title={`Buy for ${pkg.priceSol} SOL`}
                   onPress={() =>
@@ -165,8 +162,9 @@ export default function PackageDetailScreen() {
                   }
                   variant="primary"
                   size="lg"
+                  className="w-full"
                 />
-              </View>
+              </CtaFooter>
             )}
           </>
         )}

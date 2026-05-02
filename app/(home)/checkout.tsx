@@ -1,13 +1,15 @@
 import React, { useCallback, useState } from 'react';
 import { View, ActivityIndicator, ScrollView } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { ThemedText } from '@/components/base/ThemedText';
 import { ThemedView } from '@/components/base/ThemedView';
 import { ScreenHeader } from '@/components/base/ScreenHeader';
-import Card from '@/components/ui/Card';
+import { SectionLabel } from '@/components/base/SectionLabel';
 import { Button } from '@/components/ui/Button';
+import { KPI } from '@/components/ui/KPI';
+import { CtaFooter } from '@/components/ui/CtaFooter';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useSolanaPayment } from '@/hooks/useSolanaPayment';
@@ -15,6 +17,7 @@ import { ORDER_KEYS } from '@/lib/constants/queryKeys';
 import { toast } from '@/lib/utils/toast';
 import { haptic } from '@/lib/utils/haptic';
 import { SOLANA_NETWORK } from '@/lib/constants/featureGates';
+import { ACCENT_COLORS } from '@/constants/ThemePalettes';
 import type { OrderType } from '@/types/marketplace';
 
 function shortenAddress(address: string | null): string {
@@ -35,7 +38,6 @@ export default function CheckoutScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { pay, walletAddress, ready } = useSolanaPayment();
-  const insets = useSafeAreaInsets();
 
   const [submitting, setSubmitting] = useState(false);
   const amountSol = parseFloat(params.amountSol ?? '0');
@@ -66,6 +68,12 @@ export default function CheckoutScreen() {
     }
   }, [pay, params, amountSol, ready, queryClient, router, user]);
 
+  const isDevnet = SOLANA_NETWORK === 'devnet';
+  const networkCaption = isDevnet
+    ? 'Devnet · this is test SOL, not real funds'
+    : `${SOLANA_NETWORK} · real SOL transfer`;
+  const networkColor = isDevnet ? ACCENT_COLORS.pink : theme[500];
+
   return (
     <ThemedView className="flex-1">
       <SafeAreaView edges={['top']} className="flex-1">
@@ -75,59 +83,46 @@ export default function CheckoutScreen() {
           contentContainerStyle={{
             paddingHorizontal: 24,
             paddingTop: 8,
-            paddingBottom: 140,
+            paddingBottom: 160,
             gap: 16,
           }}
         >
-          {/* Top-left amount KPI. Single biggest data point on the screen —
-              the user is approving a value transfer, that's all that matters. */}
-          <View>
-            <View className="flex-row items-baseline gap-2">
-              <ThemedText type="h1" className="tracking-tight">
-                {amountSol}
-              </ThemedText>
-              <ThemedText type="body-lg-semibold" style={{ color: theme[500] }}>
-                SOL
-              </ThemedText>
-            </View>
-            <ThemedText type="body-sm" style={{ color: theme[500] }} className="mt-1">
-              {SOLANA_NETWORK === 'devnet'
-                ? 'Devnet · this is test SOL, not real funds'
-                : `${SOLANA_NETWORK} · real SOL transfer`}
+          {/* Big amount KPI */}
+          <View style={{ gap: 4 }}>
+            <KPI size="lg" amount={amountSol} unit="SOL" />
+            <ThemedText type="body-sm" style={{ color: networkColor }}>
+              {networkCaption}
             </ThemedText>
           </View>
 
-          <Card>
-            <ThemedText type="caption-semibold" style={{ color: theme[500], letterSpacing: 0.6 }}>
-              ITEM
-            </ThemedText>
-            <ThemedText type="body-md-semibold" className="mt-2" numberOfLines={2}>
+          {/* Item */}
+          <View style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12, gap: 8 }}>
+            <SectionLabel label="Item" />
+            <ThemedText type="body-md-semibold" style={{ color: theme[950] }} numberOfLines={2}>
               {params.title}
             </ThemedText>
-          </Card>
+          </View>
 
-          <Card>
-            <ThemedText type="caption-semibold" style={{ color: theme[500], letterSpacing: 0.6 }}>
-              FROM
-            </ThemedText>
-            <ThemedText type="body-md-semibold" className="mt-2">
+          {/* From */}
+          <View style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12, gap: 4 }}>
+            <SectionLabel label="From" />
+            <ThemedText type="body-md-semibold" style={{ color: theme[950] }}>
               {shortenAddress(walletAddress)}
             </ThemedText>
             <ThemedText type="body-xs" style={{ color: theme[500] }}>
               Your embedded wallet
             </ThemedText>
-          </Card>
+          </View>
         </ScrollView>
 
-        <View
-          className="px-6"
-          style={{
-            paddingTop: 12,
-            paddingBottom: insets.bottom + 12,
-            backgroundColor: theme[50],
-            borderTopWidth: 1,
-            borderTopColor: theme[200],
-          }}
+        <CtaFooter
+          helperText={
+            ready && !submitting
+              ? 'Tapping Pay sends a Solana transfer from your embedded wallet.'
+              : !ready
+              ? 'Waiting for wallet…'
+              : undefined
+          }
         >
           <Button
             title={submitting ? 'Sending…' : `Pay ${amountSol} SOL`}
@@ -136,26 +131,14 @@ export default function CheckoutScreen() {
             disabled={submitting || !ready}
             variant="primary"
             size="lg"
+            className="w-full"
           />
-          {!ready && (
-            <View className="flex-row items-center justify-center gap-2 mt-2">
+          {!ready && !submitting ? (
+            <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 8 }}>
               <ActivityIndicator size="small" color={theme[500]} />
-              <ThemedText type="body-sm" style={{ color: theme[500] }}>
-                Waiting for wallet…
-              </ThemedText>
             </View>
-          )}
-          {ready && !submitting && (
-            <ThemedText
-              type="body-xs"
-              align="center"
-              style={{ color: theme[500] }}
-              className="mt-2"
-            >
-              Tapping Pay sends a Solana transfer from your embedded wallet.
-            </ThemedText>
-          )}
-        </View>
+          ) : null}
+        </CtaFooter>
       </SafeAreaView>
     </ThemedView>
   );

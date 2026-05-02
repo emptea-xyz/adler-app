@@ -6,10 +6,12 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ThemedText } from '@/components/base/ThemedText';
 import { ThemedView } from '@/components/base/ThemedView';
 import { ScreenHeader } from '@/components/base/ScreenHeader';
-import Card from '@/components/ui/Card';
+import { SectionLabel } from '@/components/base/SectionLabel';
 import EmptyState from '@/components/ui/EmptyState';
 import { Button } from '@/components/ui/Button';
 import TextInput from '@/components/ui/TextInput';
+import { KPI } from '@/components/ui/KPI';
+import { Pill, type PillIntent } from '@/components/ui/Pill';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUser } from '@/contexts/UserContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -25,7 +27,20 @@ import { GIG_KEYS, APPLICATION_KEYS, PROFILE_KEYS } from '@/lib/constants/queryK
 import { toast } from '@/lib/utils/toast';
 import { haptic } from '@/lib/utils/haptic';
 import { EMPTY_GIG_APPLICATIONS } from '@/lib/utils/copy';
-import type { GigApplication, Gig } from '@/types/marketplace';
+import type { GigApplication, Gig, GigStatus, ApplicationStatus } from '@/types/marketplace';
+
+function gigStatusIntent(status: GigStatus): PillIntent {
+  if (status === 'open') return 'cyan';
+  if (status === 'awarded') return 'lime';
+  return 'neutral';
+}
+
+function applicationStatusIntent(status: ApplicationStatus): PillIntent {
+  if (status === 'awarded') return 'lime';
+  if (status === 'shortlisted') return 'cyan';
+  if (status === 'rejected') return 'neutral';
+  return 'neutral';
+}
 
 function ApplicationCard({
   application,
@@ -47,44 +62,33 @@ function ApplicationCard({
   });
 
   return (
-    <Card>
-      <View className="flex-row items-center justify-between mb-2">
-        <View className="flex-1">
-          <ThemedText type="body-md-semibold" numberOfLines={1}>
+    <View style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12, gap: 8 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <View style={{ flex: 1, gap: 2 }}>
+          <ThemedText type="body-md-semibold" style={{ color: theme[950] }} numberOfLines={1}>
             {profileQuery.data?.displayName ?? '—'}
           </ThemedText>
           <ThemedText type="body-sm" style={{ color: theme[500] }} numberOfLines={1}>
             @{profileQuery.data?.username ?? '—'}
           </ThemedText>
         </View>
-        <View
-          className="px-2 py-0.5 rounded-full"
-          style={{ backgroundColor: theme[100] }}
-        >
-          <ThemedText
-            type="caption-semibold"
-            style={{ color: theme[700], letterSpacing: 0.5 }}
-          >
-            {application.status.toUpperCase()}
-          </ThemedText>
-        </View>
+        <Pill intent={applicationStatusIntent(application.status)} label={application.status} />
       </View>
-      <ThemedText type="body-md" numberOfLines={4}>
+      <ThemedText type="body-md" style={{ color: theme[950] }} numberOfLines={4}>
         {application.message}
       </ThemedText>
       {application.status === 'pending' && (
-        <View className="mt-3">
-          <Button
-            title={`Award ${gig.budgetSol} SOL`}
-            onPress={onAward}
-            loading={awarding}
-            disabled={disabled}
-            variant="primary"
-            size="sm"
-          />
-        </View>
+        <Button
+          title={`Award ${gig.budgetSol} SOL`}
+          onPress={onAward}
+          loading={awarding}
+          disabled={disabled}
+          variant="primary"
+          size="sm"
+          className="self-start"
+        />
       )}
-    </Card>
+    </View>
   );
 }
 
@@ -201,93 +205,75 @@ export default function GigDetailScreen() {
             }}
             keyboardShouldPersistTaps="handled"
           >
-            {/* Top-left KPI: budget + unit. Status + kind label top-right. */}
-            <View>
-              <View className="flex-row items-baseline gap-2">
-                <ThemedText type="h2" className="tracking-tight">
-                  {gig.budgetSol}
-                </ThemedText>
-                <ThemedText type="body-md-semibold" style={{ color: theme[500] }}>
-                  SOL
-                </ThemedText>
-                <View className="flex-1" />
-                <ThemedText
-                  type="caption-semibold"
-                  style={{ color: theme[700], letterSpacing: 0.6 }}
-                >
-                  GIG · {gig.status.toUpperCase()}
-                </ThemedText>
+            {/* KPI block */}
+            <View style={{ gap: 12 }}>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'flex-end',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <KPI size="md" amount={gig.budgetSol} unit="SOL" />
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <Pill intent={gigStatusIntent(gig.status)} label={gig.status} />
+                  <Pill intent="pink" label="Gig" />
+                </View>
               </View>
-              <ThemedText type="h4" className="mt-3">
+              <ThemedText type="h4" style={{ color: theme[950] }} numberOfLines={3}>
                 {gig.title}
               </ThemedText>
             </View>
 
-            <Card>
-              <ThemedText
-                type="caption-semibold"
-                style={{ color: theme[500], letterSpacing: 0.6 }}
-              >
-                BRIEF
-              </ThemedText>
-              <ThemedText type="body-md" className="mt-2">
+            {/* Brief */}
+            <View style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12, gap: 8 }}>
+              <SectionLabel label="Brief" />
+              <ThemedText type="body-md" style={{ color: theme[950] }}>
                 {gig.description}
               </ThemedText>
-            </Card>
+            </View>
 
+            {/* Requirements */}
             {!!gig.requirements && (
-              <Card>
-                <ThemedText
-                  type="caption-semibold"
-                  style={{ color: theme[500], letterSpacing: 0.6 }}
-                >
-                  REQUIREMENTS
-                </ThemedText>
-                <ThemedText type="body-md" className="mt-2">
+              <View style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12, gap: 8 }}>
+                <SectionLabel label="Requirements" />
+                <ThemedText type="body-md" style={{ color: theme[950] }}>
                   {gig.requirements}
                 </ThemedText>
-              </Card>
+              </View>
             )}
 
-            <Card>
-              <ThemedText
-                type="caption-semibold"
-                style={{ color: theme[500], letterSpacing: 0.6 }}
-              >
-                BRAND
-              </ThemedText>
-              <ThemedText type="body-md-semibold" className="mt-2">
+            {/* Brand */}
+            <View style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12, gap: 4 }}>
+              <SectionLabel label="Brand" />
+              <ThemedText type="body-md-semibold" style={{ color: theme[950] }}>
                 {brandQuery.data?.displayName ?? '—'}
               </ThemedText>
               <ThemedText type="body-sm" style={{ color: theme[500] }}>
                 @{brandQuery.data?.username ?? '—'}
               </ThemedText>
-            </Card>
+            </View>
 
+            {/* Apply (creators viewing open gig) */}
             {showApplyForm && (
-              <Card>
-                <ThemedText
-                  type="caption-semibold"
-                  style={{ color: theme[500], letterSpacing: 0.6 }}
-                >
-                  APPLY
-                </ThemedText>
-                <View className="mt-2 gap-3">
-                  <TextInput
-                    value={message}
-                    onChangeText={setMessage}
-                    placeholder="Why are you the right fit?"
-                    multiline
-                  />
-                  <Button
-                    title="Submit application"
-                    onPress={submitApplication}
-                    loading={submitting}
-                    disabled={submitting}
-                    variant="primary"
-                  />
-                </View>
-              </Card>
+              <View style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12, gap: 12 }}>
+                <SectionLabel label="Apply" />
+                <TextInput
+                  value={message}
+                  onChangeText={setMessage}
+                  placeholder="Why are you the right fit?"
+                  multiline
+                  style={{ minHeight: 96, textAlignVertical: 'top', backgroundColor: theme[50] }}
+                />
+                <Button
+                  title="Submit application"
+                  onPress={submitApplication}
+                  loading={submitting}
+                  disabled={submitting}
+                  variant="primary"
+                  className="w-full"
+                />
+              </View>
             )}
 
             {isCreator && !isOwnGig && gig.status !== 'open' && (
@@ -296,18 +282,14 @@ export default function GigDetailScreen() {
               </ThemedText>
             )}
 
+            {/* Applications (brand viewing own gig) */}
             {showApplications && (
-              <View className="gap-3">
-                <ThemedText
-                  type="caption-semibold"
-                  style={{ color: theme[500], letterSpacing: 0.6 }}
-                >
-                  APPLICATIONS · {applications.length}
-                </ThemedText>
+              <View style={{ gap: 12 }}>
+                <SectionLabel label={`Applications · ${applications.length}`} />
                 {applicationsQuery.isLoading ? (
                   <ActivityIndicator color={theme[500]} />
                 ) : applications.length === 0 ? (
-                  <View className="pt-4">
+                  <View style={{ paddingTop: 16 }}>
                     <EmptyState
                       title={EMPTY_GIG_APPLICATIONS.title}
                       description={EMPTY_GIG_APPLICATIONS.description}

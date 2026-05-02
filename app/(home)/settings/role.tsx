@@ -1,16 +1,16 @@
 import React, { useCallback, useState } from 'react';
-import { View, ScrollView, Pressable } from 'react-native';
+import { View, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ThemedText } from '@/components/base/ThemedText';
 import { ThemedView } from '@/components/base/ThemedView';
 import { ScreenHeader } from '@/components/base/ScreenHeader';
 import { Button } from '@/components/ui/Button';
+import { RoleSelectCard } from '@/components/ui/RoleSelectCard';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUser } from '@/contexts/UserContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { setRole } from '@/lib/services/profileService';
-import { haptic } from '@/lib/utils/haptic';
 import { toast } from '@/lib/utils/toast';
 import type { UserRole } from '@/types/marketplace';
 
@@ -56,32 +56,20 @@ export default function RoleSwitchScreen() {
 
                 <ScrollView contentContainerStyle={{ padding: 24, gap: 16 }}>
                     <ThemedText type="body-sm" style={{ color: theme[500] }}>
-                        Switching role changes which tabs and flows you see. Your wallet, listings, and history stay intact.
+                        Switching role changes which tabs and flows you see. Your wallet, listings,
+                        and history stay intact.
                     </ThemedText>
 
-                    <View className="gap-3">
-                        {ROLES.map((r) => {
-                            const isActive = selected === r.id;
-                            return (
-                                <Pressable
-                                    key={r.id}
-                                    onPress={() => {
-                                        haptic('light');
-                                        setSelected(r.id);
-                                    }}
-                                    className="rounded-card p-4 border-2"
-                                    style={{
-                                        borderColor: isActive ? theme[950] : theme[200],
-                                        backgroundColor: isActive ? theme[100] : 'transparent',
-                                    }}
-                                >
-                                    <ThemedText type="body-lg-semibold">{r.title}</ThemedText>
-                                    <ThemedText type="body-sm" className="mt-1" style={{ color: theme[500] }}>
-                                        {r.description}
-                                    </ThemedText>
-                                </Pressable>
-                            );
-                        })}
+                    <View style={{ gap: 16 }}>
+                        {ROLES.map((r) => (
+                            <RoleSelectCard
+                                key={r.id}
+                                title={r.title}
+                                description={r.description}
+                                selected={selected === r.id}
+                                onPress={() => setSelected(r.id)}
+                            />
+                        ))}
                     </View>
 
                     <Button
@@ -91,6 +79,7 @@ export default function RoleSwitchScreen() {
                         loading={submitting}
                         variant="primary"
                         size="lg"
+                        className="w-full"
                     />
                 </ScrollView>
             </SafeAreaView>

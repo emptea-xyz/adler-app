@@ -13,6 +13,25 @@ import { createPackage } from '@/lib/services/packageService';
 import { createGig } from '@/lib/services/gigService';
 import { FEED_KEYS, PACKAGE_KEYS, GIG_KEYS } from '@/lib/constants/queryKeys';
 import { toast } from '@/lib/utils/toast';
+import { TAB_BAR_HEIGHT } from '@/constants/LayoutConstants';
+
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  const { theme } = useTheme();
+  return (
+    <View style={{ gap: 4 }}>
+      <ThemedText type="caption-semibold" style={{ color: theme[500] }}>
+        {label}
+      </ThemedText>
+      {children}
+    </View>
+  );
+}
 
 export default function CreateScreen() {
   const { profile } = useUser();
@@ -35,7 +54,6 @@ export default function CreateScreen() {
       toast.error('Fill in title, description, and a valid SOL amount');
       return;
     }
-
     setSubmitting(true);
     try {
       let id: string;
@@ -88,71 +106,63 @@ export default function CreateScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           className="flex-1"
         >
-          <ScrollView contentContainerStyle={{ padding: 24 }} keyboardShouldPersistTaps="handled">
-            <ThemedText type="h3">
-              {isCreator ? 'List a package' : 'Post a gig'}
-            </ThemedText>
-            <ThemedText type="body-sm" className="mt-1 mb-6" style={{ color: theme[500] }}>
-              {isCreator
-                ? 'Describe what brands will receive and the SOL price.'
-                : 'Describe what you need and your budget in SOL.'}
-            </ThemedText>
+          <ScrollView
+            contentContainerStyle={{
+              paddingTop: 24,
+              paddingHorizontal: 24,
+              paddingBottom: TAB_BAR_HEIGHT + 32,
+            }}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View style={{ gap: 4, marginBottom: 16 }}>
+              <ThemedText type="h3" style={{ color: theme[950] }}>
+                {isCreator ? 'List a package' : 'Post a gig'}
+              </ThemedText>
+              <ThemedText type="body-sm" style={{ color: theme[500] }}>
+                {isCreator
+                  ? 'Describe what brands will receive and the SOL price.'
+                  : 'Describe what you need and your budget in SOL.'}
+              </ThemedText>
+            </View>
 
-            <View className="gap-4">
-              <View>
-                <ThemedText type="caption-semibold" style={{ color: theme[500] }} className="mb-1">
-                  TITLE
-                </ThemedText>
+            <View style={{ gap: 16 }}>
+              <Field label="Title">
                 <TextInput value={title} onChangeText={setTitle} placeholder="Short and descriptive" />
-              </View>
-
-              <View>
-                <ThemedText type="caption-semibold" style={{ color: theme[500] }} className="mb-1">
-                  DESCRIPTION
-                </ThemedText>
+              </Field>
+              <Field label="Description">
                 <TextInput
                   value={description}
                   onChangeText={setDescription}
                   placeholder="What's included? What's the scope?"
                   multiline
+                  style={{ minHeight: 96, textAlignVertical: 'top' }}
                 />
-              </View>
-
-              <View>
-                <ThemedText type="caption-semibold" style={{ color: theme[500] }} className="mb-1">
-                  {isCreator ? 'PRICE (SOL)' : 'BUDGET (SOL)'}
-                </ThemedText>
+              </Field>
+              <Field label={isCreator ? 'Price (SOL)' : 'Budget (SOL)'}>
                 <TextInput
                   value={amount}
                   onChangeText={setAmount}
                   placeholder="0.5"
                   keyboardType="decimal-pad"
                 />
-              </View>
-
-              <View>
-                <ThemedText type="caption-semibold" style={{ color: theme[500] }} className="mb-1">
-                  CATEGORY
-                </ThemedText>
+              </Field>
+              <Field label="Category">
                 <TextInput value={category} onChangeText={setCategory} placeholder="general" />
-              </View>
-
+              </Field>
               {!isCreator && (
-                <View>
-                  <ThemedText type="caption-semibold" style={{ color: theme[500] }} className="mb-1">
-                    REQUIREMENTS
-                  </ThemedText>
+                <Field label="Requirements">
                   <TextInput
                     value={requirements}
                     onChangeText={setRequirements}
                     placeholder="Vertical video, deliverables, deadline notes..."
                     multiline
+                    style={{ minHeight: 96, textAlignVertical: 'top' }}
                   />
-                </View>
+                </Field>
               )}
             </View>
 
-            <View className="mt-8">
+            <View style={{ marginTop: 32 }}>
               <Button
                 title={isCreator ? 'Publish package' : 'Publish gig'}
                 onPress={submit}
@@ -160,6 +170,7 @@ export default function CreateScreen() {
                 disabled={submitting}
                 variant="primary"
                 size="lg"
+                className="w-full"
               />
             </View>
           </ScrollView>

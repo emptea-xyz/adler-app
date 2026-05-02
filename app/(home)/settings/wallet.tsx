@@ -7,13 +7,18 @@ import { ExternalLink, Copy, RefreshCw } from 'lucide-react-native';
 import { ThemedText } from '@/components/base/ThemedText';
 import { ThemedView } from '@/components/base/ThemedView';
 import { ScreenHeader } from '@/components/base/ScreenHeader';
-import Card from '@/components/ui/Card';
+import { SectionLabel } from '@/components/base/SectionLabel';
+import { KPI } from '@/components/ui/KPI';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { getConnection, lamportsToSol, explorerAddressUrl } from '@/lib/solana/connection';
 import { PublicKey } from '@solana/web3.js';
 import { SOLANA_NETWORK } from '@/lib/constants/featureGates';
 import { toast } from '@/lib/utils/toast';
+
+function ucfirst(s: string): string {
+    return s.charAt(0).toUpperCase() + s.slice(1);
+}
 
 export default function WalletScreen() {
     const { walletAddress } = useAuth();
@@ -51,21 +56,16 @@ export default function WalletScreen() {
                 <ScreenHeader title="Wallet" onBack={() => router.back()} />
 
                 <ScrollView contentContainerStyle={{ padding: 24, gap: 16 }}>
-                    <Card>
-                        <ThemedText type="caption-semibold" style={{ color: theme[500] }}>
-                            BALANCE · {SOLANA_NETWORK.toUpperCase()}
-                        </ThemedText>
-                        <View className="flex-row items-baseline gap-2 mt-1">
-                            <ThemedText type="h2">
-                                {balance !== null ? balance.toFixed(4) : '—'}
-                            </ThemedText>
-                            <ThemedText type="body-md" style={{ color: theme[500] }}>
-                                SOL
-                            </ThemedText>
-                        </View>
+                    <View style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12, gap: 8 }}>
+                        <SectionLabel label={`Balance · ${ucfirst(SOLANA_NETWORK)}`} />
+                        <KPI
+                            size="md"
+                            amount={balance !== null ? balance.toFixed(4) : '—'}
+                            unit="SOL"
+                        />
                         <Pressable
                             onPress={refresh}
-                            className="flex-row items-center gap-2 mt-3"
+                            style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
                             hitSlop={8}
                         >
                             {loading ? (
@@ -77,39 +77,43 @@ export default function WalletScreen() {
                                 Refresh
                             </ThemedText>
                         </Pressable>
-                    </Card>
+                    </View>
 
-                    <Card>
-                        <ThemedText type="caption-semibold" style={{ color: theme[500] }}>
-                            ADDRESS
-                        </ThemedText>
-                        <ThemedText type="body-sm" className="mt-2 font-mono">
+                    <View style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12, gap: 8 }}>
+                        <SectionLabel label="Address" />
+                        <ThemedText type="body-sm" style={{ color: theme[950] }}>
                             {walletAddress ?? '—'}
                         </ThemedText>
 
-                        <View className="flex-row gap-3 mt-4">
+                        <View style={{ flexDirection: 'row', gap: 16, paddingTop: 8 }}>
                             <Pressable
                                 onPress={copy}
-                                className="flex-row items-center gap-2"
+                                style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
                                 hitSlop={8}
                             >
-                                <Copy color={theme[700]} size={14} />
-                                <ThemedText type="body-sm-semibold">Copy</ThemedText>
+                                <Copy color={theme[950]} size={14} />
+                                <ThemedText type="body-sm-semibold" style={{ color: theme[950] }}>
+                                    Copy
+                                </ThemedText>
                             </Pressable>
                             <Pressable
-                                onPress={() => walletAddress && Linking.openURL(explorerAddressUrl(walletAddress))}
-                                className="flex-row items-center gap-2"
+                                onPress={() =>
+                                    walletAddress && Linking.openURL(explorerAddressUrl(walletAddress))
+                                }
+                                style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
                                 hitSlop={8}
                             >
-                                <ExternalLink color={theme[700]} size={14} />
-                                <ThemedText type="body-sm-semibold">Explorer</ThemedText>
+                                <ExternalLink color={theme[950]} size={14} />
+                                <ThemedText type="body-sm-semibold" style={{ color: theme[950] }}>
+                                    Explorer
+                                </ThemedText>
                             </Pressable>
                         </View>
-                    </Card>
+                    </View>
 
-                    <ThemedText type="body-xs" style={{ color: theme[500] }} className="mt-2">
+                    <ThemedText type="body-xs" style={{ color: theme[500], marginTop: 8 }}>
                         On devnet, fund your wallet with the Solana CLI:{'\n'}
-                        <ThemedText type="body-xs-semibold" className="font-mono">
+                        <ThemedText type="body-xs-semibold" style={{ color: theme[700] }}>
                             solana airdrop 1 {walletAddress ?? '<address>'} --url devnet
                         </ThemedText>
                     </ThemedText>
