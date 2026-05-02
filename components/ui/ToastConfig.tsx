@@ -29,10 +29,10 @@ function ToastCard({
     ToastVariant,
     { icon: keyof typeof Feather.glyphMap; accent: string }
   > = {
-    success: { icon: "check-circle", accent: theme[500] }, // Themed success
-    error: { icon: "x-circle", accent: TailwindColors.rose[500] }, // Semantic error
-    info: { icon: "info", accent: theme[500] }, // Themed info
-    warn: { icon: "alert-triangle", accent: TailwindColors.orange[500] }, // Semantic warn
+    success: { icon: "check-circle", accent: TailwindColors.emerald[500] },
+    error: { icon: "x-circle", accent: TailwindColors.rose[500] },
+    info: { icon: "info", accent: TailwindColors.sky[500] },
+    warn: { icon: "alert-triangle", accent: TailwindColors.orange[500] },
   };
 
   const meta = variantStyles[variant];

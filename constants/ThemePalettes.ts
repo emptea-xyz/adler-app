@@ -1,14 +1,15 @@
 /**
- * Theme palette for Adler. One palette: mono. Two appearances: light and
- * dark — produced by inverting the palette at render time. Multi-accent
- * theming is intentionally out of scope.
+ * Theme palette for Adler. One palette: pure neutrals. Two appearances:
+ * light and dark — produced by inverting the palette at render time. The
+ * brand sky-blue lives in `BRAND_ACCENT` separately so muted-text usages
+ * of `theme[500]` (the natural slot for #737373) read correctly.
  *
  * Shade conventions:
  * - theme[50]: app background, lightest surfaces
  * - theme[100-200]: card backgrounds, subtle borders
- * - theme[300-400]: secondary text, disabled states
- * - theme[500]: primary accent (sky-blue brand color)
- * - theme[600-700]: hover states, emphasis
+ * - theme[300-400]: tertiary text, placeholders, disabled states
+ * - theme[500]: muted secondary text — the most common "quiet" color
+ * - theme[600-700]: emphasis text, icons
  * - theme[800-900]: primary text, headings
  * - theme[950]: darkest elements
  */
@@ -34,13 +35,19 @@ export const MONO_PALETTE: ThemePalette = {
     200: TailwindColors.neutral[200],
     300: TailwindColors.neutral[300],
     400: TailwindColors.neutral[400],
-    500: TailwindColors.sky[500],     // brand accent — sky-blue
+    500: TailwindColors.neutral[500],   // muted secondary text (#737373)
     600: TailwindColors.neutral[600],
     700: TailwindColors.neutral[700],
     800: TailwindColors.neutral[800],
     900: TailwindColors.neutral[900],
     950: TailwindColors.neutral[950],
 };
+
+/**
+ * Brand sky-blue. Used on the role-select selected card and any future
+ * "selected / brand-affirmation" surface. Theme-independent.
+ */
+export const BRAND_ACCENT = TailwindColors.sky[500];
 
 /**
  * Inverts a palette for dark mode: swaps light ↔ dark shades. Shade 500
