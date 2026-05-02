@@ -110,7 +110,7 @@ export default function ProfileScreen() {
       <SafeAreaView edges={['top']} className="flex-1">
         <ScrollView
           contentContainerStyle={{
-            paddingHorizontal: 24,
+            paddingHorizontal: 16,
             paddingTop: 16,
             paddingBottom: TAB_BAR_HEIGHT + 32,
             gap: 16,

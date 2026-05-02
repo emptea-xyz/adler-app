@@ -109,7 +109,7 @@ export default function CreateScreen() {
           <ScrollView
             contentContainerStyle={{
               paddingTop: 24,
-              paddingHorizontal: 24,
+              paddingHorizontal: 16,
               paddingBottom: TAB_BAR_HEIGHT + 32,
             }}
             keyboardShouldPersistTaps="handled"
