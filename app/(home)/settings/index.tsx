@@ -28,7 +28,7 @@ function Row({
         <Card
             onPress={onPress}
             variant="border-bottom"
-            className="flex-row items-center justify-between"
+            className="flex-row items-center justify-between px-screen py-3"
         >
             <View className="flex-row items-center gap-3">
                 {icon}
