@@ -1,24 +1,40 @@
 import React from 'react';
-import { View, ScrollView, Pressable, Linking } from 'react-native';
+import { View, ScrollView, Pressable, Linking, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Settings as Cog, Wallet, Copy, ExternalLink } from 'lucide-react-native';
+import {
+  Settings as Cog,
+  Wallet,
+  Copy,
+  ExternalLink,
+  RefreshCw,
+} from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { PublicKey } from '@solana/web3.js';
 import { ThemedText } from '@/components/base/ThemedText';
 import { ThemedView } from '@/components/base/ThemedView';
 import { SectionLabel } from '@/components/base/SectionLabel';
 import { Avatar } from '@/components/ui/Avatar';
 import { KPI } from '@/components/ui/KPI';
+import { Button } from '@/components/ui/Button';
+import { ListingCard } from '@/components/ui/ListingCard';
+import EmptyState from '@/components/ui/EmptyState';
 import { useUser } from '@/contexts/UserContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { getConnection, lamportsToSol, explorerAddressUrl } from '@/lib/solana/connection';
-import { PROFILE_KEYS } from '@/lib/constants/queryKeys';
+import { listPackagesBySeller } from '@/lib/services/packageService';
+import { listGigsByBrand } from '@/lib/services/gigService';
+import { PROFILE_KEYS, PACKAGE_KEYS, GIG_KEYS } from '@/lib/constants/queryKeys';
+import { SOLANA_NETWORK } from '@/lib/constants/featureGates';
 import { toast } from '@/lib/utils/toast';
 import { haptic } from '@/lib/utils/haptic';
 import { TAB_BAR_HEIGHT } from '@/constants/LayoutConstants';
+import {
+  EMPTY_PACKAGES_BY_SELLER,
+  EMPTY_GIGS_BY_BRAND,
+} from '@/lib/utils/copy';
 
 function shortenAddress(address: string | null): string {
   if (!address) return '—';
@@ -30,11 +46,16 @@ function ucfirst(s: string | null | undefined): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+const LISTINGS_PREVIEW_LIMIT = 5;
+
 export default function ProfileScreen() {
   const { profile } = useUser();
   const { walletAddress } = useAuth();
   const { theme } = useTheme();
   const router = useRouter();
+  const queryClient = useQueryClient();
+
+  const isCreator = profile?.role === 'creator';
 
   const balanceQuery = useQuery({
     queryKey: walletAddress ? PROFILE_KEYS.walletBalance(walletAddress) : ['wallet', 'balance', 'none'],
@@ -46,6 +67,18 @@ export default function ProfileScreen() {
     },
     refetchInterval: 30_000,
     staleTime: 15_000,
+  });
+
+  const packagesQuery = useQuery({
+    queryKey: profile?.id ? PACKAGE_KEYS.bySeller(profile.id) : ['packages', 'seller', 'anon'],
+    enabled: !!profile?.id && isCreator,
+    queryFn: () => listPackagesBySeller(profile!.id),
+  });
+
+  const gigsQuery = useQuery({
+    queryKey: profile?.id ? GIG_KEYS.byBrand(profile.id) : ['gigs', 'brand', 'anon'],
+    enabled: !!profile?.id && !isCreator,
+    queryFn: () => listGigsByBrand(profile!.id),
   });
 
   const copyAddress = async () => {
@@ -60,6 +93,17 @@ export default function ProfileScreen() {
     haptic('light');
     Linking.openURL(explorerAddressUrl(walletAddress));
   };
+
+  const refreshBalance = () => {
+    if (!walletAddress) return;
+    haptic('light');
+    queryClient.invalidateQueries({ queryKey: PROFILE_KEYS.walletBalance(walletAddress) });
+  };
+
+  const listings = isCreator ? packagesQuery.data ?? [] : gigsQuery.data ?? [];
+  const listingsLoading = isCreator ? packagesQuery.isLoading : gigsQuery.isLoading;
+  const listingsTitle = isCreator ? 'Your packages' : 'Your gigs';
+  const listingsEmpty = isCreator ? EMPTY_PACKAGES_BY_SELLER : EMPTY_GIGS_BY_BRAND;
 
   return (
     <ThemedView className="flex-1">
@@ -98,13 +142,7 @@ export default function ProfileScreen() {
           </View>
 
           {/* Identity card */}
-          <View
-            style={{
-              backgroundColor: theme[100],
-              padding: 20,
-              borderRadius: 12,
-            }}
-          >
+          <View style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
               <Avatar
                 avatarUrl={profile?.avatarUrl}
@@ -139,18 +177,11 @@ export default function ProfileScreen() {
             ) : null}
           </View>
 
-          {/* Wallet card */}
-          <View
-            style={{
-              backgroundColor: theme[100],
-              padding: 20,
-              borderRadius: 12,
-              gap: 8,
-            }}
-          >
+          {/* Wallet card — full wallet interface inline */}
+          <View style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12, gap: 8 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Wallet color={theme[500]} size={14} />
-              <SectionLabel label="Solana wallet (devnet)" />
+              <SectionLabel label={`Solana wallet (${SOLANA_NETWORK})`} />
             </View>
             <KPI
               size="md"
@@ -181,7 +212,100 @@ export default function ProfileScreen() {
                   Explorer
                 </ThemedText>
               </Pressable>
+              <Pressable
+                onPress={refreshBalance}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                hitSlop={8}
+                disabled={balanceQuery.isFetching}
+              >
+                {balanceQuery.isFetching ? (
+                  <ActivityIndicator size="small" color={theme[950]} />
+                ) : (
+                  <RefreshCw color={theme[950]} size={14} />
+                )}
+                <ThemedText type="body-sm-semibold" style={{ color: theme[950] }}>
+                  Refresh
+                </ThemedText>
+              </Pressable>
             </View>
+            {SOLANA_NETWORK === 'devnet' ? (
+              <ThemedText
+                type="body-xs"
+                style={{ color: theme[500], marginTop: 12, lineHeight: 18 }}
+              >
+                Need test SOL? Run{' '}
+                <ThemedText type="body-xs-semibold" style={{ color: theme[700] }}>
+                  solana airdrop 1 {shortenAddress(walletAddress)} --url devnet
+                </ThemedText>{' '}
+                from your terminal.
+              </ThemedText>
+            ) : null}
+          </View>
+
+          {/* Platform integration — your listings */}
+          <View style={{ gap: 12, marginTop: 8 }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <SectionLabel label={listingsTitle} />
+              {listings.length > 0 ? (
+                <ThemedText type="caption-semibold" style={{ color: theme[500] }}>
+                  {listings.length}
+                </ThemedText>
+              ) : null}
+            </View>
+
+            {listingsLoading ? (
+              <View style={{ paddingVertical: 24, alignItems: 'center' }}>
+                <ActivityIndicator color={theme[500]} />
+              </View>
+            ) : listings.length === 0 ? (
+              <View style={{ gap: 12, paddingTop: 8 }}>
+                <EmptyState
+                  title={listingsEmpty.title}
+                  description={listingsEmpty.description}
+                />
+                <Button
+                  title={isCreator ? 'List a package' : 'Post a gig'}
+                  onPress={() => {
+                    haptic('light');
+                    router.push('/(home)/(tabs)/create');
+                  }}
+                  variant="secondary"
+                  className="self-center"
+                />
+              </View>
+            ) : (
+              <View style={{ gap: 14 }}>
+                {listings.slice(0, LISTINGS_PREVIEW_LIMIT).map((item) => {
+                  const isPackage = isCreator;
+                  const amount = isPackage
+                    ? (item as any).priceSol
+                    : (item as any).budgetSol;
+                  return (
+                    <ListingCard
+                      key={item.id}
+                      kind={isPackage ? 'package' : 'gig'}
+                      amount={amount}
+                      category={item.category}
+                      title={item.title}
+                      ownerId={profile?.id ?? ''}
+                      createdAt={item.createdAt}
+                      onPress={() => {
+                        haptic('light');
+                        router.push(
+                          isPackage ? `/package/${item.id}` : `/gig/${item.id}`,
+                        );
+                      }}
+                    />
+                  );
+                })}
+              </View>
+            )}
           </View>
         </ScrollView>
       </SafeAreaView>
