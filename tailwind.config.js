@@ -8,6 +8,9 @@ module.exports = {
         geist: ["Geist_400Regular", "sans-serif"],
         "geist-semibold": ["Geist_600SemiBold", "sans-serif"],
       },
+      letterSpacing: {
+        adler: "-0.03em",
+      },
       // ─────────────────────────────────────────────────────────────────
       // SPACING TOKENS (matches LayoutConstants.ts)
       // Use: gap-item, p-screen, m-section, etc.
@@ -42,7 +45,7 @@ module.exports = {
         // Semantic aliases
         'input': '8px',   // Input fields, tags
         'button': '12px', // Buttons, action items
-        'card': '6px',    // Cards, containers (grid aesthetic)
+        'card': '12px',   // Cards, buttons, inputs — universal radius
         'sheet': '24px',  // Bottom sheets, modals
       },
     },

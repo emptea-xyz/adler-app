@@ -36,37 +36,37 @@ type Variant = HeadingVariant | BodyVariant | UIVariant;
  * Each variant defines: font-family, font-size, line-height, letter-spacing
  */
 const variantClasses: Record<Variant, string> = {
-  // Headings (Geist SemiBold) - h1 is largest, h6 is smallest
-  h1: 'font-geist-semibold text-[48px] leading-[56px] tracking-tight',
-  h2: 'font-geist-semibold text-[36px] leading-[44px] tracking-tight',
-  h3: 'font-geist-semibold text-[28px] leading-[36px] tracking-tight',
-  h4: 'font-geist-semibold text-[24px] leading-[32px] tracking-tight',
-  h5: 'font-geist-semibold text-[20px] leading-[28px] tracking-tight',
-  h6: 'font-geist-semibold text-[18px] leading-[26px] tracking-tight',
+  // Headings (Geist SemiBold) — h1 largest, h6 smallest. -3% tracking everywhere.
+  h1: 'font-geist-semibold text-[48px] leading-[56px] tracking-adler',
+  h2: 'font-geist-semibold text-[36px] leading-[44px] tracking-adler',
+  h3: 'font-geist-semibold text-[28px] leading-[36px] tracking-adler',
+  h4: 'font-geist-semibold text-[24px] leading-[32px] tracking-adler',
+  h5: 'font-geist-semibold text-[20px] leading-[28px] tracking-adler',
+  h6: 'font-geist-semibold text-[18px] leading-[26px] tracking-adler',
 
-  // Body text (Geist Medium - default)
-  'body-3xl': 'font-geist text-[24px] leading-[32px]',
-  'body-2xl': 'font-geist text-[20px] leading-[28px]',
-  'body-xl': 'font-geist text-[18px] leading-[26px]',
-  'body-lg': 'font-geist text-[16px] leading-[24px]',
-  'body-md': 'font-geist text-[14px] leading-[20px]',
-  'body-sm': 'font-geist text-[13px] leading-[18px]',
-  'body-xs': 'font-geist text-[12px] leading-[16px]',
+  // Body (Geist Regular)
+  'body-3xl': 'font-geist text-[24px] leading-[32px] tracking-adler',
+  'body-2xl': 'font-geist text-[20px] leading-[28px] tracking-adler',
+  'body-xl': 'font-geist text-[18px] leading-[26px] tracking-adler',
+  'body-lg': 'font-geist text-[16px] leading-[24px] tracking-adler',
+  'body-md': 'font-geist text-[14px] leading-[20px] tracking-adler',
+  'body-sm': 'font-geist text-[13px] leading-[18px] tracking-adler',
+  'body-xs': 'font-geist text-[12px] leading-[16px] tracking-adler',
 
-  // Body text (Geist semibold)
-  'body-3xl-semibold': 'font-geist-semibold text-[24px] leading-[32px] tracking-tight',
-  'body-2xl-semibold': 'font-geist-semibold text-[20px] leading-[28px] tracking-tight',
-  'body-xl-semibold': 'font-geist-semibold text-[18px] leading-[26px] tracking-tight',
-  'body-lg-semibold': 'font-geist-semibold text-[16px] leading-[24px] tracking-tight',
-  'body-md-semibold': 'font-geist-semibold text-[14px] leading-[20px] tracking-tight',
-  'body-sm-semibold': 'font-geist-semibold text-[13px] leading-[18px] tracking-tight',
-  'body-xs-semibold': 'font-geist-semibold text-[12px] leading-[16px] tracking-tight',
+  // Body (Geist SemiBold)
+  'body-3xl-semibold': 'font-geist-semibold text-[24px] leading-[32px] tracking-adler',
+  'body-2xl-semibold': 'font-geist-semibold text-[20px] leading-[28px] tracking-adler',
+  'body-xl-semibold': 'font-geist-semibold text-[18px] leading-[26px] tracking-adler',
+  'body-lg-semibold': 'font-geist-semibold text-[16px] leading-[24px] tracking-adler',
+  'body-md-semibold': 'font-geist-semibold text-[14px] leading-[20px] tracking-adler',
+  'body-sm-semibold': 'font-geist-semibold text-[13px] leading-[18px] tracking-adler',
+  'body-xs-semibold': 'font-geist-semibold text-[12px] leading-[16px] tracking-adler',
 
-  // UI text
-  caption: 'font-geist text-[11px] leading-[14px]',
-  'caption-semibold': 'font-geist-semibold text-[11px] leading-[14px]',
-  label: 'font-geist text-[11px] leading-[14px]',
-  'label-semibold': 'font-geist-semibold text-[11px] leading-[14px]',
+  // UI
+  caption: 'font-geist text-[11px] leading-[14px] tracking-adler',
+  'caption-semibold': 'font-geist-semibold text-[11px] leading-[14px] tracking-adler',
+  label: 'font-geist text-[11px] leading-[14px] tracking-adler',
+  'label-semibold': 'font-geist-semibold text-[11px] leading-[14px] tracking-adler',
 };
 
 

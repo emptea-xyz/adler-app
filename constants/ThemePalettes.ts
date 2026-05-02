@@ -80,6 +80,19 @@ export const SIGNAL_PALETTE = {
 } as const;
 
 /**
+ * ACCENT PALETTE — fixed brand hues for status pills, signal accents, and
+ * decorative surfaces (sign-in halo, inbox underline). Theme-independent: each
+ * value renders identically in light and dark mode. Pair with `useTheme()`
+ * neutrals when a surrounding surface needs to flip.
+ */
+export const ACCENT_COLORS = {
+    pink: '#ff0088',
+    cyan: '#00d4ff',
+    lime: '#4cd900',
+    orange: '#ff5900',
+} as const;
+
+/**
  * Static signal slots used across the app's accent surfaces. Values are
  * theme-independent (we only have one theme) — `useTheme().signalColors` is
  * just this object.
