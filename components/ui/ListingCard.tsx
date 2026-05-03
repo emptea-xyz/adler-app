@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, View, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useQuery } from '@tanstack/react-query';
 import { ThemedText } from '@/components/base/ThemedText';
@@ -21,6 +21,9 @@ interface ListingCardProps {
   title: string;
   ownerId: string;       // sellerId or brandId — used to fetch the @username
   createdAt: number;
+  /** Optional cover image. First entry is rendered as the 130px hero;
+   *  if absent we fall back to the peach gradient placeholder. */
+  mediaUrls?: string[];
   onPress: () => void;
 }
 
@@ -45,6 +48,7 @@ export function ListingCard({
   title,
   ownerId,
   createdAt,
+  mediaUrls,
   onPress,
 }: ListingCardProps) {
   const { theme } = useTheme();
@@ -56,6 +60,7 @@ export function ListingCard({
   });
 
   const username = profileQuery.data?.username ?? '—';
+  const heroUri = mediaUrls?.[0];
 
   return (
     <Pressable
@@ -69,12 +74,20 @@ export function ListingCard({
         overflow: 'hidden',
       }}
     >
-      <LinearGradient
-        colors={['#ffd6a8', '#ffccd4']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={{ height: 130 }}
-      />
+      {heroUri ? (
+        <Image
+          source={{ uri: heroUri }}
+          style={{ height: 130, width: '100%' }}
+          resizeMode="cover"
+        />
+      ) : (
+        <LinearGradient
+          colors={['#ffd6a8', '#ffccd4']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={{ height: 130 }}
+        />
+      )}
       <View style={{ padding: 16, gap: 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <KPI size="md" amount={amount} unit="SOL" />

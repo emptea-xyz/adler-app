@@ -299,6 +299,7 @@ export default function ProfileScreen() {
                   const amount = isPackage
                     ? (item as any).priceSol
                     : (item as any).budgetSol;
+                  const mediaUrls = isPackage ? (item as any).mediaUrls : undefined;
                   return (
                     <ListingCard
                       key={item.id}
@@ -308,6 +309,7 @@ export default function ProfileScreen() {
                       title={item.title}
                       ownerId={profile?.id ?? ''}
                       createdAt={item.createdAt}
+                      mediaUrls={mediaUrls}
                       onPress={() => {
                         haptic('light');
                         router.push(

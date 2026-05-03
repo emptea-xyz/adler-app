@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, ScrollView, ActivityIndicator } from 'react-native';
+import { View, ScrollView, ActivityIndicator, FlatList, Image, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
@@ -28,11 +28,14 @@ function ucfirst(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+const GALLERY_HEIGHT = 280;
+
 export default function PackageDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
   const { theme } = useTheme();
   const router = useRouter();
+  const { width: screenWidth } = useWindowDimensions();
 
   const packageQuery = useQuery({
     queryKey: id ? PACKAGE_KEYS.detail(id) : ['package', 'unknown'],
@@ -69,12 +72,31 @@ export default function PackageDetailScreen() {
           <>
             <ScrollView
               contentContainerStyle={{
-                paddingHorizontal: 16,
-                paddingTop: 8,
+                paddingTop: pkg.mediaUrls.length > 0 ? 0 : 8,
                 paddingBottom: canBuy ? 134 : 32,
                 gap: 16,
               }}
+              showsVerticalScrollIndicator={false}
             >
+              {/* Gallery (full-bleed, page-snapping) */}
+              {pkg.mediaUrls.length > 0 ? (
+                <FlatList
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  data={pkg.mediaUrls}
+                  keyExtractor={(uri, i) => `${uri}-${i}`}
+                  renderItem={({ item }) => (
+                    <Image
+                      source={{ uri: item }}
+                      style={{ width: screenWidth, height: GALLERY_HEIGHT }}
+                      resizeMode="cover"
+                    />
+                  )}
+                />
+              ) : null}
+
+              <View style={{ paddingHorizontal: 16, gap: 16 }}>
               {/* KPI block */}
               <View style={{ gap: 12 }}>
                 <View
@@ -142,6 +164,7 @@ export default function PackageDetailScreen() {
                   You are the seller of this package.
                 </ThemedText>
               )}
+              </View>
             </ScrollView>
 
             {canBuy && (

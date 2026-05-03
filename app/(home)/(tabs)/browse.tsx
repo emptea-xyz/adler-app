@@ -141,6 +141,8 @@ export default function BrowseScreen() {
             renderItem={({ item }) => {
               const ownerId = item.kind === 'package' ? item.data.sellerId : item.data.brandId;
               const amount = item.kind === 'package' ? item.data.priceSol : item.data.budgetSol;
+              const mediaUrls =
+                item.kind === 'package' ? item.data.mediaUrls : undefined;
               return (
                 <ListingCard
                   kind={item.kind}
@@ -149,6 +151,7 @@ export default function BrowseScreen() {
                   title={item.data.title}
                   ownerId={ownerId}
                   createdAt={item.data.createdAt}
+                  mediaUrls={mediaUrls}
                   onPress={() => {
                     if (item.kind === 'package') router.push(`/package/${item.data.id}`);
                     else router.push(`/gig/${item.data.id}`);

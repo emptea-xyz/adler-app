@@ -8,11 +8,13 @@ import { ThemedText } from '@/components/base/ThemedText';
 import { Button } from '@/components/ui/Button';
 import TextInput from '@/components/ui/TextInput';
 import { CategoryPickerSheet } from './CategoryPickerSheet';
+import { ImagePickerRow } from './ImagePickerRow';
 import { CATEGORY_OPTIONS } from '@/components/features/browse/filterTypes';
 import { useUser } from '@/contexts/UserContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { createPackage } from '@/lib/services/packageService';
 import { createGig } from '@/lib/services/gigService';
+import { uploadMarketplaceMedia } from '@/lib/services/imageUploadService';
 import { FEED_KEYS, PACKAGE_KEYS, GIG_KEYS } from '@/lib/constants/queryKeys';
 import { toast } from '@/lib/utils/toast';
 import { haptic } from '@/lib/utils/haptic';
@@ -80,7 +82,9 @@ export function CreateSheet({ visible, onClose }: Props) {
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('general');
   const [requirements, setRequirements] = useState('');
+  const [mediaUris, setMediaUris] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ done: number; total: number } | null>(null);
   const [categorySheet, setCategorySheet] = useState(false);
 
   const isCreator = profile?.role === 'creator';
@@ -93,7 +97,9 @@ export function CreateSheet({ visible, onClose }: Props) {
       setAmount('');
       setRequirements('');
       setCategory('general');
+      setMediaUris([]);
       setSubmitting(false);
+      setUploadProgress(null);
       setCategorySheet(false);
     }
   }, [visible]);
@@ -109,12 +115,30 @@ export function CreateSheet({ visible, onClose }: Props) {
       try {
         let id: string;
         if (isCreator) {
+          // Upload images first so the package row is created with the
+          // permanent download URLs already in mediaUrls.
+          let mediaUrls: string[] = [];
+          if (mediaUris.length > 0) {
+            setUploadProgress({ done: 0, total: mediaUris.length });
+            const draftId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+            for (let i = 0; i < mediaUris.length; i++) {
+              const url = await uploadMarketplaceMedia(
+                mediaUris[i],
+                'packages',
+                `${draftId}-${i}`,
+              );
+              mediaUrls.push(url);
+              setUploadProgress({ done: i + 1, total: mediaUris.length });
+            }
+            setUploadProgress(null);
+          }
+
           id = await createPackage({
             title: title.trim(),
             description: description.trim(),
             priceSol: parsed,
             deliverables: [],
-            mediaUrls: [],
+            mediaUrls,
             category,
           });
           queryClient.invalidateQueries({ queryKey: FEED_KEYS.browse() });
@@ -144,10 +168,28 @@ export function CreateSheet({ visible, onClose }: Props) {
       } catch (err: any) {
         toast.error(err?.message ?? 'Failed to publish');
         setSubmitting(false);
+        setUploadProgress(null);
       }
     },
-    [amount, title, description, requirements, category, isCreator, queryClient, profile?.id, router],
+    [
+      amount,
+      title,
+      description,
+      requirements,
+      category,
+      mediaUris,
+      isCreator,
+      queryClient,
+      profile?.id,
+      router,
+    ],
   );
+
+  const submitLabel = uploadProgress
+    ? `Uploading ${uploadProgress.done}/${uploadProgress.total}…`
+    : isCreator
+      ? 'Publish package'
+      : 'Publish gig';
 
   return (
     <>
@@ -155,8 +197,9 @@ export function CreateSheet({ visible, onClose }: Props) {
         visible={visible}
         onClose={onClose}
         title={isCreator ? 'List a package' : 'Post a gig'}
-        height={isCreator ? 580 : 660}
+        height={isCreator ? 700 : 660}
         keyboardAware
+        dismissible={!submitting}
       >
         {({ close }) => (
           <ScrollView
@@ -182,6 +225,15 @@ export function CreateSheet({ visible, onClose }: Props) {
                 style={{ minHeight: 96, textAlignVertical: 'top' }}
               />
             </Field>
+            {isCreator ? (
+              <Field label="Photos">
+                <ImagePickerRow
+                  values={mediaUris}
+                  onChange={setMediaUris}
+                  disabled={submitting}
+                />
+              </Field>
+            ) : null}
             <Field label={isCreator ? 'Price (SOL)' : 'Budget (SOL)'}>
               <TextInput
                 value={amount}
@@ -205,7 +257,7 @@ export function CreateSheet({ visible, onClose }: Props) {
               </Field>
             )}
             <Button
-              title={isCreator ? 'Publish package' : 'Publish gig'}
+              title={submitLabel}
               onPress={() => submit(close)}
               loading={submitting}
               disabled={submitting}
