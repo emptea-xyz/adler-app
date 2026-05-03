@@ -6,12 +6,14 @@ import { ThemedText } from '@/components/base/ThemedText';
 import { WalletPill } from '@/components/ui/WalletPill';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useOverlaySheets } from '@/contexts/OverlaySheetsContext';
 import { getConnection, lamportsToSol } from '@/lib/solana/connection';
 import { PROFILE_KEYS } from '@/lib/constants/queryKeys';
 
 // Figma node 131:133 — top header on tab screens. Static screen label on the
 // left, live wallet balance pill on the right. Drops the personalized greeting
-// per design.
+// per design. Tapping the balance pill opens the global WalletSheet by
+// default; an optional `onPressBalance` overrides that for special cases.
 
 interface AdlerHomeHeaderProps {
     title: string;
@@ -21,6 +23,7 @@ interface AdlerHomeHeaderProps {
 export function AdlerHomeHeader({ title, onPressBalance }: AdlerHomeHeaderProps) {
     const { theme } = useTheme();
     const { walletAddress } = useAuth();
+    const { openWallet } = useOverlaySheets();
 
     const balanceQuery = useQuery({
         queryKey: walletAddress ? PROFILE_KEYS.walletBalance(walletAddress) : ['wallet', 'balance', 'none'],
@@ -62,7 +65,7 @@ export function AdlerHomeHeader({ title, onPressBalance }: AdlerHomeHeaderProps)
             <WalletPill
                 amount={balanceText}
                 loading={balanceQuery.isLoading}
-                onPress={onPressBalance}
+                onPress={onPressBalance ?? openWallet}
             />
         </View>
     );

@@ -75,8 +75,6 @@ export default function BrowseScreen() {
     return matched;
   }, [data, filters]);
 
-  const onPressBalance = () => router.push('/settings/wallet');
-
   const categoryChipLabel =
     filters.category === null
       ? 'Category'
@@ -85,7 +83,7 @@ export default function BrowseScreen() {
   return (
     <ThemedView className="flex-1">
       <SafeAreaView edges={['top']} className="flex-1">
-        <AdlerHomeHeader title="Marketplace" onPressBalance={onPressBalance} />
+        <AdlerHomeHeader title="Marketplace" />
 
         <View
           style={{

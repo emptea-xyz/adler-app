@@ -112,7 +112,7 @@ export default function InboxScreen() {
   return (
     <ThemedView className="flex-1">
       <SafeAreaView edges={['top']} className="flex-1">
-        <AdlerHomeHeader title="Activity" onPressBalance={() => router.push('/settings/wallet')} />
+        <AdlerHomeHeader title="Activity" />
 
         {tabs.length > 1 && (
           <View style={{ paddingHorizontal: 16, marginTop: 8 }}>
