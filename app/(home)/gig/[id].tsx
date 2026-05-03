@@ -190,7 +190,7 @@ export default function GigDetailScreen() {
             <ActivityIndicator color={theme[950]} />
           </View>
         ) : !gig ? (
-          <View className="flex-1 items-center justify-center px-6">
+          <View className="flex-1 items-center justify-center px-4">
             <ThemedText type="body-md" style={{ color: theme[500] }}>
               Gig not found.
             </ThemedText>
@@ -198,7 +198,7 @@ export default function GigDetailScreen() {
         ) : (
           <ScrollView
             contentContainerStyle={{
-              paddingHorizontal: 24,
+              paddingHorizontal: 16,
               paddingTop: 8,
               paddingBottom: 32,
               gap: 16,

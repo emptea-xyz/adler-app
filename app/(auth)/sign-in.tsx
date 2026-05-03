@@ -72,7 +72,7 @@ export default function SignInScreen() {
     <ThemedView className="flex-1">
       <PinkHalo />
       <SafeAreaView edges={['top', 'bottom']} className="flex-1">
-        <View className="flex-1 px-6 justify-between" style={{ paddingTop: 24, paddingBottom: 24 }}>
+        <View className="flex-1 px-4 justify-between" style={{ paddingTop: 24, paddingBottom: 24 }}>
           {/* Hero */}
           <View className="flex-1 items-center justify-center" style={{ gap: 8 }}>
             <AdlerEagleLogo size={171} />

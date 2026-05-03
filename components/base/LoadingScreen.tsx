@@ -15,7 +15,7 @@ export function LoadingScreen({ title }: LoadingScreenProps) {
   const { theme } = useTheme();
   return (
     <SafeAreaView className="flex-1" style={{ backgroundColor: theme[50] }}>
-      <ThemedView className="flex-1 px-6">
+      <ThemedView className="flex-1 px-4">
         {title ? (
           <View style={{ paddingTop: 24 }}>
             <ThemedText type="h2" style={{ color: theme[950] }}>

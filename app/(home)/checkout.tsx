@@ -81,7 +81,7 @@ export default function CheckoutScreen() {
 
         <ScrollView
           contentContainerStyle={{
-            paddingHorizontal: 24,
+            paddingHorizontal: 16,
             paddingTop: 8,
             paddingBottom: 160,
             gap: 16,

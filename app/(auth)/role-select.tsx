@@ -50,7 +50,7 @@ export default function RoleSelectScreen() {
   return (
     <ThemedView className="flex-1">
       <SafeAreaView edges={['top', 'bottom']} className="flex-1">
-        <View className="flex-1 px-6 justify-between" style={{ paddingTop: 24, paddingBottom: 24 }}>
+        <View className="flex-1 px-4 justify-between" style={{ paddingTop: 24, paddingBottom: 24 }}>
           <View style={{ gap: 8 }}>
             <ThemedText type="h2" style={{ color: theme[950] }}>
               Pick your role

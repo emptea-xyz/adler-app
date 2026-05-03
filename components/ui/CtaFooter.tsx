@@ -24,7 +24,7 @@ export function CtaFooter({ children, helperText }: CtaFooterProps) {
         right: 0,
         bottom: 0,
         paddingTop: 12,
-        paddingHorizontal: 24,
+        paddingHorizontal: 16,
         paddingBottom: insets.bottom + 12,
         backgroundColor: theme[50],
       }}

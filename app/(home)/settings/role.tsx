@@ -54,7 +54,7 @@ export default function RoleSwitchScreen() {
             <SafeAreaView edges={['top']} className="flex-1">
                 <ScreenHeader title="Switch role" onBack={() => router.back()} />
 
-                <ScrollView contentContainerStyle={{ padding: 24, gap: 16 }}>
+                <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 24, gap: 16 }}>
                     <ThemedText type="body-sm" style={{ color: theme[500] }}>
                         Switching role changes which tabs and flows you see. Your wallet, listings,
                         and history stay intact.

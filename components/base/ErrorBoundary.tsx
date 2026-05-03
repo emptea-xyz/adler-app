@@ -80,7 +80,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#171717', // neutral[900]
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 24,
   },
   content: {
     alignItems: 'center',

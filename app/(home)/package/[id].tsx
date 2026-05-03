@@ -60,7 +60,7 @@ export default function PackageDetailScreen() {
             <ActivityIndicator color={theme[950]} />
           </View>
         ) : !pkg ? (
-          <View className="flex-1 items-center justify-center px-6">
+          <View className="flex-1 items-center justify-center px-4">
             <ThemedText type="body-md" style={{ color: theme[500] }}>
               Package not found.
             </ThemedText>
@@ -69,7 +69,7 @@ export default function PackageDetailScreen() {
           <>
             <ScrollView
               contentContainerStyle={{
-                paddingHorizontal: 24,
+                paddingHorizontal: 16,
                 paddingTop: 8,
                 paddingBottom: canBuy ? 134 : 32,
                 gap: 16,

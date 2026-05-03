@@ -49,7 +49,7 @@ export default function OrderDetailScreen() {
             <ActivityIndicator color={theme[950]} />
           </View>
         ) : !order ? (
-          <View className="flex-1 items-center justify-center px-6">
+          <View className="flex-1 items-center justify-center px-4">
             <ThemedText type="body-md" style={{ color: theme[500] }}>
               Order not found.
             </ThemedText>
@@ -58,7 +58,7 @@ export default function OrderDetailScreen() {
           <>
             <ScrollView
               contentContainerStyle={{
-                paddingHorizontal: 24,
+                paddingHorizontal: 16,
                 paddingTop: 8,
                 paddingBottom: order.txSignature ? 134 : 32,
                 gap: 16,

@@ -55,7 +55,7 @@ export default function WalletScreen() {
             <SafeAreaView edges={['top']} className="flex-1">
                 <ScreenHeader title="Wallet" onBack={() => router.back()} />
 
-                <ScrollView contentContainerStyle={{ padding: 24, gap: 16 }}>
+                <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 24, gap: 16 }}>
                     <View style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12, gap: 8 }}>
                         <SectionLabel label={`Balance · ${ucfirst(SOLANA_NETWORK)}`} />
                         <KPI
