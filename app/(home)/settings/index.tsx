@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -8,8 +8,10 @@ import { ThemedView } from '@/components/base/ThemedView';
 import { ScreenHeader } from '@/components/base/ScreenHeader';
 import { SectionLabel } from '@/components/base/SectionLabel';
 import Card from '@/components/ui/Card';
+import { SignOutSheet } from '@/components/features/account/SignOutSheet';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useOverlaySheets } from '@/contexts/OverlaySheetsContext';
 import { toast } from '@/lib/utils/toast';
 
 function Row({
@@ -17,11 +19,13 @@ function Row({
     title,
     onPress,
     destructive,
+    showChevron = true,
 }: {
     icon: React.ReactNode;
     title: string;
     onPress: () => void;
     destructive?: boolean;
+    showChevron?: boolean;
 }) {
     const { theme } = useTheme();
     return (
@@ -39,7 +43,7 @@ function Row({
                     {title}
                 </ThemedText>
             </View>
-            <ChevronRight color={theme[400]} size={18} />
+            {showChevron ? <ChevronRight color={theme[400]} size={18} /> : null}
         </Card>
     );
 }
@@ -48,13 +52,19 @@ export default function SettingsIndexScreen() {
     const { signOut } = useAuth();
     const { theme } = useTheme();
     const router = useRouter();
+    const { openRoleSwitch } = useOverlaySheets();
+    const [signOutSheet, setSignOutSheet] = useState(false);
+    const [signingOut, setSigningOut] = useState(false);
 
     const onSignOut = useCallback(async () => {
+        setSigningOut(true);
         try {
             await signOut();
+            setSignOutSheet(false);
             router.replace('/(auth)/sign-in');
         } catch {
             toast.error('Sign-out failed');
+            setSigningOut(false);
         }
     }, [signOut, router]);
 
@@ -75,7 +85,7 @@ export default function SettingsIndexScreen() {
                     <Row
                         icon={<UserCog color={theme[700]} size={18} />}
                         title="Switch role"
-                        onPress={() => router.push('/settings/role')}
+                        onPress={openRoleSwitch}
                     />
 
                     <View style={{ paddingHorizontal: 16, marginTop: 24, marginBottom: 8 }}>
@@ -84,11 +94,19 @@ export default function SettingsIndexScreen() {
                     <Row
                         icon={<LogOut color="#DC143C" size={18} />}
                         title="Sign out"
-                        onPress={onSignOut}
+                        onPress={() => setSignOutSheet(true)}
                         destructive
+                        showChevron={false}
                     />
                 </ScrollView>
             </SafeAreaView>
+
+            <SignOutSheet
+                visible={signOutSheet}
+                onClose={() => setSignOutSheet(false)}
+                onConfirm={onSignOut}
+                submitting={signingOut}
+            />
         </ThemedView>
     );
 }

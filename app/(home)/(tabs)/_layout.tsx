@@ -10,7 +10,6 @@ export default function TabsLayout() {
     >
       <Tabs.Screen name="browse" />
       <Tabs.Screen name="saved" />
-      <Tabs.Screen name="create" />
       <Tabs.Screen name="inbox" />
       <Tabs.Screen name="profile" />
     </Tabs>

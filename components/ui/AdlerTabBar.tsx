@@ -7,10 +7,12 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { haptic } from '@/lib/utils/haptic';
 import { TAB_BAR_HEIGHT } from '@/constants/LayoutConstants';
 import { SolanaUploadArrow } from '@/components/ui/SolanaUploadArrow';
+import { useOverlaySheets } from '@/contexts/OverlaySheetsContext';
 
-// Figma node 132:204 — 5 tabs in the order browse, saved, create, inbox,
-// profile. Icons only (no labels). The center "create" tab renders the
-// gradient upload-arrow Skia icon.
+// Figma node 132:204 — 5 visual slots in the order browse, saved, create,
+// inbox, profile. Icons only (no labels). The center "create" slot is a
+// pure action button: it opens the CreateSheet via the OverlaySheets
+// context and is NOT a navigable route.
 
 const ICONS: Record<string, React.ComponentType<{ size: number; color: string; strokeWidth?: number }>> = {
     browse: Compass,
@@ -32,6 +34,7 @@ const TAB_ORDER = ['browse', 'saved', 'create', 'inbox', 'profile'] as const;
 export function AdlerTabBar({ state, navigation }: BottomTabBarProps) {
     const { theme } = useTheme();
     const insets = useSafeAreaInsets();
+    const { openCreate } = useOverlaySheets();
 
     const onPress = useCallback(
         (routeName: string) => {
@@ -50,6 +53,11 @@ export function AdlerTabBar({ state, navigation }: BottomTabBarProps) {
         },
         [state, navigation],
     );
+
+    const onCreatePress = useCallback(() => {
+        haptic('medium');
+        openCreate();
+    }, [openCreate]);
 
     const focusedRouteName = state.routes[state.index]?.name ?? '';
 
@@ -72,15 +80,13 @@ export function AdlerTabBar({ state, navigation }: BottomTabBarProps) {
                     return (
                         <Pressable
                             key={name}
-                            onPress={() => onPress(name)}
+                            onPress={onCreatePress}
                             style={styles.centerSlot}
                             hitSlop={8}
                             accessibilityRole="button"
                             accessibilityLabel={LABELS[name]}
                         >
-                            <View style={{ opacity: isFocused ? 1 : 0.85 }}>
-                                <SolanaUploadArrow size={52} />
-                            </View>
+                            <SolanaUploadArrow size={52} />
                         </Pressable>
                     );
                 }

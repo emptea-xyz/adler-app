@@ -9,16 +9,17 @@ import { ScreenHeader } from '@/components/base/ScreenHeader';
 import { SectionLabel } from '@/components/base/SectionLabel';
 import EmptyState from '@/components/ui/EmptyState';
 import { Button } from '@/components/ui/Button';
-import TextInput from '@/components/ui/TextInput';
 import { KPI } from '@/components/ui/KPI';
 import { Pill, type PillIntent } from '@/components/ui/Pill';
+import { CtaFooter } from '@/components/ui/CtaFooter';
+import { ApplySheet } from '@/components/features/gig/ApplySheet';
+import { AwardConfirmSheet } from '@/components/features/gig/AwardConfirmSheet';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUser } from '@/contexts/UserContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { getGig, updateGigStatus } from '@/lib/services/gigService';
 import { getProfile } from '@/lib/services/profileService';
 import {
-  applyToGig,
   listApplicationsForGig,
   updateApplicationStatus,
 } from '@/lib/services/applicationService';
@@ -38,28 +39,35 @@ function gigStatusIntent(status: GigStatus): PillIntent {
 function applicationStatusIntent(status: ApplicationStatus): PillIntent {
   if (status === 'awarded') return 'lime';
   if (status === 'shortlisted') return 'cyan';
-  if (status === 'rejected') return 'neutral';
   return 'neutral';
+}
+
+interface AwardTarget {
+  applicationId: string;
+  creatorId: string;
+  recipientLabel: string;
 }
 
 function ApplicationCard({
   application,
   gig,
-  onAward,
-  awarding,
-  disabled,
+  onAwardPress,
+  awardingId,
 }: {
   application: GigApplication;
   gig: Gig;
-  onAward: () => void;
-  awarding: boolean;
-  disabled: boolean;
+  onAwardPress: (target: AwardTarget) => void;
+  awardingId: string | null;
 }) {
   const { theme } = useTheme();
   const profileQuery = useQuery({
     queryKey: PROFILE_KEYS.profile(application.creatorId),
     queryFn: () => getProfile(application.creatorId),
   });
+
+  const recipientLabel = profileQuery.data?.displayName ?? `@${profileQuery.data?.username ?? 'creator'}`;
+  const awarding = awardingId === application.id;
+  const disabled = !!awardingId || gig.status !== 'open';
 
   return (
     <View style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12, gap: 8 }}>
@@ -80,7 +88,7 @@ function ApplicationCard({
       {application.status === 'pending' && (
         <Button
           title={`Award ${gig.budgetSol} SOL`}
-          onPress={onAward}
+          onPress={() => onAwardPress({ applicationId: application.id, creatorId: application.creatorId, recipientLabel })}
           loading={awarding}
           disabled={disabled}
           variant="primary"
@@ -101,8 +109,8 @@ export default function GigDetailScreen() {
   const queryClient = useQueryClient();
   const { pay } = useSolanaPayment();
 
-  const [message, setMessage] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  const [applySheet, setApplySheet] = useState(false);
+  const [awardTarget, setAwardTarget] = useState<AwardTarget | null>(null);
   const [awardingId, setAwardingId] = useState<string | null>(null);
 
   const gigQuery = useQuery({
@@ -127,56 +135,32 @@ export default function GigDetailScreen() {
     queryFn: () => listApplicationsForGig(id!),
   });
 
-  const submitApplication = useCallback(async () => {
-    if (!gig || !message.trim()) {
-      toast.error('Write a short message about why you fit this gig');
-      return;
-    }
-    setSubmitting(true);
+  const confirmAward = useCallback(async () => {
+    if (!gig || !awardTarget) return;
+    haptic('medium');
+    setAwardingId(awardTarget.applicationId);
     try {
-      await applyToGig({ gigId: gig.id, message: message.trim(), sampleUrls: [] });
+      const { signature } = await pay({
+        type: 'gig',
+        referenceId: gig.id,
+        sellerId: awardTarget.creatorId,
+        amountSol: gig.budgetSol,
+      });
+      await updateApplicationStatus(awardTarget.applicationId, 'awarded');
+      await updateGigStatus(gig.id, 'awarded');
+      queryClient.invalidateQueries({ queryKey: GIG_KEYS.detail(gig.id) });
       queryClient.invalidateQueries({ queryKey: APPLICATION_KEYS.forGig(gig.id) });
-      if (user) {
-        queryClient.invalidateQueries({ queryKey: APPLICATION_KEYS.byCreator(user.id) });
-      }
-      setMessage('');
-      haptic('medium');
-      toast.success('Application submitted');
+      haptic('heavy');
+      toast.success(`Awarded · tx ${signature.slice(0, 8)}…`);
+      setAwardTarget(null);
     } catch (err: any) {
-      toast.error(err?.message ?? 'Failed to apply');
+      toast.error(err?.message ?? 'Award failed');
     } finally {
-      setSubmitting(false);
+      setAwardingId(null);
     }
-  }, [gig, message, queryClient, user]);
+  }, [gig, awardTarget, pay, queryClient]);
 
-  const award = useCallback(
-    async (applicationId: string, creatorId: string) => {
-      if (!gig) return;
-      haptic('medium');
-      setAwardingId(applicationId);
-      try {
-        const { signature } = await pay({
-          type: 'gig',
-          referenceId: gig.id,
-          sellerId: creatorId,
-          amountSol: gig.budgetSol,
-        });
-        await updateApplicationStatus(applicationId, 'awarded');
-        await updateGigStatus(gig.id, 'awarded');
-        queryClient.invalidateQueries({ queryKey: GIG_KEYS.detail(gig.id) });
-        queryClient.invalidateQueries({ queryKey: APPLICATION_KEYS.forGig(gig.id) });
-        haptic('heavy');
-        toast.success(`Awarded · tx ${signature.slice(0, 8)}…`);
-      } catch (err: any) {
-        toast.error(err?.message ?? 'Award failed');
-      } finally {
-        setAwardingId(null);
-      }
-    },
-    [gig, pay, queryClient],
-  );
-
-  const showApplyForm = !!gig && isCreator && !isOwnGig && gig.status === 'open';
+  const showApplyCta = !!gig && isCreator && !isOwnGig && gig.status === 'open';
   const showApplications = !!gig && isOwnGig;
   const applications = applicationsQuery.data ?? [];
 
@@ -196,122 +180,133 @@ export default function GigDetailScreen() {
             </ThemedText>
           </View>
         ) : (
-          <ScrollView
-            contentContainerStyle={{
-              paddingHorizontal: 16,
-              paddingTop: 8,
-              paddingBottom: 32,
-              gap: 16,
-            }}
-            keyboardShouldPersistTaps="handled"
-          >
-            {/* KPI block */}
-            <View style={{ gap: 12 }}>
-              <View
-                style={{
-                  flexDirection: 'row',
-                  alignItems: 'flex-end',
-                  justifyContent: 'space-between',
-                }}
-              >
-                <KPI size="md" amount={gig.budgetSol} unit="SOL" />
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <Pill intent={gigStatusIntent(gig.status)} label={gig.status} />
-                  <Pill intent="pink" label="Gig" />
+          <>
+            <ScrollView
+              contentContainerStyle={{
+                paddingHorizontal: 16,
+                paddingTop: 8,
+                paddingBottom: showApplyCta ? 134 : 32,
+                gap: 16,
+              }}
+              keyboardShouldPersistTaps="handled"
+            >
+              {/* KPI block */}
+              <View style={{ gap: 12 }}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'flex-end',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <KPI size="md" amount={gig.budgetSol} unit="SOL" />
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <Pill intent={gigStatusIntent(gig.status)} label={gig.status} />
+                    <Pill intent="pink" label="Gig" />
+                  </View>
                 </View>
-              </View>
-              <ThemedText type="h4" style={{ color: theme[950] }} numberOfLines={3}>
-                {gig.title}
-              </ThemedText>
-            </View>
-
-            {/* Brief */}
-            <View style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12, gap: 8 }}>
-              <SectionLabel label="Brief" />
-              <ThemedText type="body-md" style={{ color: theme[950] }}>
-                {gig.description}
-              </ThemedText>
-            </View>
-
-            {/* Requirements */}
-            {!!gig.requirements && (
-              <View style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12, gap: 8 }}>
-                <SectionLabel label="Requirements" />
-                <ThemedText type="body-md" style={{ color: theme[950] }}>
-                  {gig.requirements}
+                <ThemedText type="h4" style={{ color: theme[950] }} numberOfLines={3}>
+                  {gig.title}
                 </ThemedText>
               </View>
-            )}
 
-            {/* Brand */}
-            <View style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12, gap: 4 }}>
-              <SectionLabel label="Brand" />
-              <ThemedText type="body-md-semibold" style={{ color: theme[950] }}>
-                {brandQuery.data?.displayName ?? '—'}
-              </ThemedText>
-              <ThemedText type="body-sm" style={{ color: theme[500] }}>
-                @{brandQuery.data?.username ?? '—'}
-              </ThemedText>
-            </View>
+              {/* Brief */}
+              <View style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12, gap: 8 }}>
+                <SectionLabel label="Brief" />
+                <ThemedText type="body-md" style={{ color: theme[950] }}>
+                  {gig.description}
+                </ThemedText>
+              </View>
 
-            {/* Apply (creators viewing open gig) */}
-            {showApplyForm && (
-              <View style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12, gap: 12 }}>
-                <SectionLabel label="Apply" />
-                <TextInput
-                  value={message}
-                  onChangeText={setMessage}
-                  placeholder="Why are you the right fit?"
-                  multiline
-                  style={{ minHeight: 96, textAlignVertical: 'top', backgroundColor: theme[50] }}
-                />
+              {/* Requirements */}
+              {!!gig.requirements && (
+                <View style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12, gap: 8 }}>
+                  <SectionLabel label="Requirements" />
+                  <ThemedText type="body-md" style={{ color: theme[950] }}>
+                    {gig.requirements}
+                  </ThemedText>
+                </View>
+              )}
+
+              {/* Brand */}
+              <View style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12, gap: 4 }}>
+                <SectionLabel label="Brand" />
+                <ThemedText type="body-md-semibold" style={{ color: theme[950] }}>
+                  {brandQuery.data?.displayName ?? '—'}
+                </ThemedText>
+                <ThemedText type="body-sm" style={{ color: theme[500] }}>
+                  @{brandQuery.data?.username ?? '—'}
+                </ThemedText>
+              </View>
+
+              {isCreator && !isOwnGig && gig.status !== 'open' && (
+                <ThemedText type="body-sm" align="center" style={{ color: theme[500] }}>
+                  This gig is no longer open for applications.
+                </ThemedText>
+              )}
+
+              {/* Applications (brand viewing own gig) */}
+              {showApplications && (
+                <View style={{ gap: 12 }}>
+                  <SectionLabel label={`Applications · ${applications.length}`} />
+                  {applicationsQuery.isLoading ? (
+                    <ActivityIndicator color={theme[500]} />
+                  ) : applications.length === 0 ? (
+                    <View style={{ paddingTop: 16 }}>
+                      <EmptyState
+                        title={EMPTY_GIG_APPLICATIONS.title}
+                        description={EMPTY_GIG_APPLICATIONS.description}
+                      />
+                    </View>
+                  ) : (
+                    applications.map((app) => (
+                      <ApplicationCard
+                        key={app.id}
+                        application={app}
+                        gig={gig}
+                        onAwardPress={setAwardTarget}
+                        awardingId={awardingId}
+                      />
+                    ))
+                  )}
+                </View>
+              )}
+            </ScrollView>
+
+            {showApplyCta && (
+              <CtaFooter>
                 <Button
-                  title="Submit application"
-                  onPress={submitApplication}
-                  loading={submitting}
-                  disabled={submitting}
+                  title="Apply to gig"
+                  onPress={() => {
+                    haptic('light');
+                    setApplySheet(true);
+                  }}
                   variant="primary"
+                  size="lg"
                   className="w-full"
                 />
-              </View>
+              </CtaFooter>
             )}
-
-            {isCreator && !isOwnGig && gig.status !== 'open' && (
-              <ThemedText type="body-sm" align="center" style={{ color: theme[500] }}>
-                This gig is no longer open for applications.
-              </ThemedText>
-            )}
-
-            {/* Applications (brand viewing own gig) */}
-            {showApplications && (
-              <View style={{ gap: 12 }}>
-                <SectionLabel label={`Applications · ${applications.length}`} />
-                {applicationsQuery.isLoading ? (
-                  <ActivityIndicator color={theme[500]} />
-                ) : applications.length === 0 ? (
-                  <View style={{ paddingTop: 16 }}>
-                    <EmptyState
-                      title={EMPTY_GIG_APPLICATIONS.title}
-                      description={EMPTY_GIG_APPLICATIONS.description}
-                    />
-                  </View>
-                ) : (
-                  applications.map((app) => (
-                    <ApplicationCard
-                      key={app.id}
-                      application={app}
-                      gig={gig}
-                      onAward={() => award(app.id, app.creatorId)}
-                      awarding={awardingId === app.id}
-                      disabled={!!awardingId || gig.status !== 'open'}
-                    />
-                  ))
-                )}
-              </View>
-            )}
-          </ScrollView>
+          </>
         )}
       </SafeAreaView>
+
+      <ApplySheet
+        visible={applySheet}
+        onClose={() => setApplySheet(false)}
+        gig={gig ?? null}
+      />
+
+      <AwardConfirmSheet
+        visible={!!awardTarget}
+        onClose={() => {
+          if (!awardingId) setAwardTarget(null);
+        }}
+        onConfirm={confirmAward}
+        amount={gig?.budgetSol ?? 0}
+        recipientLabel={awardTarget?.recipientLabel ?? ''}
+        submitting={!!awardingId}
+      />
     </ThemedView>
   );
 }

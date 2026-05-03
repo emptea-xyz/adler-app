@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, ScrollView, Pressable, Linking, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -8,6 +8,7 @@ import {
   Copy,
   ExternalLink,
   RefreshCw,
+  QrCode,
 } from 'lucide-react-native';
 import * as Clipboard from 'expo-clipboard';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -20,9 +21,11 @@ import { KPI } from '@/components/ui/KPI';
 import { Button } from '@/components/ui/Button';
 import { ListingCard } from '@/components/ui/ListingCard';
 import EmptyState from '@/components/ui/EmptyState';
+import { ReceiveSheet } from '@/components/features/wallet/ReceiveSheet';
 import { useUser } from '@/contexts/UserContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useOverlaySheets } from '@/contexts/OverlaySheetsContext';
 import { getConnection, lamportsToSol, explorerAddressUrl } from '@/lib/solana/connection';
 import { listPackagesBySeller } from '@/lib/services/packageService';
 import { listGigsByBrand } from '@/lib/services/gigService';
@@ -54,6 +57,8 @@ export default function ProfileScreen() {
   const { theme } = useTheme();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { openRoleSwitch, openCreate: openCreateFromProfile } = useOverlaySheets();
+  const [receiveOpen, setReceiveOpen] = useState(false);
 
   const isCreator = profile?.role === 'creator';
 
@@ -157,7 +162,14 @@ export default function ProfileScreen() {
                   @{profile?.username ?? '—'}
                 </ThemedText>
               </View>
-              <View
+              <Pressable
+                onPress={() => {
+                  haptic('light');
+                  openRoleSwitch();
+                }}
+                hitSlop={6}
+                accessibilityRole="button"
+                accessibilityLabel="Switch role"
                 style={{
                   backgroundColor: theme[950],
                   paddingHorizontal: 10,
@@ -168,7 +180,7 @@ export default function ProfileScreen() {
                 <ThemedText type="caption-semibold" style={{ color: theme[50] }}>
                   {ucfirst(profile?.role) || 'No role'}
                 </ThemedText>
-              </View>
+              </Pressable>
             </View>
             {profile?.bio ? (
               <ThemedText type="body-sm" style={{ color: theme[700], marginTop: 12 }}>
@@ -191,7 +203,20 @@ export default function ProfileScreen() {
             <ThemedText type="body-sm" style={{ color: theme[700] }}>
               {shortenAddress(walletAddress)}
             </ThemedText>
-            <View style={{ flexDirection: 'row', gap: 16, paddingTop: 8 }}>
+            <View style={{ flexDirection: 'row', gap: 16, paddingTop: 8, flexWrap: 'wrap' }}>
+              <Pressable
+                onPress={() => {
+                  haptic('light');
+                  setReceiveOpen(true);
+                }}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                hitSlop={8}
+              >
+                <QrCode color={theme[950]} size={14} />
+                <ThemedText type="body-sm-semibold" style={{ color: theme[950] }}>
+                  Receive
+                </ThemedText>
+              </Pressable>
               <Pressable
                 onPress={copyAddress}
                 style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
@@ -228,18 +253,6 @@ export default function ProfileScreen() {
                 </ThemedText>
               </Pressable>
             </View>
-            {SOLANA_NETWORK === 'devnet' ? (
-              <ThemedText
-                type="body-xs"
-                style={{ color: theme[500], marginTop: 12, lineHeight: 18 }}
-              >
-                Need test SOL? Run{' '}
-                <ThemedText type="body-xs-semibold" style={{ color: theme[700] }}>
-                  solana airdrop 1 {shortenAddress(walletAddress)} --url devnet
-                </ThemedText>{' '}
-                from your terminal.
-              </ThemedText>
-            ) : null}
           </View>
 
           {/* Platform integration — your listings */}
@@ -273,7 +286,7 @@ export default function ProfileScreen() {
                   title={isCreator ? 'List a package' : 'Post a gig'}
                   onPress={() => {
                     haptic('light');
-                    router.push('/(home)/(tabs)/create');
+                    openCreateFromProfile();
                   }}
                   variant="secondary"
                   className="self-center"
@@ -309,6 +322,12 @@ export default function ProfileScreen() {
           </View>
         </ScrollView>
       </SafeAreaView>
+
+      <ReceiveSheet
+        visible={receiveOpen}
+        onClose={() => setReceiveOpen(false)}
+        walletAddress={walletAddress}
+      />
     </ThemedView>
   );
 }

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -8,6 +8,15 @@ import EmptyState from '@/components/ui/EmptyState';
 import { ListingCard } from '@/components/ui/ListingCard';
 import { FilterChip } from '@/components/ui/FilterChip';
 import { AdlerHomeHeader } from '@/components/features/home/AdlerHomeHeader';
+import { SortBySheet } from '@/components/features/browse/SortBySheet';
+import { CategorySheet } from '@/components/features/browse/CategorySheet';
+import { PriceRangeSheet } from '@/components/features/browse/PriceRangeSheet';
+import {
+  DEFAULT_FILTERS,
+  PRICE_RANGE_CHIP_LABEL,
+  PRICE_RANGE_OPTIONS,
+  SORT_BY_CHIP_LABEL,
+} from '@/components/features/browse/filterTypes';
 import { useTheme } from '@/contexts/ThemeContext';
 import { listActivePackages } from '@/lib/services/packageService';
 import { listOpenGigs } from '@/lib/services/gigService';
@@ -19,6 +28,11 @@ import { EMPTY_BROWSE } from '@/lib/utils/copy';
 export default function BrowseScreen() {
   const { theme } = useTheme();
   const router = useRouter();
+
+  const [filters, setFilters] = useState(DEFAULT_FILTERS);
+  const [sortSheet, setSortSheet] = useState(false);
+  const [categorySheet, setCategorySheet] = useState(false);
+  const [priceSheet, setPriceSheet] = useState(false);
 
   const { data, isLoading, refetch, isRefetching } = useQuery({
     queryKey: FEED_KEYS.browse(),
@@ -36,14 +50,43 @@ export default function BrowseScreen() {
     },
   });
 
+  const filtered = useMemo(() => {
+    if (!data) return [];
+    const pricePredicate =
+      PRICE_RANGE_OPTIONS.find((o) => o.id === filters.priceRange)?.predicate ?? (() => true);
+
+    const matched = data.filter((item) => {
+      if (filters.category && item.data.category !== filters.category) return false;
+      const amount =
+        item.kind === 'package' ? item.data.priceSol : item.data.budgetSol;
+      if (!pricePredicate(amount)) return false;
+      return true;
+    });
+
+    if (filters.sortBy === 'priceAsc' || filters.sortBy === 'priceDesc') {
+      const dir = filters.sortBy === 'priceAsc' ? 1 : -1;
+      matched.sort((a, b) => {
+        const aAmount = a.kind === 'package' ? a.data.priceSol : a.data.budgetSol;
+        const bAmount = b.kind === 'package' ? b.data.priceSol : b.data.budgetSol;
+        return (aAmount - bAmount) * dir;
+      });
+    }
+    // 'date' is the server-default order, leave as is.
+    return matched;
+  }, [data, filters]);
+
   const onPressBalance = () => router.push('/settings/wallet');
+
+  const categoryChipLabel =
+    filters.category === null
+      ? 'Category'
+      : filters.category.charAt(0).toUpperCase() + filters.category.slice(1);
 
   return (
     <ThemedView className="flex-1">
       <SafeAreaView edges={['top']} className="flex-1">
         <AdlerHomeHeader title="Bazaar" onPressBalance={onPressBalance} />
 
-        {/* Filter row — visual-only for v1 */}
         <View
           style={{
             flexDirection: 'row',
@@ -52,9 +95,21 @@ export default function BrowseScreen() {
             marginTop: 8,
           }}
         >
-          <FilterChip label="Sort by: Date" active />
-          <FilterChip label="Category" />
-          <FilterChip label="Price range" />
+          <FilterChip
+            label={SORT_BY_CHIP_LABEL[filters.sortBy]}
+            active={filters.sortBy !== 'date'}
+            onPress={() => setSortSheet(true)}
+          />
+          <FilterChip
+            label={categoryChipLabel}
+            active={filters.category !== null}
+            onPress={() => setCategorySheet(true)}
+          />
+          <FilterChip
+            label={PRICE_RANGE_CHIP_LABEL[filters.priceRange]}
+            active={filters.priceRange !== 'all'}
+            onPress={() => setPriceSheet(true)}
+          />
         </View>
 
         {isLoading ? (
@@ -63,7 +118,7 @@ export default function BrowseScreen() {
           </View>
         ) : (
           <FlatList
-            data={data ?? []}
+            data={filtered}
             keyExtractor={(item) => `${item.kind}:${item.data.id}`}
             contentContainerStyle={{
               paddingHorizontal: 16,
@@ -104,6 +159,25 @@ export default function BrowseScreen() {
           />
         )}
       </SafeAreaView>
+
+      <SortBySheet
+        visible={sortSheet}
+        value={filters.sortBy}
+        onChange={(sortBy) => setFilters((f) => ({ ...f, sortBy }))}
+        onClose={() => setSortSheet(false)}
+      />
+      <CategorySheet
+        visible={categorySheet}
+        value={filters.category}
+        onChange={(category) => setFilters((f) => ({ ...f, category }))}
+        onClose={() => setCategorySheet(false)}
+      />
+      <PriceRangeSheet
+        visible={priceSheet}
+        value={filters.priceRange}
+        onChange={(priceRange) => setFilters((f) => ({ ...f, priceRange }))}
+        onClose={() => setPriceSheet(false)}
+      />
     </ThemedView>
   );
 }
