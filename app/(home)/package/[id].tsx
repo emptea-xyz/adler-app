@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, ScrollView, ActivityIndicator, FlatList, Image, useWindowDimensions } from 'react-native';
+import { View, ScrollView, ActivityIndicator, FlatList, Image, Pressable, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
@@ -144,8 +144,14 @@ export default function PackageDetailScreen() {
                 </View>
               )}
 
-              {/* Seller */}
-              <View style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12, gap: 4 }}>
+              {/* Seller — tap to open public profile */}
+              <Pressable
+                onPress={() => {
+                  if (!pkg.sellerId) return;
+                  router.push(`/profile/${pkg.sellerId}`);
+                }}
+                style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12, gap: 4 }}
+              >
                 <SectionLabel label="Seller" />
                 <ThemedText type="body-md-semibold" style={{ color: theme[950] }}>
                   {sellerQuery.data?.displayName ?? '—'}
@@ -153,7 +159,7 @@ export default function PackageDetailScreen() {
                 <ThemedText type="body-sm" style={{ color: theme[500] }}>
                   @{sellerQuery.data?.username ?? '—'}
                 </ThemedText>
-              </View>
+              </Pressable>
 
               {isOwnPackage && (
                 <ThemedText

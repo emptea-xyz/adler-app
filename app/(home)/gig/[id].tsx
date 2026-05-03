@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { View, ScrollView, ActivityIndicator } from 'react-native';
+import { View, ScrollView, ActivityIndicator, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -53,11 +53,13 @@ function ApplicationCard({
   gig,
   onAwardPress,
   awardingId,
+  onPressCreator,
 }: {
   application: GigApplication;
   gig: Gig;
   onAwardPress: (target: AwardTarget) => void;
   awardingId: string | null;
+  onPressCreator: (creatorId: string) => void;
 }) {
   const { theme } = useTheme();
   const profileQuery = useQuery({
@@ -72,14 +74,18 @@ function ApplicationCard({
   return (
     <View style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12, gap: 8 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <View style={{ flex: 1, gap: 2 }}>
+        <Pressable
+          onPress={() => onPressCreator(application.creatorId)}
+          style={{ flex: 1, gap: 2 }}
+          hitSlop={6}
+        >
           <ThemedText type="body-md-semibold" style={{ color: theme[950] }} numberOfLines={1}>
             {profileQuery.data?.displayName ?? '—'}
           </ThemedText>
           <ThemedText type="body-sm" style={{ color: theme[500] }} numberOfLines={1}>
             @{profileQuery.data?.username ?? '—'}
           </ThemedText>
-        </View>
+        </Pressable>
         <Pill intent={applicationStatusIntent(application.status)} label={application.status} />
       </View>
       <ThemedText type="body-md" style={{ color: theme[950] }} numberOfLines={4}>
@@ -228,8 +234,14 @@ export default function GigDetailScreen() {
                 </View>
               )}
 
-              {/* Brand */}
-              <View style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12, gap: 4 }}>
+              {/* Brand — tap to open public profile */}
+              <Pressable
+                onPress={() => {
+                  if (!gig.brandId) return;
+                  router.push(`/profile/${gig.brandId}`);
+                }}
+                style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12, gap: 4 }}
+              >
                 <SectionLabel label="Brand" />
                 <ThemedText type="body-md-semibold" style={{ color: theme[950] }}>
                   {brandQuery.data?.displayName ?? '—'}
@@ -237,7 +249,7 @@ export default function GigDetailScreen() {
                 <ThemedText type="body-sm" style={{ color: theme[500] }}>
                   @{brandQuery.data?.username ?? '—'}
                 </ThemedText>
-              </View>
+              </Pressable>
 
               {isCreator && !isOwnGig && gig.status !== 'open' && (
                 <ThemedText type="body-sm" align="center" style={{ color: theme[500] }}>
@@ -266,6 +278,7 @@ export default function GigDetailScreen() {
                         gig={gig}
                         onAwardPress={setAwardTarget}
                         awardingId={awardingId}
+                        onPressCreator={(creatorId) => router.push(`/profile/${creatorId}`)}
                       />
                     ))
                   )}

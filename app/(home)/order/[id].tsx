@@ -73,29 +73,60 @@ export default function OrderDetailScreen() {
                 <KPI size="md" amount={order.amountSol} unit="SOL" />
               </View>
 
-              {/* Buyer/Seller/Reference */}
+              {/* Buyer/Seller (linkable) + Reference */}
               <View style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12, gap: 8 }}>
-                {[
-                  ['Buyer', order.buyerId],
-                  ['Seller', order.sellerId],
-                  ['Reference', order.referenceId],
-                ].map(([label, value]) => (
-                  <View
-                    key={label}
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                    }}
-                  >
-                    <ThemedText type="body-md" style={{ color: theme[500] }}>
-                      {label}
-                    </ThemedText>
-                    <ThemedText type="body-sm" style={{ color: theme[700] }}>
-                      {value.length > 20 ? `${value.slice(0, 12)}…${value.slice(-4)}` : value}
-                    </ThemedText>
-                  </View>
-                ))}
+                {(
+                  [
+                    ['Buyer', order.buyerId, true],
+                    ['Seller', order.sellerId, true],
+                    ['Reference', order.referenceId, false],
+                  ] as const
+                ).map(([label, value, linkable]) => {
+                  const display = value.length > 20 ? `${value.slice(0, 12)}…${value.slice(-4)}` : value;
+                  const inner = (
+                    <>
+                      <ThemedText type="body-md" style={{ color: theme[500] }}>
+                        {label}
+                      </ThemedText>
+                      <ThemedText
+                        type="body-sm"
+                        style={{ color: linkable ? theme[950] : theme[700] }}
+                      >
+                        {display}
+                      </ThemedText>
+                    </>
+                  );
+                  if (linkable) {
+                    return (
+                      <Pressable
+                        key={label}
+                        onPress={() => {
+                          haptic('light');
+                          router.push(`/profile/${value}`);
+                        }}
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                        }}
+                      >
+                        {inner}
+                      </Pressable>
+                    );
+                  }
+                  return (
+                    <View
+                      key={label}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                      }}
+                    >
+                      {inner}
+                    </View>
+                  );
+                })}
               </View>
 
               {/* Tx signature */}

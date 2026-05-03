@@ -21,6 +21,7 @@ export default function HomeLayout() {
         <Stack.Screen name="gig/[id]" options={{ presentation: 'card' }} />
         <Stack.Screen name="checkout" options={{ presentation: 'modal' }} />
         <Stack.Screen name="order/[id]" options={{ presentation: 'card' }} />
+        <Stack.Screen name="profile/[id]" options={{ presentation: 'card' }} />
         <Stack.Screen name="settings" />
       </Stack>
     </OverlaySheetsProvider>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, View, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { ThemedText } from '@/components/base/ThemedText';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -52,6 +53,7 @@ export function ListingCard({
   onPress,
 }: ListingCardProps) {
   const { theme } = useTheme();
+  const router = useRouter();
 
   const profileQuery = useQuery({
     queryKey: PROFILE_KEYS.profile(ownerId),
@@ -61,6 +63,11 @@ export function ListingCard({
 
   const username = profileQuery.data?.username ?? '—';
   const heroUri = mediaUrls?.[0];
+
+  const goToProfile = () => {
+    haptic('light');
+    router.push(`/profile/${ownerId}`);
+  };
 
   return (
     <Pressable
@@ -106,10 +113,12 @@ export function ListingCard({
         >
           {title}
         </ThemedText>
-        <View style={{ flexDirection: 'row', gap: 6 }}>
-          <ThemedText type="body-sm" style={{ color: theme[500] }}>
-            @{username}
-          </ThemedText>
+        <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+          <Pressable onPress={goToProfile} hitSlop={6}>
+            <ThemedText type="body-sm-semibold" style={{ color: theme[700] }}>
+              @{username}
+            </ThemedText>
+          </Pressable>
           <ThemedText type="body-sm" style={{ color: theme[500] }}>
             ·
           </ThemedText>
