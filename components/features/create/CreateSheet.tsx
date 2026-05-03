@@ -1,17 +1,21 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { View, ScrollView } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { View, ScrollView, Pressable } from 'react-native';
+import { ChevronDown } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { ThemedText } from '@/components/base/ThemedText';
 import { Button } from '@/components/ui/Button';
 import TextInput from '@/components/ui/TextInput';
+import { CategoryPickerSheet } from './CategoryPickerSheet';
+import { CATEGORY_OPTIONS } from '@/components/features/browse/filterTypes';
 import { useUser } from '@/contexts/UserContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { createPackage } from '@/lib/services/packageService';
 import { createGig } from '@/lib/services/gigService';
 import { FEED_KEYS, PACKAGE_KEYS, GIG_KEYS } from '@/lib/constants/queryKeys';
 import { toast } from '@/lib/utils/toast';
+import { haptic } from '@/lib/utils/haptic';
 
 interface Props {
   visible: boolean;
@@ -30,6 +34,41 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+function CategoryField({
+  value,
+  onPress,
+}: {
+  value: string;
+  onPress: () => void;
+}) {
+  const { theme } = useTheme();
+  const label =
+    CATEGORY_OPTIONS.find((o) => o.id === value)?.label ?? value;
+
+  return (
+    <Pressable
+      onPress={() => {
+        haptic('light');
+        onPress();
+      }}
+      style={{
+        backgroundColor: theme[100],
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+      }}
+    >
+      <ThemedText type="body-md" style={{ color: theme[950] }}>
+        {label}
+      </ThemedText>
+      <ChevronDown size={16} color={theme[500]} />
+    </Pressable>
+  );
+}
+
 export function CreateSheet({ visible, onClose }: Props) {
   const { profile } = useUser();
   const { theme } = useTheme();
@@ -42,6 +81,7 @@ export function CreateSheet({ visible, onClose }: Props) {
   const [category, setCategory] = useState('general');
   const [requirements, setRequirements] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [categorySheet, setCategorySheet] = useState(false);
 
   const isCreator = profile?.role === 'creator';
 
@@ -54,6 +94,7 @@ export function CreateSheet({ visible, onClose }: Props) {
       setRequirements('');
       setCategory('general');
       setSubmitting(false);
+      setCategorySheet(false);
     }
   }, [visible]);
 
@@ -109,69 +150,79 @@ export function CreateSheet({ visible, onClose }: Props) {
   );
 
   return (
-    <BottomSheet
-      visible={visible}
-      onClose={onClose}
-      title={isCreator ? 'List a package' : 'Post a gig'}
-      height={isCreator ? 580 : 660}
-      keyboardAware
-    >
-      {({ close }) => (
-        <ScrollView
-          contentContainerStyle={{ gap: 16, paddingBottom: 24 }}
-          keyboardShouldPersistTaps="handled"
-        >
-          <ThemedText type="body-sm" style={{ color: theme[500] }}>
-            {isCreator
-              ? 'Describe what brands will receive and the SOL price.'
-              : 'Describe what you need and your budget in SOL.'}
-          </ThemedText>
+    <>
+      <BottomSheet
+        visible={visible}
+        onClose={onClose}
+        title={isCreator ? 'List a package' : 'Post a gig'}
+        height={isCreator ? 580 : 660}
+        keyboardAware
+      >
+        {({ close }) => (
+          <ScrollView
+            contentContainerStyle={{ gap: 16, paddingBottom: 24 }}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <ThemedText type="body-sm" style={{ color: theme[500] }}>
+              {isCreator
+                ? 'Describe what brands will receive and the SOL price.'
+                : 'Describe what you need and your budget in SOL.'}
+            </ThemedText>
 
-          <Field label="Title">
-            <TextInput value={title} onChangeText={setTitle} placeholder="Short and descriptive" />
-          </Field>
-          <Field label="Description">
-            <TextInput
-              value={description}
-              onChangeText={setDescription}
-              placeholder="What's included? What's the scope?"
-              multiline
-              style={{ minHeight: 96, textAlignVertical: 'top' }}
-            />
-          </Field>
-          <Field label={isCreator ? 'Price (SOL)' : 'Budget (SOL)'}>
-            <TextInput
-              value={amount}
-              onChangeText={setAmount}
-              placeholder="0.5"
-              keyboardType="decimal-pad"
-            />
-          </Field>
-          <Field label="Category">
-            <TextInput value={category} onChangeText={setCategory} placeholder="general" />
-          </Field>
-          {!isCreator && (
-            <Field label="Requirements">
+            <Field label="Title">
+              <TextInput value={title} onChangeText={setTitle} placeholder="Short and descriptive" />
+            </Field>
+            <Field label="Description">
               <TextInput
-                value={requirements}
-                onChangeText={setRequirements}
-                placeholder="Vertical video, deliverables, deadline notes..."
+                value={description}
+                onChangeText={setDescription}
+                placeholder="What's included? What's the scope?"
                 multiline
                 style={{ minHeight: 96, textAlignVertical: 'top' }}
               />
             </Field>
-          )}
-          <Button
-            title={isCreator ? 'Publish package' : 'Publish gig'}
-            onPress={() => submit(close)}
-            loading={submitting}
-            disabled={submitting}
-            variant="primary"
-            size="lg"
-            className="w-full"
-          />
-        </ScrollView>
-      )}
-    </BottomSheet>
+            <Field label={isCreator ? 'Price (SOL)' : 'Budget (SOL)'}>
+              <TextInput
+                value={amount}
+                onChangeText={setAmount}
+                placeholder="0.5"
+                keyboardType="decimal-pad"
+              />
+            </Field>
+            <Field label="Category">
+              <CategoryField value={category} onPress={() => setCategorySheet(true)} />
+            </Field>
+            {!isCreator && (
+              <Field label="Requirements">
+                <TextInput
+                  value={requirements}
+                  onChangeText={setRequirements}
+                  placeholder="Vertical video, deliverables, deadline notes..."
+                  multiline
+                  style={{ minHeight: 96, textAlignVertical: 'top' }}
+                />
+              </Field>
+            )}
+            <Button
+              title={isCreator ? 'Publish package' : 'Publish gig'}
+              onPress={() => submit(close)}
+              loading={submitting}
+              disabled={submitting}
+              variant="primary"
+              size="lg"
+              className="w-full"
+            />
+          </ScrollView>
+        )}
+      </BottomSheet>
+
+      <CategoryPickerSheet
+        visible={categorySheet}
+        value={category}
+        onChange={setCategory}
+        onClose={() => setCategorySheet(false)}
+      />
+    </>
   );
 }

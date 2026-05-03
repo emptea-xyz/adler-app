@@ -85,7 +85,7 @@ export default function BrowseScreen() {
   return (
     <ThemedView className="flex-1">
       <SafeAreaView edges={['top']} className="flex-1">
-        <AdlerHomeHeader title="Bazaar" onPressBalance={onPressBalance} />
+        <AdlerHomeHeader title="Marketplace" onPressBalance={onPressBalance} />
 
         <View
           style={{

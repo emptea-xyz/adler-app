@@ -15,7 +15,10 @@ export function CategorySheet({ visible, value, onChange, onClose }: Props) {
   return (
     <BottomSheet visible={visible} onClose={onClose} title="Category" height={560}>
       {({ close }) => (
-        <ScrollView contentContainerStyle={{ gap: 4 }}>
+        <ScrollView
+          contentContainerStyle={{ gap: 4 }}
+          showsVerticalScrollIndicator={false}
+        >
           {CATEGORY_OPTIONS.map((o) => (
             <SheetOptionRow
               key={o.label}
