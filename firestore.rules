@@ -12,11 +12,124 @@ service cloud.firestore {
     }
 
     // Profiles are public-readable so listings can show seller info; writes
-    // only by the profile owner.
+    // only by the profile owner. Updates are field-validated so a tampered
+    // client can't write a 10MB displayName or a `<script>` username.
+    function validProfileUsername(value) {
+      return value is string && value.matches('^[a-z0-9_]{3,20}$');
+    }
+    function validProfileDisplayName(value) {
+      return value is string && value.size() > 0 && value.size() <= 50;
+    }
+    function validProfileBio(value) {
+      return value is string && value.size() <= 280;
+    }
+    function validProfileAvatarUrl(value) {
+      return value == null || (value is string && value.size() <= 2048);
+    }
+    function validProfileRole(value) {
+      return value == null || value in ['creator', 'brand'];
+    }
+    function validProfilePushToken(value) {
+      return value == null || (value is string && value.size() > 0 && value.size() <= 256);
+    }
+    // ISO-3166-1 alpha-2 OR null (= "Global"). Two letters, A-Z only —
+    // case-strict; the web client always uppercases before writing.
+    function validProfileCountry(value) {
+      return value == null ||
+             (value is string && value.matches('^[A-Z]{2}$'));
+    }
+    // Creator side: null = no Creator presence. Otherwise: niches list
+    // (size 0-6; per-element validation is left to the client, see
+    // `lib/utils/niches.ts` in the web app — Firestore rules can't easily
+    // map() over a list, and the worst case is one ugly chip in the UI)
+    // and optional portfolioUrl string ≤ 2048 chars.
+    function validProfileCreator(value) {
+      return value == null || (
+        value is map &&
+        value.keys().hasOnly(['niches', 'portfolioUrl']) &&
+        value.niches is list &&
+        value.niches.size() <= 6 &&
+        (value.portfolioUrl == null ||
+         (value.portfolioUrl is string && value.portfolioUrl.size() <= 2048))
+      );
+    }
+    // Brand side: null = no Brand presence. Otherwise: companyName (1-60),
+    // optional industry (≤ 60), optional websiteUrl (≤ 2048).
+    function validProfileBrand(value) {
+      return value == null || (
+        value is map &&
+        value.keys().hasOnly(['companyName', 'industry', 'websiteUrl']) &&
+        value.companyName is string &&
+        value.companyName.size() > 0 &&
+        value.companyName.size() <= 60 &&
+        (value.industry == null ||
+         (value.industry is string && value.industry.size() <= 60)) &&
+        (value.websiteUrl == null ||
+         (value.websiteUrl is string && value.websiteUrl.size() <= 2048))
+      );
+    }
+    // Per-user "saved listings" — like a bookmark. Doc id is deterministic
+    // (`${userId}_${kind}_${listingId}`) so a tampered client can't masquerade
+    // saves under another user.
+    match /saves/{saveId} {
+      allow read: if isAuthed() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthed() &&
+                      request.resource.data.userId == request.auth.uid &&
+                      saveId == request.resource.data.userId + '_' + request.resource.data.kind + '_' + request.resource.data.listingId &&
+                      request.resource.data.kind in ['package', 'gig'] &&
+                      request.resource.data.listingId is string &&
+                      request.resource.data.listingId.size() > 0;
+      allow update: if false;
+      allow delete: if isAuthed() && resource.data.userId == request.auth.uid;
+    }
+
+    // Username reservations. Doc id is the lowercase slug; data carries the
+    // claiming userId. Anyone can read (so clients can check availability);
+    // only the owner can create/release. Slug regex matches the profile rule.
+    match /usernames/{slug} {
+      allow read: if true;
+      allow create: if isAuthed() &&
+                      request.resource.data.userId == request.auth.uid &&
+                      slug.matches('^[a-z0-9_]{3,20}$');
+      allow update: if isAuthed() && resource.data.userId == request.auth.uid;
+      allow delete: if isAuthed() && resource.data.userId == request.auth.uid;
+    }
     match /profiles/{userId} {
       allow read: if true;
       allow create: if isOwner(userId);
-      allow update: if isOwner(userId);
+      // Validate each field only when it's actually being changed, so legacy
+      // profiles created before these caps existed aren't locked out.
+      allow update: if isOwner(userId)
+                      && request.resource.data.diff(resource.data).affectedKeys()
+                        .hasOnly([
+                          'username', 'displayName', 'bio', 'avatarUrl',
+                          'role', 'walletAddress', 'pushToken',
+                          'country', 'creatorProfile', 'brandProfile',
+                          'updatedAt',
+                        ])
+                      && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['username'])
+                          || validProfileUsername(request.resource.data.username))
+                      && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['displayName'])
+                          || validProfileDisplayName(request.resource.data.displayName))
+                      && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['bio'])
+                          || validProfileBio(request.resource.data.bio))
+                      && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['avatarUrl'])
+                          || validProfileAvatarUrl(request.resource.data.avatarUrl))
+                      && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role'])
+                          || validProfileRole(request.resource.data.role))
+                      && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['pushToken'])
+                          || validProfilePushToken(request.resource.data.pushToken))
+                      && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['country'])
+                          || validProfileCountry(request.resource.data.country))
+                      && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['creatorProfile'])
+                          || validProfileCreator(request.resource.data.creatorProfile))
+                      && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['brandProfile'])
+                          || validProfileBrand(request.resource.data.brandProfile))
+                      // walletAddress is append-only: null → string, but never overwritten.
+                      && (
+                        resource.data.walletAddress == null ||
+                        resource.data.walletAddress == request.resource.data.walletAddress
+                      );
       allow delete: if false;
     }
 
@@ -27,7 +140,18 @@ service cloud.firestore {
                      (isAuthed() && resource.data.sellerId == request.auth.uid);
       allow create: if isAuthed() &&
                       request.resource.data.sellerId == request.auth.uid &&
-                      request.resource.data.status == 'active';
+                      request.resource.data.status == 'active' &&
+                      request.resource.data.priceSol is number &&
+                      request.resource.data.priceSol > 0 &&
+                      request.resource.data.priceSol <= 10000 &&
+                      request.resource.data.title is string &&
+                      request.resource.data.title.size() > 0 &&
+                      request.resource.data.title.size() <= 80 &&
+                      request.resource.data.description is string &&
+                      request.resource.data.description.size() > 0 &&
+                      request.resource.data.description.size() <= 1000 &&
+                      request.resource.data.category in
+                        ['beauty', 'fitness', 'health', 'education', 'food', 'lifestyle', 'general'];
       allow update: if isAuthed() && resource.data.sellerId == request.auth.uid;
       allow delete: if false;
     }
@@ -39,7 +163,20 @@ service cloud.firestore {
                      (isAuthed() && resource.data.brandId == request.auth.uid);
       allow create: if isAuthed() &&
                       request.resource.data.brandId == request.auth.uid &&
-                      request.resource.data.status == 'open';
+                      request.resource.data.status == 'open' &&
+                      request.resource.data.budgetSol is number &&
+                      request.resource.data.budgetSol > 0 &&
+                      request.resource.data.budgetSol <= 10000 &&
+                      request.resource.data.title is string &&
+                      request.resource.data.title.size() > 0 &&
+                      request.resource.data.title.size() <= 80 &&
+                      request.resource.data.description is string &&
+                      request.resource.data.description.size() > 0 &&
+                      request.resource.data.description.size() <= 1000 &&
+                      request.resource.data.requirements is string &&
+                      request.resource.data.requirements.size() <= 1000 &&
+                      request.resource.data.category in
+                        ['beauty', 'fitness', 'health', 'education', 'food', 'lifestyle', 'general'];
       allow update: if isAuthed() && resource.data.brandId == request.auth.uid;
       allow delete: if false;
     }
@@ -54,15 +191,31 @@ service cloud.firestore {
       );
       allow create: if isAuthed() &&
                       request.resource.data.creatorId == request.auth.uid &&
-                      request.resource.data.status == 'pending';
-      allow update: if isAuthed() && (
-        get(/databases/$(database)/documents/gigs/$(resource.data.gigId)).data.brandId == request.auth.uid
-      );
+                      request.resource.data.status == 'pending' &&
+                      request.resource.data.message is string &&
+                      request.resource.data.message.size() > 0 &&
+                      request.resource.data.message.size() <= 1000 &&
+                      request.resource.data.sampleUrls is list &&
+                      request.resource.data.sampleUrls.size() <= 4 &&
+                      request.resource.data.gigId is string;
+      // Brands can flip status only — never rewrite creatorId/gigId/message.
+      allow update: if isAuthed() &&
+                      get(/databases/$(database)/documents/gigs/$(resource.data.gigId)).data.brandId == request.auth.uid &&
+                      request.resource.data.diff(resource.data).affectedKeys()
+                        .hasOnly(['status']) &&
+                      request.resource.data.status in ['shortlisted', 'awarded', 'rejected'];
       allow delete: if false;
     }
 
-    // Orders: visible to buyer and seller. Buyer creates the pending doc;
-    // either party can update status (signature/delivered/complete).
+    // Orders: visible to buyer and seller. Buyer creates the pending doc.
+    // Updates are gated by a status state machine + immutable txSignature.
+    //
+    // Threat model note: clients ultimately self-attest payment by writing
+    // `paid` with a `txSignature`. We cannot verify the on-chain transfer
+    // in rules — that requires a Cloud Function listener. Until then, the
+    // rule restricts WHO can flip WHICH transition (only the buyer can
+    // claim "paid"; only the seller can claim "delivered"; etc.) so a
+    // counterparty can't fabricate state for the other side.
     match /orders/{orderId} {
       allow read: if isAuthed() && (
         resource.data.buyerId == request.auth.uid ||
@@ -70,23 +223,85 @@ service cloud.firestore {
       );
       allow create: if isAuthed() &&
                       request.resource.data.buyerId == request.auth.uid &&
-                      request.resource.data.status == 'pending';
-      allow update: if isAuthed() && (
-        resource.data.buyerId == request.auth.uid ||
-        resource.data.sellerId == request.auth.uid
-      );
+                      request.resource.data.buyerId != request.resource.data.sellerId &&
+                      request.resource.data.status == 'pending' &&
+                      request.resource.data.txSignature == null &&
+                      request.resource.data.amountSol is number &&
+                      request.resource.data.amountSol > 0 &&
+                      request.resource.data.amountSol <= 10000 &&
+                      request.resource.data.type in ['package', 'gig'];
+      allow update: if isAuthed() &&
+                      (resource.data.buyerId == request.auth.uid ||
+                       resource.data.sellerId == request.auth.uid) &&
+                      request.resource.data.diff(resource.data).affectedKeys()
+                        .hasOnly(['status', 'txSignature', 'updatedAt']) &&
+                      // txSignature is append-only once set.
+                      (
+                        (resource.data.txSignature == null) ||
+                        (resource.data.txSignature == request.resource.data.txSignature)
+                      ) &&
+                      // Legal status transitions (buyer-driven vs seller-driven).
+                      (
+                        // pending → paid: buyer claims payment + provides signature.
+                        (resource.data.status == 'pending' &&
+                         request.resource.data.status == 'paid' &&
+                         resource.data.buyerId == request.auth.uid &&
+                         request.resource.data.txSignature is string &&
+                         request.resource.data.txSignature.size() > 0) ||
+                        // pending → failed: buyer aborts.
+                        (resource.data.status == 'pending' &&
+                         request.resource.data.status == 'failed' &&
+                         resource.data.buyerId == request.auth.uid) ||
+                        // paid → delivered: seller marks delivered.
+                        (resource.data.status == 'paid' &&
+                         request.resource.data.status == 'delivered' &&
+                         resource.data.sellerId == request.auth.uid) ||
+                        // delivered → complete: buyer confirms receipt.
+                        (resource.data.status == 'delivered' &&
+                         request.resource.data.status == 'complete' &&
+                         resource.data.buyerId == request.auth.uid) ||
+                        // No-op (touching updatedAt) — status unchanged.
+                        (resource.data.status == request.resource.data.status)
+                      );
       allow delete: if false;
     }
 
-    // Reviews are public-readable; only the reviewer can create / update their
-    // own. Reviewer must be a participant in the referenced order.
+    // Reviews are public-readable. Each reviewer gets one review per order
+    // (deterministic doc id `${orderId}_${reviewerId}`). Order must be in the
+    // 'complete' state and the reviewer + reviewee must be the order's two
+    // counter-parties.
+    function reviewedOrder(orderId) {
+      return get(/databases/$(database)/documents/orders/$(orderId)).data;
+    }
     match /reviews/{reviewId} {
       allow read: if true;
       allow create: if isAuthed() &&
                       request.resource.data.reviewerId == request.auth.uid &&
-                      get(/databases/$(database)/documents/orders/$(request.resource.data.orderId)).data.buyerId in [request.auth.uid, request.resource.data.revieweeId] &&
-                      get(/databases/$(database)/documents/orders/$(request.resource.data.orderId)).data.sellerId in [request.auth.uid, request.resource.data.revieweeId];
-      allow update: if isAuthed() && resource.data.reviewerId == request.auth.uid;
+                      reviewId == request.resource.data.orderId + '_' + request.auth.uid &&
+                      request.resource.data.reviewerId != request.resource.data.revieweeId &&
+                      request.resource.data.rating is number &&
+                      request.resource.data.rating >= 1 &&
+                      request.resource.data.rating <= 5 &&
+                      request.resource.data.comment is string &&
+                      request.resource.data.comment.size() <= 500 &&
+                      reviewedOrder(request.resource.data.orderId).status == 'complete' &&
+                      request.auth.uid in [
+                        reviewedOrder(request.resource.data.orderId).buyerId,
+                        reviewedOrder(request.resource.data.orderId).sellerId,
+                      ] &&
+                      request.resource.data.revieweeId in [
+                        reviewedOrder(request.resource.data.orderId).buyerId,
+                        reviewedOrder(request.resource.data.orderId).sellerId,
+                      ];
+      allow update: if isAuthed() &&
+                      resource.data.reviewerId == request.auth.uid &&
+                      request.resource.data.diff(resource.data).affectedKeys()
+                        .hasOnly(['rating', 'comment']) &&
+                      request.resource.data.rating is number &&
+                      request.resource.data.rating >= 1 &&
+                      request.resource.data.rating <= 5 &&
+                      request.resource.data.comment is string &&
+                      request.resource.data.comment.size() <= 500;
       allow delete: if false;
     }
   }
