@@ -67,6 +67,14 @@
       ]
     },
     {
+      "collectionGroup": "gigApplications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "brandId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "orders",
       "queryScope": "COLLECTION",
       "fields": [
@@ -80,6 +88,22 @@
       "fields": [
         { "fieldPath": "sellerId", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "saves",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "ASCENDING" }
       ]
     }
   ],

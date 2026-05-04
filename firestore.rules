@@ -187,8 +187,12 @@ service cloud.firestore {
     match /gigApplications/{applicationId} {
       allow read: if isAuthed() && (
         resource.data.creatorId == request.auth.uid ||
+        resource.data.brandId == request.auth.uid ||
         get(/databases/$(database)/documents/gigs/$(resource.data.gigId)).data.brandId == request.auth.uid
       );
+      // Create requires brandId to be the truthful brand of the parent gig
+      // (we use get() to verify) so the brand can run cheap query-by-brandId
+      // reads for the /applicants dashboard without a get() per row.
       allow create: if isAuthed() &&
                       request.resource.data.creatorId == request.auth.uid &&
                       request.resource.data.status == 'pending' &&
@@ -197,12 +201,14 @@ service cloud.firestore {
                       request.resource.data.message.size() <= 1000 &&
                       request.resource.data.sampleUrls is list &&
                       request.resource.data.sampleUrls.size() <= 4 &&
-                      request.resource.data.gigId is string;
+                      request.resource.data.gigId is string &&
+                      request.resource.data.brandId is string &&
+                      request.resource.data.brandId == get(/databases/$(database)/documents/gigs/$(request.resource.data.gigId)).data.brandId;
       // Brands can flip status only — never rewrite creatorId/gigId/message.
       allow update: if isAuthed() &&
-                      get(/databases/$(database)/documents/gigs/$(resource.data.gigId)).data.brandId == request.auth.uid &&
+                      resource.data.brandId == request.auth.uid &&
                       request.resource.data.diff(resource.data).affectedKeys()
-                        .hasOnly(['status']) &&
+                        .hasOnly(['status', 'updatedAt']) &&
                       request.resource.data.status in ['shortlisted', 'awarded', 'rejected'];
       allow delete: if false;
     }
