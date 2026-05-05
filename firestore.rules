@@ -138,6 +138,16 @@ service cloud.firestore {
 
     // Active services are public-readable; only the seller can mutate. Sellers
     // can also read their own paused/sold listings.
+    function validListingMediaUrls(value) {
+      // Optional. Up to 5 string URLs (storage download links). Per-item
+      // length cap matches Firestore's practical string limit; we don't
+      // attempt to validate URL shape here — the storage rule does that
+      // gating at upload time.
+      return !('mediaUrls' in value) || (
+        value.mediaUrls is list &&
+        value.mediaUrls.size() <= 5
+      );
+    }
     match /services/{serviceId} {
       allow read: if (resource == null || resource.data.status == 'active') ||
                      (isAuthed() && resource.data.sellerId == request.auth.uid);
@@ -154,8 +164,10 @@ service cloud.firestore {
                       request.resource.data.description.size() > 0 &&
                       request.resource.data.description.size() <= 1000 &&
                       request.resource.data.category in
-                        ['beauty', 'fitness', 'health', 'education', 'food', 'lifestyle', 'general'];
-      allow update: if isAuthed() && resource.data.sellerId == request.auth.uid;
+                        ['beauty', 'fitness', 'health', 'education', 'food', 'lifestyle', 'general'] &&
+                      validListingMediaUrls(request.resource.data);
+      allow update: if isAuthed() && resource.data.sellerId == request.auth.uid &&
+                      validListingMediaUrls(request.resource.data);
       allow delete: if false;
     }
 
@@ -179,8 +191,10 @@ service cloud.firestore {
                       request.resource.data.requirements is string &&
                       request.resource.data.requirements.size() <= 1000 &&
                       request.resource.data.category in
-                        ['beauty', 'fitness', 'health', 'education', 'food', 'lifestyle', 'general'];
-      allow update: if isAuthed() && resource.data.brandId == request.auth.uid;
+                        ['beauty', 'fitness', 'health', 'education', 'food', 'lifestyle', 'general'] &&
+                      validListingMediaUrls(request.resource.data);
+      allow update: if isAuthed() && resource.data.brandId == request.auth.uid &&
+                      validListingMediaUrls(request.resource.data);
       allow delete: if false;
     }
 

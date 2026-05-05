@@ -20,6 +20,15 @@ service firebase.storage {
       return request.resource.contentType in
         ['image/jpeg', 'image/png', 'image/webp'];
     }
+    // Listing media (services + gigs) accepts both stills and short-form
+    // video — UGC creators sell themselves with testimonial clips and
+    // example reels, so image-only is too restrictive. The firestore rule
+    // caps each listing doc at 5 entries; per-file size is gated here.
+    function isSafeListingMedia() {
+      return request.resource.contentType in
+        ['image/jpeg', 'image/png', 'image/webp',
+         'video/mp4', 'video/webm', 'video/quicktime'];
+    }
     match /packages/{userId}/{fileName} {
       allow read: if true;
       allow write: if request.auth != null
@@ -27,12 +36,19 @@ service firebase.storage {
         && isSafeRasterImage()
         && request.resource.size <= 8 * 1024 * 1024;
     }
+    match /services/{userId}/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.auth.uid == userId
+        && isSafeListingMedia()
+        && request.resource.size <= 50 * 1024 * 1024;
+    }
     match /gigs/{userId}/{fileName} {
       allow read: if true;
       allow write: if request.auth != null
         && request.auth.uid == userId
-        && isSafeRasterImage()
-        && request.resource.size <= 8 * 1024 * 1024;
+        && isSafeListingMedia()
+        && request.resource.size <= 50 * 1024 * 1024;
     }
     match /applications/{userId}/{fileName} {
       allow read: if true;
