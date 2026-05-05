@@ -41,16 +41,19 @@ service cloud.firestore {
     // Creator side: null = no Creator presence. Otherwise: niches list
     // (size 0-6; per-element validation is left to the client, see
     // `lib/utils/niches.ts` in the web app — Firestore rules can't easily
-    // map() over a list, and the worst case is one ugly chip in the UI)
-    // and optional portfolioUrl string ≤ 2048 chars.
+    // map() over a list, and the worst case is one ugly chip in the UI),
+    // optional portfolioUrl string ≤ 2048 chars, and optional socialLinks
+    // list (size ≤ 16; per-element shape validated client-side).
     function validProfileCreator(value) {
       return value == null || (
         value is map &&
-        value.keys().hasOnly(['niches', 'portfolioUrl']) &&
+        value.keys().hasOnly(['niches', 'portfolioUrl', 'socialLinks']) &&
         value.niches is list &&
         value.niches.size() <= 6 &&
         (value.portfolioUrl == null ||
-         (value.portfolioUrl is string && value.portfolioUrl.size() <= 2048))
+         (value.portfolioUrl is string && value.portfolioUrl.size() <= 2048)) &&
+        (!('socialLinks' in value) ||
+         (value.socialLinks is list && value.socialLinks.size() <= 16))
       );
     }
     // Brand side: null = no Brand presence. Otherwise: companyName (1-60),
