@@ -1,7 +1,7 @@
 {
   "indexes": [
     {
-      "collectionGroup": "packages",
+      "collectionGroup": "services",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "status", "order": "ASCENDING" },
@@ -9,7 +9,7 @@
       ]
     },
     {
-      "collectionGroup": "packages",
+      "collectionGroup": "services",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "status", "order": "ASCENDING" },
@@ -18,7 +18,7 @@
       ]
     },
     {
-      "collectionGroup": "packages",
+      "collectionGroup": "services",
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "sellerId", "order": "ASCENDING" },

@@ -79,7 +79,7 @@ service cloud.firestore {
       allow create: if isAuthed() &&
                       request.resource.data.userId == request.auth.uid &&
                       saveId == request.resource.data.userId + '_' + request.resource.data.kind + '_' + request.resource.data.listingId &&
-                      request.resource.data.kind in ['package', 'gig'] &&
+                      request.resource.data.kind in ['service', 'gig'] &&
                       request.resource.data.listingId is string &&
                       request.resource.data.listingId.size() > 0;
       allow update: if false;
@@ -136,9 +136,9 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Active packages are public-readable; only the seller can mutate. Sellers
+    // Active services are public-readable; only the seller can mutate. Sellers
     // can also read their own paused/sold listings.
-    match /packages/{packageId} {
+    match /services/{serviceId} {
       allow read: if (resource == null || resource.data.status == 'active') ||
                      (isAuthed() && resource.data.sellerId == request.auth.uid);
       allow create: if isAuthed() &&
@@ -244,7 +244,7 @@ service cloud.firestore {
                       request.resource.data.amountSol is number &&
                       request.resource.data.amountSol > 0 &&
                       request.resource.data.amountSol <= 10000 &&
-                      request.resource.data.type in ['package', 'gig'];
+                      request.resource.data.type in ['service', 'gig'];
       allow update: if isAuthed() &&
                       (resource.data.buyerId == request.auth.uid ||
                        resource.data.sellerId == request.auth.uid) &&
