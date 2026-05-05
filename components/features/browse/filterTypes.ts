@@ -1,7 +1,19 @@
 // Browse-feed filter / sort state. Applied client-side (the feed is small).
 
+import { CATEGORIES, type Category } from '@/lib/constants/categories';
+
 export type SortBy = 'date' | 'priceAsc' | 'priceDesc';
 export type PriceRange = 'all' | 'under0_1' | '0_1to1' | 'over1';
+
+const CATEGORY_LABELS: Record<Category, string> = {
+  beauty: 'Beauty',
+  fitness: 'Fitness',
+  health: 'Health',
+  education: 'Education',
+  food: 'Food',
+  lifestyle: 'Lifestyle',
+  general: 'General',
+};
 
 export interface BrowseFilters {
   sortBy: SortBy;
@@ -29,13 +41,7 @@ export const SORT_BY_CHIP_LABEL: Record<SortBy, string> = {
 
 export const CATEGORY_OPTIONS: { id: string | null; label: string }[] = [
   { id: null, label: 'All categories' },
-  { id: 'beauty', label: 'Beauty' },
-  { id: 'fitness', label: 'Fitness' },
-  { id: 'health', label: 'Health' },
-  { id: 'education', label: 'Education' },
-  { id: 'food', label: 'Food' },
-  { id: 'lifestyle', label: 'Lifestyle' },
-  { id: 'general', label: 'General' },
+  ...CATEGORIES.map((id) => ({ id: id as string, label: CATEGORY_LABELS[id] })),
 ];
 
 export const PRICE_RANGE_OPTIONS: { id: PriceRange; label: string; predicate: (sol: number) => boolean }[] = [

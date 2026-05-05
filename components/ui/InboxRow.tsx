@@ -21,6 +21,9 @@ export function InboxRow({ title, subline, onPress }: InboxRowProps) {
         haptic('light');
         onPress();
       }}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityHint={subline}
       style={{
         backgroundColor: theme[100],
         padding: 20,

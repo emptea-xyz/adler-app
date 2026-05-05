@@ -7,9 +7,18 @@ type MintTokenResponse = {
     uid: string;
 };
 
+type DeleteAccountResponse = {
+    ok: boolean;
+};
+
 const mintFirebaseTokenFn = httpsCallable<{ accessToken: string }, MintTokenResponse>(
     functions,
     'mintFirebaseToken',
+);
+
+const deleteUserAccountFn = httpsCallable<Record<string, never>, DeleteAccountResponse>(
+    functions,
+    'deleteUserAccount',
 );
 
 /**
@@ -30,4 +39,13 @@ export async function signOutOfFirebase(): Promise<void> {
     if (auth.currentUser) {
         await firebaseSignOut(auth);
     }
+}
+
+/**
+ * Server-side account deletion: archives the user's listings, removes profile
+ * + username claim, revokes the Firebase auth user. Caller is responsible for
+ * Privy logout afterwards (the Privy session itself isn't touched here).
+ */
+export async function deleteAccount(): Promise<void> {
+    await deleteUserAccountFn({});
 }

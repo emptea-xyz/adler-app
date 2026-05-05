@@ -14,6 +14,7 @@ import { getConnection, lamportsToSol } from '@/lib/solana/connection';
 import { PROFILE_KEYS } from '@/lib/constants/queryKeys';
 import { SOLANA_NETWORK } from '@/lib/constants/featureGates';
 import { haptic } from '@/lib/utils/haptic';
+import { formatSol } from '@/lib/utils/formatNumber';
 
 interface Props {
   visible: boolean;
@@ -94,7 +95,7 @@ export function WalletSheet({ visible, onClose }: Props) {
               ) : (
                 <KPI
                   size="lg"
-                  amount={balanceQuery.data.toFixed(3)}
+                  amount={formatSol(balanceQuery.data)}
                   unit="SOL"
                 />
               )}

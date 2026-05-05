@@ -1,8 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { View, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
+import { useInboxUnread } from '@/hooks/useInboxUnread';
 import { ThemedView } from '@/components/base/ThemedView';
 import EmptyState from '@/components/ui/EmptyState';
 import { UnderlineTabBar } from '@/components/ui/UnderlineTabBar';
@@ -12,17 +13,25 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useUser } from '@/contexts/UserContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { listOrdersByBuyer, listOrdersBySeller } from '@/lib/services/orderService';
-import { listApplicationsByCreator } from '@/lib/services/applicationService';
-import { ORDER_KEYS, APPLICATION_KEYS } from '@/lib/constants/queryKeys';
+import {
+  listApplicationsByCreator,
+  listApplicationsForGigIds,
+} from '@/lib/services/applicationService';
+import { listGigsByBrand } from '@/lib/services/gigService';
+import { ORDER_KEYS, APPLICATION_KEYS, GIG_KEYS } from '@/lib/constants/queryKeys';
+import { formatSol } from '@/lib/utils/formatNumber';
+import { formatRelative } from '@/lib/utils/dates';
 import { TAB_BAR_HEIGHT } from '@/constants/LayoutConstants';
 import {
   EMPTY_INBOX_APPLICATIONS,
   EMPTY_INBOX_PURCHASES,
   EMPTY_INBOX_SALES,
+  EMPTY_GIGS_BY_BRAND,
+  EMPTY_GIG_APPLICATIONS,
 } from '@/lib/utils/copy';
 
 const CREATOR_TABS = ['Sales', 'Applications'] as const;
-const BRAND_TABS = ['Purchases'] as const;
+const BRAND_TABS = ['Purchases', 'Posted', 'Applications'] as const;
 type CreatorTab = typeof CREATOR_TABS[number];
 type BrandTab = typeof BRAND_TABS[number];
 
@@ -31,6 +40,15 @@ export default function InboxScreen() {
   const { profile } = useUser();
   const { theme } = useTheme();
   const router = useRouter();
+  const { markSeen } = useInboxUnread();
+
+  // Mark the inbox as seen each time the tab gains focus — clears the
+  // unread dot in `AdlerTabBar`.
+  useFocusEffect(
+    useCallback(() => {
+      markSeen().catch(() => null);
+    }, [markSeen]),
+  );
 
   const isCreator = profile?.role === 'creator';
   const tabs = isCreator ? CREATOR_TABS : BRAND_TABS;
@@ -54,6 +72,20 @@ export default function InboxScreen() {
     queryFn: () => listApplicationsByCreator(user!.id),
   });
 
+  const postedGigsQuery = useQuery({
+    queryKey: user ? GIG_KEYS.byBrand(user.id) : ['gigs', 'brand', 'anon'],
+    enabled: !!user && !isCreator,
+    queryFn: () => listGigsByBrand(user!.id),
+  });
+
+  // "Applications received" = all applications across the brand's gigs.
+  // We piggy-back on the postedGigsQuery so we don't double-fetch the gigs.
+  const brandApplicationsQuery = useQuery({
+    queryKey: user ? APPLICATION_KEYS.byBrand(user.id) : ['applications', 'brand', 'anon'],
+    enabled: !!user && !isCreator && !!postedGigsQuery.data,
+    queryFn: () => listApplicationsForGigIds((postedGigsQuery.data ?? []).map((g) => g.id)),
+  });
+
   type Row = { id: string; title: string; subtitle: string; href: string };
 
   const { items, loading, refetch, refreshing, emptyTitle, emptyDescription } = useMemo<{
@@ -69,8 +101,8 @@ export default function InboxScreen() {
         return {
           items: (ordersAsSellerQuery.data ?? []).map((o) => ({
             id: o.id,
-            title: `Sale · ${o.amountSol} SOL`,
-            subtitle: `${o.type} · ${o.status}`,
+            title: `${o.status === 'failed' ? '[FAILED] ' : ''}Sale · ${formatSol(o.amountSol)} SOL`,
+            subtitle: `${o.type} · ${o.status} · ${formatRelative(o.createdAt)}`,
             href: `/order/${o.id}`,
           })),
           loading: ordersAsSellerQuery.isLoading,
@@ -84,7 +116,7 @@ export default function InboxScreen() {
         items: (applicationsQuery.data ?? []).map((a) => ({
           id: a.id,
           title: `Applied · ${a.status}`,
-          subtitle: a.message.slice(0, 80),
+          subtitle: `${a.message.slice(0, 80)} · ${formatRelative(a.createdAt)}`,
           href: `/gig/${a.gigId}`,
         })),
         loading: applicationsQuery.isLoading,
@@ -94,11 +126,47 @@ export default function InboxScreen() {
         emptyDescription: EMPTY_INBOX_APPLICATIONS.description,
       };
     }
+
+    // Brand
+    if (activeTab === 'Posted') {
+      return {
+        items: (postedGigsQuery.data ?? []).map((g) => ({
+          id: g.id,
+          title: g.title,
+          subtitle: `Gig · ${g.status} · ${formatSol(g.budgetSol)} SOL · ${formatRelative(g.createdAt)}`,
+          href: `/gig/${g.id}`,
+        })),
+        loading: postedGigsQuery.isLoading,
+        refetch: postedGigsQuery.refetch,
+        refreshing: postedGigsQuery.isRefetching,
+        emptyTitle: EMPTY_GIGS_BY_BRAND.title,
+        emptyDescription: EMPTY_GIGS_BY_BRAND.description,
+      };
+    }
+    if (activeTab === 'Applications') {
+      const gigsById = new Map(
+        (postedGigsQuery.data ?? []).map((g) => [g.id, g.title]),
+      );
+      return {
+        items: (brandApplicationsQuery.data ?? []).map((a) => ({
+          id: a.id,
+          title: `Application · ${a.status}`,
+          subtitle: `${gigsById.get(a.gigId) ?? 'Gig'} · ${formatRelative(a.createdAt)}`,
+          href: `/gig/${a.gigId}`,
+        })),
+        loading: brandApplicationsQuery.isLoading || postedGigsQuery.isLoading,
+        refetch: brandApplicationsQuery.refetch,
+        refreshing: brandApplicationsQuery.isRefetching,
+        emptyTitle: EMPTY_GIG_APPLICATIONS.title,
+        emptyDescription: EMPTY_GIG_APPLICATIONS.description,
+      };
+    }
+    // Purchases
     return {
       items: (ordersAsBuyerQuery.data ?? []).map((o) => ({
         id: o.id,
-        title: `Purchase · ${o.amountSol} SOL`,
-        subtitle: `${o.type} · ${o.status}`,
+        title: `${o.status === 'failed' ? '[FAILED] ' : ''}Purchase · ${formatSol(o.amountSol)} SOL`,
+        subtitle: `${o.type} · ${o.status} · ${formatRelative(o.createdAt)}`,
         href: `/order/${o.id}`,
       })),
       loading: ordersAsBuyerQuery.isLoading,
@@ -107,7 +175,15 @@ export default function InboxScreen() {
       emptyTitle: EMPTY_INBOX_PURCHASES.title,
       emptyDescription: EMPTY_INBOX_PURCHASES.description,
     };
-  }, [isCreator, activeTab, ordersAsBuyerQuery, ordersAsSellerQuery, applicationsQuery]);
+  }, [
+    isCreator,
+    activeTab,
+    ordersAsBuyerQuery,
+    ordersAsSellerQuery,
+    applicationsQuery,
+    postedGigsQuery,
+    brandApplicationsQuery,
+  ]);
 
   return (
     <ThemedView className="flex-1">

@@ -196,7 +196,13 @@ service cloud.firestore {
       // Create requires brandId to be the truthful brand of the parent gig
       // (we use get() to verify) so the brand can run cheap query-by-brandId
       // reads for the /applicants dashboard without a get() per row.
+      //
+      // Doc ID is forced to be `{gigId}_{creatorId}`, which gives us atomic
+      // uniqueness for free — a second concurrent apply attempt by the same
+      // creator hits the existing-doc path and falls under `update` rules,
+      // which only the brand can satisfy. Defeats the spam-double-tap race.
       allow create: if isAuthed() &&
+                      applicationId == request.resource.data.gigId + '_' + request.resource.data.creatorId &&
                       request.resource.data.creatorId == request.auth.uid &&
                       request.resource.data.status == 'pending' &&
                       request.resource.data.message is string &&

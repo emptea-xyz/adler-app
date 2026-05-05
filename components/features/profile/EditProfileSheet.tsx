@@ -13,7 +13,7 @@ import {
   pickImage,
   uploadProfilePicture,
 } from '@/lib/services/imageUploadService';
-import { updateProfile } from '@/lib/services/profileService';
+import { isUsernameAvailable, updateProfile } from '@/lib/services/profileService';
 import { toast } from '@/lib/utils/toast';
 import { haptic } from '@/lib/utils/haptic';
 
@@ -21,6 +21,11 @@ interface Props {
   visible: boolean;
   onClose: () => void;
 }
+
+const DISPLAY_NAME_MAX = 50;
+const USERNAME_MAX = 20;
+const BIO_MAX = 280;
+const USERNAME_REGEX = /^[a-z0-9_]{3,20}$/;
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   const { theme } = useTheme();
@@ -74,8 +79,32 @@ export function EditProfileSheet({ visible, onClose }: Props) {
         toast.error('Display name and username are required');
         return;
       }
+      if (trimmedDisplay.length > DISPLAY_NAME_MAX) {
+        toast.error(`Display name must be ${DISPLAY_NAME_MAX} characters or less`);
+        return;
+      }
+      if (!USERNAME_REGEX.test(trimmedUsername)) {
+        toast.error('Username must be 3–20 characters, lowercase letters, digits, or underscore');
+        return;
+      }
+      if (bio.trim().length > BIO_MAX) {
+        toast.error(`Bio must be ${BIO_MAX} characters or less`);
+        return;
+      }
       setSubmitting(true);
       try {
+        // Best-effort availability check up front — saves a transaction roundtrip
+        // when the username is obviously taken. The transactional write below
+        // is still the source of truth for race-free claims.
+        if (trimmedUsername !== profile?.username) {
+          const available = await isUsernameAvailable(trimmedUsername, user.id);
+          if (!available) {
+            toast.error('That username is taken');
+            setSubmitting(false);
+            return;
+          }
+        }
+
         let avatarUrl = profile?.avatarUrl ?? null;
         if (pendingAvatarUri) {
           avatarUrl = await uploadProfilePicture(pendingAvatarUri);
@@ -94,7 +123,7 @@ export function EditProfileSheet({ visible, onClose }: Props) {
         setSubmitting(false);
       }
     },
-    [user, displayName, username, bio, pendingAvatarUri, profile?.avatarUrl, refreshProfile],
+    [user, displayName, username, bio, pendingAvatarUri, profile?.username, profile?.avatarUrl, refreshProfile],
   );
 
   return (
@@ -155,6 +184,7 @@ export function EditProfileSheet({ visible, onClose }: Props) {
               value={displayName}
               onChangeText={setDisplayName}
               placeholder="Your name"
+              maxLength={DISPLAY_NAME_MAX}
             />
           </Field>
           <Field label="Username">
@@ -164,6 +194,7 @@ export function EditProfileSheet({ visible, onClose }: Props) {
               placeholder="lowercase, no spaces"
               autoCapitalize="none"
               autoCorrect={false}
+              maxLength={USERNAME_MAX}
             />
           </Field>
           <Field label="Bio">
@@ -172,6 +203,7 @@ export function EditProfileSheet({ visible, onClose }: Props) {
               onChangeText={setBio}
               placeholder="A short line about you"
               multiline
+              maxLength={BIO_MAX}
               style={{ minHeight: 96, textAlignVertical: 'top' }}
             />
           </Field>

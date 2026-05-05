@@ -12,9 +12,11 @@ import { KPI } from '@/components/ui/KPI';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { getConnection, lamportsToSol, explorerAddressUrl } from '@/lib/solana/connection';
+import { formatSol } from '@/lib/utils/formatNumber';
 import { PublicKey } from '@solana/web3.js';
 import { SOLANA_NETWORK } from '@/lib/constants/featureGates';
 import { toast } from '@/lib/utils/toast';
+import { EMPTY_WALLET_BALANCE } from '@/lib/utils/copy';
 
 function ucfirst(s: string): string {
     return s.charAt(0).toUpperCase() + s.slice(1);
@@ -60,13 +62,20 @@ export default function WalletScreen() {
                         <SectionLabel label={`Balance · ${ucfirst(SOLANA_NETWORK)}`} />
                         <KPI
                             size="md"
-                            amount={balance !== null ? balance.toFixed(4) : '—'}
+                            amount={balance !== null ? formatSol(balance) : '—'}
                             unit="SOL"
                         />
+                        {balance === 0 ? (
+                            <ThemedText type="body-sm" style={{ color: theme[500] }}>
+                                {EMPTY_WALLET_BALANCE.description}
+                            </ThemedText>
+                        ) : null}
                         <Pressable
                             onPress={refresh}
                             style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
                             hitSlop={8}
+                            accessibilityRole="button"
+                            accessibilityLabel="Refresh balance"
                         >
                             {loading ? (
                                 <ActivityIndicator size="small" color={theme[500]} />

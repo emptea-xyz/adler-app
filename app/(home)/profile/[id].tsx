@@ -9,9 +9,7 @@ import { ScreenHeader } from '@/components/base/ScreenHeader';
 import { SectionLabel } from '@/components/base/SectionLabel';
 import { Avatar } from '@/components/ui/Avatar';
 import { Pill } from '@/components/ui/Pill';
-import { Button } from '@/components/ui/Button';
 import { ListingCard } from '@/components/ui/ListingCard';
-import { CtaFooter } from '@/components/ui/CtaFooter';
 import EmptyState from '@/components/ui/EmptyState';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -20,7 +18,6 @@ import { listPackagesBySeller } from '@/lib/services/packageService';
 import { listGigsByBrand } from '@/lib/services/gigService';
 import { PROFILE_KEYS, PACKAGE_KEYS, GIG_KEYS } from '@/lib/constants/queryKeys';
 import { haptic } from '@/lib/utils/haptic';
-import { toast } from '@/lib/utils/toast';
 import {
   EMPTY_PACKAGES_BY_SELLER,
   EMPTY_GIGS_BY_BRAND,
@@ -43,15 +40,14 @@ export default function PublicProfileScreen() {
   const { theme } = useTheme();
   const router = useRouter();
 
-  // Tapping your own @username anywhere in the app should land you on the
-  // dashboard view, not a read-only mirror of the same data.
-  if (user && id === user.id) {
-    return <Redirect href="/(home)/(tabs)/profile" />;
-  }
+  // Tapping your own @username should land on the dashboard, not a read-only
+  // mirror. Compute as a flag and short-circuit *after* hooks below — keeping
+  // the early return above the hook calls violates rules-of-hooks.
+  const redirectToOwnProfile = !!user && id === user.id;
 
   const profileQuery = useQuery({
     queryKey: id ? PROFILE_KEYS.profile(id) : ['profile', 'unknown'],
-    enabled: !!id,
+    enabled: !!id && !redirectToOwnProfile,
     queryFn: () => getProfile(id!),
   });
 
@@ -60,15 +56,19 @@ export default function PublicProfileScreen() {
 
   const packagesQuery = useQuery({
     queryKey: profile?.id ? PACKAGE_KEYS.bySeller(profile.id) : ['packages', 'seller', 'anon'],
-    enabled: !!profile?.id && isCreator,
+    enabled: !!profile?.id && isCreator && !redirectToOwnProfile,
     queryFn: () => listPackagesBySeller(profile!.id),
   });
 
   const gigsQuery = useQuery({
     queryKey: profile?.id ? GIG_KEYS.byBrand(profile.id) : ['gigs', 'brand', 'anon'],
-    enabled: !!profile?.id && !isCreator,
+    enabled: !!profile?.id && !isCreator && !redirectToOwnProfile,
     queryFn: () => listGigsByBrand(profile!.id),
   });
+
+  if (redirectToOwnProfile) {
+    return <Redirect href="/(home)/(tabs)/profile" />;
+  }
 
   const listings = isCreator ? packagesQuery.data ?? [] : gigsQuery.data ?? [];
   const listingsLoading = isCreator ? packagesQuery.isLoading : gigsQuery.isLoading;
@@ -97,7 +97,7 @@ export default function PublicProfileScreen() {
               contentContainerStyle={{
                 paddingHorizontal: 16,
                 paddingTop: 8,
-                paddingBottom: 134,
+                paddingBottom: 32,
                 gap: 24,
               }}
               showsVerticalScrollIndicator={false}
@@ -180,6 +180,7 @@ export default function PublicProfileScreen() {
                         ? (item as any).priceSol
                         : (item as any).budgetSol;
                       const mediaUrls = isPackage ? (item as any).mediaUrls : undefined;
+                      const coverImageUrl = isPackage ? (item as any).coverImageUrl : undefined;
                       return (
                         <ListingCard
                           key={item.id}
@@ -189,7 +190,9 @@ export default function PublicProfileScreen() {
                           title={item.title}
                           ownerId={profile.id}
                           createdAt={item.createdAt}
+                          coverImageUrl={coverImageUrl}
                           mediaUrls={mediaUrls}
+                          listingId={item.id}
                           onPress={() => {
                             haptic('light');
                             router.push(
@@ -203,19 +206,6 @@ export default function PublicProfileScreen() {
                 )}
               </View>
             </ScrollView>
-
-            <CtaFooter>
-              <Button
-                title="Contact"
-                onPress={() => {
-                  haptic('light');
-                  toast.info('Messaging is coming soon');
-                }}
-                variant="primary"
-                size="lg"
-                className="w-full"
-              />
-            </CtaFooter>
           </>
         )}
       </SafeAreaView>

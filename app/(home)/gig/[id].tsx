@@ -3,6 +3,7 @@ import { View, ScrollView, ActivityIndicator, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { MoreHorizontal } from 'lucide-react-native';
 import { ThemedText } from '@/components/base/ThemedText';
 import { ThemedView } from '@/components/base/ThemedView';
 import { ScreenHeader } from '@/components/base/ScreenHeader';
@@ -14,10 +15,12 @@ import { Pill, type PillIntent } from '@/components/ui/Pill';
 import { CtaFooter } from '@/components/ui/CtaFooter';
 import { ApplySheet } from '@/components/features/gig/ApplySheet';
 import { AwardConfirmSheet } from '@/components/features/gig/AwardConfirmSheet';
+import { ManageListingSheet } from '@/components/features/listing/ManageListingSheet';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUser } from '@/contexts/UserContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { getGig, updateGigStatus } from '@/lib/services/gigService';
+import { formatSol } from '@/lib/utils/formatNumber';
 import { getProfile } from '@/lib/services/profileService';
 import {
   listApplicationsForGig,
@@ -93,7 +96,7 @@ function ApplicationCard({
       </ThemedText>
       {application.status === 'pending' && (
         <Button
-          title={`Award ${gig.budgetSol} SOL`}
+          title={`Award ${formatSol(gig.budgetSol)} SOL`}
           onPress={() => onAwardPress({ applicationId: application.id, creatorId: application.creatorId, recipientLabel })}
           loading={awarding}
           disabled={disabled}
@@ -118,6 +121,7 @@ export default function GigDetailScreen() {
   const [applySheet, setApplySheet] = useState(false);
   const [awardTarget, setAwardTarget] = useState<AwardTarget | null>(null);
   const [awardingId, setAwardingId] = useState<string | null>(null);
+  const [manageOpen, setManageOpen] = useState(false);
 
   const gigQuery = useQuery({
     queryKey: id ? GIG_KEYS.detail(id) : ['gig', 'unknown'],
@@ -173,7 +177,19 @@ export default function GigDetailScreen() {
   return (
     <ThemedView className="flex-1">
       <SafeAreaView edges={['top']} className="flex-1">
-        <ScreenHeader title="Gig" onBack={() => router.back()} />
+        <ScreenHeader
+          title="Gig"
+          onBack={() => router.back()}
+          actionButton={
+            isOwnGig && gig
+              ? {
+                  icon: MoreHorizontal,
+                  onPress: () => setManageOpen(true),
+                  accessibilityLabel: 'Manage gig',
+                }
+              : undefined
+          }
+        />
 
         {gigQuery.isLoading ? (
           <View className="flex-1 items-center justify-center">
@@ -205,7 +221,7 @@ export default function GigDetailScreen() {
                     justifyContent: 'space-between',
                   }}
                 >
-                  <KPI size="md" amount={gig.budgetSol} unit="SOL" />
+                  <KPI size="md" amount={formatSol(gig.budgetSol)} unit="SOL" />
                   <View style={{ flexDirection: 'row', gap: 8 }}>
                     <Pill intent={gigStatusIntent(gig.status)} label={gig.status} />
                     <Pill intent="pink" label="Gig" />
@@ -320,6 +336,17 @@ export default function GigDetailScreen() {
         recipientLabel={awardTarget?.recipientLabel ?? ''}
         submitting={!!awardingId}
       />
+
+      {gig && isOwnGig ? (
+        <ManageListingSheet
+          visible={manageOpen}
+          onClose={() => setManageOpen(false)}
+          kind="gig"
+          id={gig.id}
+          status={gig.status}
+          ownerId={gig.brandId}
+        />
+      ) : null}
     </ThemedView>
   );
 }

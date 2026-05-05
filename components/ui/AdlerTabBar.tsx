@@ -8,6 +8,8 @@ import { haptic } from '@/lib/utils/haptic';
 import { TAB_BAR_HEIGHT } from '@/constants/LayoutConstants';
 import { SolanaUploadArrow } from '@/components/ui/SolanaUploadArrow';
 import { useOverlaySheets } from '@/contexts/OverlaySheetsContext';
+import { useInboxUnread } from '@/hooks/useInboxUnread';
+import { TailwindColors } from '@/constants/TailwindColors';
 
 // Figma node 132:204 — 5 visual slots in the order browse, saved, create,
 // inbox, profile. Icons only (no labels). The center "create" slot is a
@@ -35,6 +37,7 @@ export function AdlerTabBar({ state, navigation }: BottomTabBarProps) {
     const { theme } = useTheme();
     const insets = useSafeAreaInsets();
     const { openCreate } = useOverlaySheets();
+    const { unread: inboxUnread } = useInboxUnread();
 
     const onPress = useCallback(
         (routeName: string) => {
@@ -92,6 +95,7 @@ export function AdlerTabBar({ state, navigation }: BottomTabBarProps) {
                 }
 
                 const Icon = ICONS[name];
+                const showDot = name === 'inbox' && inboxUnread;
                 return (
                     <Pressable
                         key={name}
@@ -99,13 +103,32 @@ export function AdlerTabBar({ state, navigation }: BottomTabBarProps) {
                         style={styles.tabSlot}
                         accessibilityRole="button"
                         accessibilityState={isFocused ? { selected: true } : {}}
-                        accessibilityLabel={LABELS[name]}
+                        accessibilityLabel={
+                            showDot ? `${LABELS[name]}, new activity` : LABELS[name]
+                        }
                     >
-                        <Icon
-                            size={22}
-                            color={isFocused ? theme[950] : theme[400]}
-                            strokeWidth={2}
-                        />
+                        <View>
+                            <Icon
+                                size={22}
+                                color={isFocused ? theme[950] : theme[400]}
+                                strokeWidth={2}
+                            />
+                            {showDot ? (
+                                <View
+                                    style={{
+                                        position: 'absolute',
+                                        top: -2,
+                                        right: -2,
+                                        width: 8,
+                                        height: 8,
+                                        borderRadius: 4,
+                                        backgroundColor: TailwindColors.red[500],
+                                        borderWidth: 1,
+                                        borderColor: theme[50],
+                                    }}
+                                />
+                            ) : null}
+                        </View>
                     </Pressable>
                 );
             })}

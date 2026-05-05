@@ -13,6 +13,7 @@ import { CtaFooter } from '@/components/ui/CtaFooter';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useSolanaPayment } from '@/hooks/useSolanaPayment';
+import { formatSol, parseSolAmount } from '@/lib/utils/formatNumber';
 import { ORDER_KEYS } from '@/lib/constants/queryKeys';
 import { toast } from '@/lib/utils/toast';
 import { haptic } from '@/lib/utils/haptic';
@@ -40,7 +41,7 @@ export default function CheckoutScreen() {
   const { pay, walletAddress, ready } = useSolanaPayment();
 
   const [submitting, setSubmitting] = useState(false);
-  const amountSol = parseFloat(params.amountSol ?? '0');
+  const amountSol = parseSolAmount(params.amountSol ?? '') ?? 0;
 
   const onConfirm = useCallback(async () => {
     if (!ready) {
@@ -89,7 +90,7 @@ export default function CheckoutScreen() {
         >
           {/* Big amount KPI */}
           <View style={{ gap: 4 }}>
-            <KPI size="lg" amount={amountSol} unit="SOL" />
+            <KPI size="lg" amount={formatSol(amountSol)} unit="SOL" />
             <ThemedText type="body-sm" style={{ color: networkColor }}>
               {networkCaption}
             </ThemedText>
@@ -125,7 +126,7 @@ export default function CheckoutScreen() {
           }
         >
           <Button
-            title={submitting ? 'Sending…' : `Pay ${amountSol} SOL`}
+            title={submitting ? 'Sending…' : `Pay ${formatSol(amountSol)} SOL`}
             onPress={onConfirm}
             loading={submitting}
             disabled={submitting || !ready}

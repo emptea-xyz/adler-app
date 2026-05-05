@@ -113,6 +113,7 @@ export default function ProfileScreen() {
                     ? (item as any).priceSol
                     : (item as any).budgetSol;
                   const mediaUrls = isPackage ? (item as any).mediaUrls : undefined;
+                  const coverImageUrl = isPackage ? (item as any).coverImageUrl : undefined;
                   return (
                     <ListingCard
                       key={item.id}
@@ -122,6 +123,7 @@ export default function ProfileScreen() {
                       title={item.title}
                       ownerId={profile?.id ?? ''}
                       createdAt={item.createdAt}
+                      coverImageUrl={coverImageUrl}
                       mediaUrls={mediaUrls}
                       onPress={() => {
                         haptic('light');

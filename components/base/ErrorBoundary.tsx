@@ -1,7 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
-
-
+import { View, Text, Pressable, useColorScheme } from 'react-native';
+import * as Sentry from '@sentry/react-native';
 
 interface Props {
   children: ReactNode;
@@ -13,10 +12,111 @@ interface State {
   error: Error | null;
 }
 
-/**
- * Error Boundary component that catches JavaScript errors in child components.
- * Prevents the entire app from crashing and shows a fallback UI.
- */
+// ErrorBoundary mounts above ThemeProvider, so we can't useTheme() here.
+// Fall back to the system color scheme via useColorScheme inside a tiny
+// functional child — palettes mirror the light/dark inversion in
+// constants/ThemePalettes.ts.
+const LIGHT = {
+  bg: '#fafafa',
+  text: '#0a0a0a',
+  muted: '#737373',
+  surface: '#e5e5e5',
+  errorTitle: '#dc2626',
+  errorText: '#171717',
+  buttonBg: '#0a0a0a',
+  buttonText: '#fafafa',
+};
+const DARK = {
+  bg: '#0a0a0a',
+  text: '#fafafa',
+  muted: '#a3a3a3',
+  surface: '#262626',
+  errorTitle: '#f87171',
+  errorText: '#d4d4d4',
+  buttonBg: '#fafafa',
+  buttonText: '#0a0a0a',
+};
+
+function ErrorFallback({
+  error,
+  onRetry,
+}: {
+  error: Error | null;
+  onRetry: () => void;
+}) {
+  const scheme = useColorScheme();
+  const c = scheme === 'dark' ? DARK : LIGHT;
+
+  return (
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: c.bg,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 24,
+      }}
+    >
+      <View style={{ alignItems: 'center', maxWidth: 320 }}>
+        <Text
+          style={{
+            fontSize: 24,
+            fontWeight: '600',
+            color: c.text,
+            marginBottom: 12,
+            textAlign: 'center',
+          }}
+        >
+          Something went wrong
+        </Text>
+        <Text
+          style={{
+            fontSize: 16,
+            color: c.muted,
+            textAlign: 'center',
+            marginBottom: 24,
+            lineHeight: 24,
+          }}
+        >
+          The app hit an unexpected error. Try again — if it keeps happening, restart the app.
+        </Text>
+        {__DEV__ && error && (
+          <View
+            style={{
+              backgroundColor: c.surface,
+              borderRadius: 8,
+              padding: 12,
+              marginBottom: 24,
+              width: '100%',
+            }}
+          >
+            <Text style={{ fontSize: 12, fontWeight: '600', color: c.errorTitle, marginBottom: 4 }}>
+              Error details
+            </Text>
+            <Text style={{ fontSize: 12, color: c.errorText, fontFamily: 'monospace' }}>
+              {error.message}
+            </Text>
+          </View>
+        )}
+        <Pressable
+          onPress={onRetry}
+          style={{
+            backgroundColor: c.buttonBg,
+            paddingHorizontal: 24,
+            paddingVertical: 12,
+            borderRadius: 8,
+          }}
+        >
+          <Text style={{ fontSize: 16, fontWeight: '600', color: c.buttonText }}>
+            Try again
+          </Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
@@ -28,11 +128,18 @@ class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // Log error to console in development
     console.error('ErrorBoundary caught an error:', error);
     console.error('Component stack:', errorInfo.componentStack);
-
-
+    // Best-effort Sentry capture — no-op when SENTRY_DSN isn't set.
+    try {
+      Sentry.captureException(error, {
+        contexts: {
+          react: { componentStack: errorInfo.componentStack ?? '' },
+        },
+      });
+    } catch {
+      // Ignore Sentry transport failures.
+    }
   }
 
   handleRetry = () => {
@@ -41,96 +148,11 @@ class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
-      // Custom fallback UI if provided
-      if (this.props.fallback) {
-        return this.props.fallback;
-      }
-
-      // Default fallback UI
-      return (
-        <View style={styles.container}>
-          <View style={styles.content}>
-            <Text style={styles.title}>Something went wrong</Text>
-            <Text style={styles.message}>
-              The app encountered an unexpected error. Please try again.
-            </Text>
-            {__DEV__ && this.state.error && (
-              <View style={styles.errorContainer}>
-                <Text style={styles.errorTitle}>Error Details:</Text>
-                <Text style={styles.errorText}>
-                  {this.state.error.message}
-                </Text>
-              </View>
-            )}
-            <Pressable style={styles.button} onPress={this.handleRetry}>
-              <Text style={styles.buttonText}>Try Again</Text>
-            </Pressable>
-          </View>
-        </View>
-      );
+      if (this.props.fallback) return this.props.fallback;
+      return <ErrorFallback error={this.state.error} onRetry={this.handleRetry} />;
     }
-
     return this.props.children;
   }
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#171717', // neutral[900]
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 24,
-  },
-  content: {
-    alignItems: 'center',
-    maxWidth: 320,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#ffffff',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  message: {
-    fontSize: 16,
-    color: '#a3a3a3', // neutral[400]
-    textAlign: 'center',
-    marginBottom: 24,
-    lineHeight: 24,
-  },
-  errorContainer: {
-    backgroundColor: '#262626', // neutral[800]
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 24,
-    width: '100%',
-  },
-  errorTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#f87171', // red[400]
-    marginBottom: 4,
-  },
-  errorText: {
-    fontSize: 12,
-    color: '#d4d4d4', // neutral[300]
-    fontFamily: 'monospace',
-  },
-  button: {
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  buttonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#171717', // neutral[900]
-  },
-});
-
 export default ErrorBoundary;
-

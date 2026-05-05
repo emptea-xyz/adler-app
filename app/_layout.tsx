@@ -8,6 +8,8 @@ import ToastManager from "toastify-react-native";
 import * as SplashScreen from "expo-splash-screen";
 import { PrivyProvider } from "@privy-io/expo";
 
+import * as Sentry from "@sentry/react-native";
+
 import "../global.css";
 import { toastConfig } from "@/components/ui/ToastConfig";
 import ErrorBoundary from "@/components/base/ErrorBoundary";
@@ -16,6 +18,29 @@ import { UserProvider } from "@/contexts/UserContext";
 import { QueryProvider } from "@/contexts/QueryProvider";
 import { ThemeProvider, useTheme } from "@/contexts/ThemeContext";
 import { OfflineBanner } from "@/components/base/OfflineBanner";
+import { setupForegroundHandler } from "@/lib/services/pushService";
+
+// Show banners + sound when a push lands while the app is in the foreground.
+// Module-scoped so it runs once per JS bundle, not per render.
+setupForegroundHandler();
+
+// Sentry: a missing DSN turns init into a no-op, so this is safe to ship
+// before the dashboard is wired. Push EXPO_PUBLIC_SENTRY_DSN via EAS once
+// the Sentry project exists.
+const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN;
+if (SENTRY_DSN) {
+  try {
+    Sentry.init({
+      dsn: SENTRY_DSN,
+      enableAutoSessionTracking: true,
+      tracesSampleRate: 0.1,
+      // Drop noisy native warnings unless we're debugging.
+      enableNativeNagger: false,
+    });
+  } catch (err) {
+    if (__DEV__) console.warn("Sentry.init failed", err);
+  }
+}
 
 function DynamicStatusBar() {
   const { isDark } = useTheme();

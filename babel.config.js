@@ -1,13 +1,14 @@
 module.exports = function (api) {
   api.cache(true);
-  
+
   const plugins = ["react-native-reanimated/plugin"];
-  
-  // Remove console.* calls in production builds
+
+  // Strip console.log/info/debug from production bundles. Keep `error` and
+  // `warn` so they still feed crash-reporting tools (Sentry, Crashlytics).
   if (process.env.NODE_ENV === 'production') {
-    plugins.push('transform-remove-console');
+    plugins.push(['transform-remove-console', { exclude: ['error', 'warn'] }]);
   }
-  
+
   return {
     presets: [
       ["babel-preset-expo", { jsxImportSource: "nativewind" }],

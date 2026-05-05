@@ -1,7 +1,9 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Sentry from '@sentry/react-native';
 import { useAuth } from './AuthContext';
-import { ensureProfileExists, getProfile } from '@/lib/services/profileService';
+import { ensureProfileExists, getProfile, setPushToken } from '@/lib/services/profileService';
+import { registerForPushAsync } from '@/lib/services/pushService';
 import { STORAGE_KEYS } from '@/lib/constants/storageKeys';
 import type { Profile } from '@/types/marketplace';
 
@@ -19,6 +21,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     const [profile, setProfile] = useState<Profile | null>(null);
     const [loading, setLoading] = useState(true);
     const isMounted = useRef(true);
+    // Per-app-launch latch so we register for push at most once per user even
+    // if profile fetches re-fire (wallet arrives, refresh on focus, etc.).
+    const pushSyncedFor = useRef<string | null>(null);
 
     useEffect(() => {
         isMounted.current = true;
@@ -32,6 +37,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         if (!user) {
             setProfile(null);
             setLoading(false);
+            pushSyncedFor.current = null;
+            try { Sentry.setUser(null); } catch { /* no-op */ }
             AsyncStorage.removeItem(STORAGE_KEYS.CACHED_PROFILE).catch(() => {});
             return;
         }
@@ -62,6 +69,25 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
             if (!isMounted.current) return;
             setProfile(ensured);
             AsyncStorage.setItem(STORAGE_KEYS.CACHED_PROFILE, JSON.stringify(ensured)).catch(() => {});
+            try {
+                Sentry.setUser({ id: ensured.id, username: ensured.username });
+            } catch { /* no-op when Sentry isn't initialized */ }
+
+            // Register for push (idempotent, latch keeps it once-per-user-per-launch).
+            // Done after profile is in place so the token write piggy-backs on the
+            // existing user session and the rule's owner check passes.
+            if (pushSyncedFor.current !== user.id) {
+                pushSyncedFor.current = user.id;
+                registerForPushAsync()
+                    .then((token) => {
+                        if (!token) return;
+                        if (token === ensured.pushToken) return;
+                        return setPushToken(user.id, token);
+                    })
+                    .catch((err) => {
+                        if (__DEV__) console.warn('Push token sync failed', err);
+                    });
+            }
         } catch (err) {
             console.error('Failed to fetch profile:', err);
             // Soft fallback to whatever is on disk.

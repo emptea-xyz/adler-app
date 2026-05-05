@@ -41,6 +41,9 @@ export function FilterChip({ label, active = false, onPress }: FilterChipProps) 
         }}
         style={style}
         hitSlop={6}
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        accessibilityState={{ selected: active }}
       >
         {inner}
       </Pressable>

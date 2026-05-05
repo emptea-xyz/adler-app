@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/base/ThemedText';
 import { ThemedView } from '@/components/base/ThemedView';
-import { Loader } from '@/components/ui/Loader';
+import { EagleLoader } from '@/components/ui/EagleLoader';
 import { useTheme } from '@/contexts/ThemeContext';
 
 interface LoadingScreenProps {
@@ -24,7 +24,7 @@ export function LoadingScreen({ title }: LoadingScreenProps) {
           </View>
         ) : null}
         <View className="flex-1 items-center justify-center">
-          <Loader size={230} />
+          <EagleLoader size={230} />
         </View>
       </ThemedView>
     </SafeAreaView>

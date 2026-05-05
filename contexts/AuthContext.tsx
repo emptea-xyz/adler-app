@@ -1,10 +1,12 @@
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth';
 import { usePrivy, useEmbeddedSolanaWallet } from '@privy-io/expo';
 import { useNetInfo } from '@react-native-community/netinfo';
 import { useQueryClient } from '@tanstack/react-query';
 import { auth } from '@/lib/firebase/config';
 import { bridgeToFirebase, signOutOfFirebase } from '@/lib/services/privyAuthService';
+import { clearPushToken } from '@/lib/services/profileService';
 import { toast } from '@/lib/utils/toast';
 import { InitialLoadingScreen } from '@/components/base/InitialLoadingScreen';
 
@@ -59,11 +61,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return unsub;
     }, []);
 
-    // Bridge Privy → Firebase whenever the Privy user changes.
+    // Bridge Privy → Firebase whenever the Privy user changes. Read the id
+    // once so the effect depends on a stable string, not the privyUser object
+    // identity (which can churn on every Privy render).
+    const privyUserId = privyUser?.id ?? null;
     useEffect(() => {
         if (!privyReady) return;
 
-        if (!privyUser) {
+        if (!privyUserId) {
             // Privy logged out → mirror in Firebase.
             if (auth.currentUser) {
                 signOutOfFirebase().catch(() => {});
@@ -71,7 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             return;
         }
 
-        if (lastBridgedPrivyId.current === privyUser.id && auth.currentUser) {
+        if (lastBridgedPrivyId.current === privyUserId && auth.currentUser) {
             return;
         }
 
@@ -82,12 +87,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 const token = await getAccessToken();
                 if (!token) throw new Error('No Privy access token available');
                 await bridgeToFirebase(token);
-                lastBridgedPrivyId.current = privyUser.id;
+                lastBridgedPrivyId.current = privyUserId;
             } catch (err) {
                 if (!cancelled) {
                     console.error('Failed to bridge Privy→Firebase:', err);
                     toast.error('Sign-in failed. Please try again.');
-                    await privyLogout().catch(() => {});
+                    // privyLogout can itself throw; fall back to clearing the
+                    // Firebase session so the user lands on sign-in instead of
+                    // a stuck "bridging" screen.
+                    try {
+                        await privyLogout();
+                    } catch {
+                        await signOutOfFirebase().catch(() => {});
+                    }
                 }
             } finally {
                 if (!cancelled && isMounted.current) {
@@ -99,10 +111,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return () => {
             cancelled = true;
         };
-    }, [privyReady, privyUser?.id, getAccessToken, privyLogout]);
+    }, [privyReady, privyUserId, getAccessToken, privyLogout]);
 
     const signOut = useCallback(async () => {
         try {
+            // Clear the push token *before* sign-out so the write still passes
+            // the owner-rule check. Best-effort — a failed write doesn't block
+            // sign-out (the user still wants to leave).
+            const currentUid = auth.currentUser?.uid;
+            if (currentUid) {
+                await clearPushToken(currentUid).catch(() => null);
+            }
             await privyLogout();
             await signOutOfFirebase();
             queryClient.clear();
@@ -145,7 +164,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const value = useMemo<AuthContextType>(
         () => ({
             user: firebaseUser,
-            privyUserId: privyUser?.id ?? null,
+            privyUserId,
             walletAddress,
             isReady: privyReady,
             isBridging: bridging,
@@ -153,18 +172,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             signOut,
             runIfOnline,
         }),
-        [firebaseUser, privyUser?.id, walletAddress, privyReady, bridging, isConnected, signOut, runIfOnline],
+        [firebaseUser, privyUserId, walletAddress, privyReady, bridging, isConnected, signOut, runIfOnline],
     );
 
-    if (initialLoading) {
-        return (
-            <AuthContext.Provider value={value}>
-                <InitialLoadingScreen onLoadingComplete={() => setInitialLoading(false)} />
-            </AuthContext.Provider>
-        );
-    }
-
-    return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+    // Keep children mounted underneath the loader so the loader's fade-out
+    // cross-fades into the next screen — otherwise children mount fresh on
+    // unmount and any static content (e.g. the sign-in eagle) pops in abruptly.
+    return (
+        <AuthContext.Provider value={value}>
+            {children}
+            {initialLoading && (
+                <View style={StyleSheet.absoluteFillObject} pointerEvents="auto">
+                    <InitialLoadingScreen onLoadingComplete={() => setInitialLoading(false)} />
+                </View>
+            )}
+        </AuthContext.Provider>
+    );
 }
 
 export function useAuth(): AuthContextType {

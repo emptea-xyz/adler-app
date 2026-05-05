@@ -8,6 +8,11 @@ export interface Profile {
     bio: string;
     avatarUrl: string | null;
     walletAddress: string | null;
+    pushToken: string | null;
+    /** Server-maintained — bumped by Cloud Function triggers whenever
+     *  something hits this user's inbox (new application, awarded gig,
+     *  order state change, etc.). Client never writes. */
+    latestActivityAt: number;
     createdAt: number;
     updatedAt: number;
 }
@@ -21,6 +26,7 @@ export interface PackageListing {
     description: string;
     priceSol: number;
     deliverables: string[];
+    coverImageUrl: string | null;
     mediaUrls: string[];
     category: string;
     status: PackageStatus;
@@ -55,7 +61,7 @@ export interface GigApplication {
 }
 
 export type OrderType = 'package' | 'gig';
-export type OrderStatus = 'pending' | 'paid' | 'delivered' | 'complete';
+export type OrderStatus = 'pending' | 'paid' | 'delivered' | 'complete' | 'failed';
 
 export interface Order {
     id: string;
@@ -77,6 +83,16 @@ export interface Review {
     revieweeId: string;
     rating: number;
     comment: string;
+    createdAt: number;
+}
+
+export type SavedKind = 'package' | 'gig';
+
+export interface Save {
+    id: string;
+    userId: string;
+    kind: SavedKind;
+    listingId: string;
     createdAt: number;
 }
 

@@ -23,12 +23,22 @@ export const GIG_KEYS = {
 export const APPLICATION_KEYS = {
     forGig: (gigId: string) => ['applications', 'gig', gigId] as const,
     byCreator: (creatorId: string) => ['applications', 'creator', creatorId] as const,
+    byBrand: (brandId: string) => ['applications', 'brand', brandId] as const,
 };
 
 export const ORDER_KEYS = {
     asBuyer: (buyerId: string) => ['orders', 'buyer', buyerId] as const,
     asSeller: (sellerId: string) => ['orders', 'seller', sellerId] as const,
     detail: (orderId: string) => ['order', orderId] as const,
+};
+
+export const REVIEW_KEYS = {
+    forOrder: (orderId: string) => ['reviews', 'order', orderId] as const,
+    byReviewee: (revieweeId: string) => ['reviews', 'reviewee', revieweeId] as const,
+};
+
+export const SAVE_KEYS = {
+    byUser: (userId: string) => ['saves', 'user', userId] as const,
 };
 
 export const FEED_KEYS = {

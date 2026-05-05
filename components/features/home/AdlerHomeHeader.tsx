@@ -9,6 +9,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useOverlaySheets } from '@/contexts/OverlaySheetsContext';
 import { getConnection, lamportsToSol } from '@/lib/solana/connection';
 import { PROFILE_KEYS } from '@/lib/constants/queryKeys';
+import { formatSol } from '@/lib/utils/formatNumber';
 
 // Figma node 131:133 — top header on tab screens. Static screen label on the
 // left, live wallet balance pill on the right. Drops the personalized greeting
@@ -38,11 +39,7 @@ export function AdlerHomeHeader({ title, onPressBalance }: AdlerHomeHeaderProps)
     });
 
     const balanceText =
-        balanceQuery.data === undefined
-            ? '—'
-            : balanceQuery.data >= 100
-                ? balanceQuery.data.toFixed(0)
-                : balanceQuery.data.toFixed(3);
+        balanceQuery.data === undefined ? '—' : formatSol(balanceQuery.data);
 
     return (
         <View

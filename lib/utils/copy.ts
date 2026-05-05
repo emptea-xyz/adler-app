@@ -42,3 +42,13 @@ export const EMPTY_SAVED = {
     title: 'Nothing saved yet',
     description: 'Bookmark a package or gig from Browse and it lands here.',
 } as const;
+
+export const EMPTY_BROWSE_SEARCH = {
+    title: 'No matches',
+    description: 'Try a broader term, clear a filter, or pull to refresh.',
+} as const;
+
+export const EMPTY_WALLET_BALANCE = {
+    title: 'Wallet is empty',
+    description: 'On devnet, fund yourself with the Solana CLI to start buying or sending.',
+} as const;

@@ -18,35 +18,6 @@
         "ITSAppUsesNonExemptEncryption": false
       }
     },
-    "android": {
-      "package": "com.m2dt.adler",
-      "googleServicesFile": "./google-services.json",
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      },
-      "intentFilters": [
-        {
-          "action": "VIEW",
-          "autoVerify": true,
-          "data": [
-            {
-              "scheme": "adler",
-              "host": "auth"
-            }
-          ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
-        }
-      ]
-    },
-    "web": {
-      "bundler": "metro",
-      "output": "single",
-      "favicon": "./assets/images/favicon.png"
-    },
     "plugins": [
       "expo-router",
       [
@@ -73,9 +44,6 @@
       [
         "expo-build-properties",
         {
-          "android": {
-            "minSdkVersion": 24
-          },
           "ios": {
             "deploymentTarget": "15.1",
             "extraPods": [
@@ -105,13 +73,23 @@
         {
           "faceIDPermission": "Adler uses Face ID to keep your wallet secure."
         }
-      ]
+      ],
+      [
+        "@sentry/react-native",
+        {
+          "url": "https://de.sentry.io/",
+          "organization": "emptea",
+          "project": "adler"
+        }
+      ],
+      "@react-native-firebase/app",
+      "@react-native-firebase/app-check"
     ],
     "extra": {
+      "router": {},
       "eas": {
-        "projectId": "REPLACE_WITH_NEW_EAS_PROJECT_ID"
-      },
-      "router": {}
+        "projectId": "f1c5c2e1-8379-44c3-800b-8de2956f6769"
+      }
     },
     "runtimeVersion": {
       "policy": "appVersion"

@@ -74,6 +74,27 @@ export async function listApplicationsByCreator(creatorId: string): Promise<GigA
     return snap.docs.map((d) => fromDoc(d.id, d.data()));
 }
 
+/**
+ * All applications across all gigs owned by a given brand. Implemented as a
+ * fan-out over the brand's gig ids in chunks of 30 (Firestore's `in` cap).
+ */
+export async function listApplicationsForGigIds(gigIds: string[]): Promise<GigApplication[]> {
+    if (gigIds.length === 0) return [];
+    const CHUNK = 30;
+    const results: GigApplication[] = [];
+    for (let i = 0; i < gigIds.length; i += CHUNK) {
+        const slice = gigIds.slice(i, i + CHUNK);
+        const q = query(
+            collection(db, COLLECTION),
+            where('gigId', 'in', slice),
+        );
+        const snap = await getDocs(q);
+        for (const d of snap.docs) results.push(fromDoc(d.id, d.data()));
+    }
+    results.sort((a, b) => b.createdAt - a.createdAt);
+    return results;
+}
+
 export async function updateApplicationStatus(
     applicationId: string,
     status: ApplicationStatus,

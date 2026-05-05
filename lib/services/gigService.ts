@@ -8,6 +8,7 @@ import {
     orderBy,
     query,
     serverTimestamp,
+    startAfter,
     Timestamp,
     updateDoc,
     where,
@@ -75,6 +76,33 @@ export async function listOpenGigs(opts?: { category?: string; limit?: number })
     );
     const snap = await getDocs(q);
     return snap.docs.map((d) => fromDoc(d.id, d.data()));
+}
+
+export interface GigsPage {
+    items: Gig[];
+    nextCursor: number | null;
+}
+
+export async function listOpenGigsPage(opts?: {
+    category?: string;
+    limit?: number;
+    cursor?: number | null;
+}): Promise<GigsPage> {
+    const limit = opts?.limit ?? 25;
+    const constraints = [where('status', '==', 'open' satisfies GigStatus)];
+    if (opts?.category) constraints.push(where('category', '==', opts.category));
+    const baseQuery = query(
+        collection(db, COLLECTION),
+        ...constraints,
+        orderBy('createdAt', 'desc'),
+    );
+    const finalQuery = opts?.cursor
+        ? query(baseQuery, startAfter(Timestamp.fromMillis(opts.cursor)), fsLimit(limit))
+        : query(baseQuery, fsLimit(limit));
+    const snap = await getDocs(finalQuery);
+    const items = snap.docs.map((d) => fromDoc(d.id, d.data()));
+    const nextCursor = items.length === limit ? items[items.length - 1].createdAt : null;
+    return { items, nextCursor };
 }
 
 export async function listGigsByBrand(brandId: string): Promise<Gig[]> {

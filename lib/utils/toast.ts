@@ -17,7 +17,6 @@ type ToastOptions = {
 }
 
 const DEFAULT_POSITION: ToastPosition = 'top'
-const DEFAULT_DURATION = 3000
 
 const isToastOptions = (value: unknown): value is ToastOptions => {
   if (typeof value !== 'object' || value === null) return false

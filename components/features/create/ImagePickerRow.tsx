@@ -4,33 +4,38 @@ import { Plus, X } from 'lucide-react-native';
 import { ThemedText } from '@/components/base/ThemedText';
 import { useTheme } from '@/contexts/ThemeContext';
 import { haptic } from '@/lib/utils/haptic';
-import { pickImage } from '@/lib/services/imageUploadService';
+import { pickImages } from '@/lib/services/imageUploadService';
 import { toast } from '@/lib/utils/toast';
 
 const TILE = 88;
-const MAX_IMAGES = 4;
+const DEFAULT_MAX = 5;
 
 interface Props {
   values: string[];
   onChange: (next: string[]) => void;
+  /** Maximum number of images allowed in this row. Defaults to 5. */
+  max?: number;
   /** Disable interaction while a parent flow is submitting. */
   disabled?: boolean;
 }
 
-export function ImagePickerRow({ values, onChange, disabled = false }: Props) {
+export function ImagePickerRow({ values, onChange, max = DEFAULT_MAX, disabled = false }: Props) {
   const { theme } = useTheme();
   const [picking, setPicking] = React.useState(false);
 
   const onAdd = async () => {
     if (disabled || picking) return;
-    if (values.length >= MAX_IMAGES) return;
+    if (values.length >= max) return;
     haptic('light');
     setPicking(true);
     try {
-      const uri = await pickImage({ quality: 0.8 });
-      if (uri) onChange([...values, uri]);
+      const remaining = max - values.length;
+      const picked = await pickImages({ selectionLimit: remaining, quality: 0.8 });
+      if (picked.length > 0) {
+        onChange([...values, ...picked.slice(0, remaining)]);
+      }
     } catch (err: any) {
-      toast.error(err?.message ?? 'Could not pick image');
+      toast.error(err?.message ?? 'Could not pick images');
     } finally {
       setPicking(false);
     }
@@ -42,7 +47,7 @@ export function ImagePickerRow({ values, onChange, disabled = false }: Props) {
     onChange(values.filter((_, i) => i !== index));
   };
 
-  const canAdd = values.length < MAX_IMAGES;
+  const canAdd = values.length < max;
 
   return (
     <ScrollView
@@ -67,27 +72,13 @@ export function ImagePickerRow({ values, onChange, disabled = false }: Props) {
             style={{ width: TILE, height: TILE }}
             resizeMode="cover"
           />
-          {i === 0 ? (
-            <View
-              style={{
-                position: 'absolute',
-                left: 6,
-                bottom: 6,
-                paddingHorizontal: 6,
-                paddingVertical: 2,
-                borderRadius: 6,
-                backgroundColor: 'rgba(0,0,0,0.55)',
-              }}
-            >
-              <ThemedText type="caption-semibold" style={{ color: '#fff' }}>
-                Cover
-              </ThemedText>
-            </View>
-          ) : null}
           <Pressable
             onPress={() => onRemove(i)}
-            hitSlop={6}
+            hitSlop={12}
             disabled={disabled}
+            accessibilityRole="button"
+            accessibilityLabel={`Remove photo ${i + 1}`}
+            accessibilityState={{ disabled }}
             style={{
               position: 'absolute',
               top: 6,
@@ -109,6 +100,9 @@ export function ImagePickerRow({ values, onChange, disabled = false }: Props) {
         <Pressable
           onPress={onAdd}
           disabled={disabled || picking}
+          accessibilityRole="button"
+          accessibilityLabel="Add photos"
+          accessibilityState={{ disabled: disabled || picking, busy: picking }}
           style={{
             width: TILE,
             height: TILE,

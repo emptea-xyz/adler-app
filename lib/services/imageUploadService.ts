@@ -1,9 +1,20 @@
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { storage, auth } from '@/lib/firebase/config';
 
+async function ensureMediaLibraryPermission(): Promise<void> {
+    const current = await ImagePicker.getMediaLibraryPermissionsAsync();
+    if (current.granted) return;
+    const requested = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!requested.granted) {
+        throw new Error('Photo library access is denied. Enable it in Settings to add photos.');
+    }
+}
+
 export async function pickImage(opts?: { aspect?: [number, number]; quality?: number }): Promise<string | null> {
+    await ensureMediaLibraryPermission();
+
     const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsEditing: !!opts?.aspect,
@@ -13,6 +24,25 @@ export async function pickImage(opts?: { aspect?: [number, number]; quality?: nu
 
     if (result.canceled || !result.assets[0]) return null;
     return result.assets[0].uri;
+}
+
+/**
+ * Multi-image variant. Surfaces the system multi-select picker when supported.
+ * Falls back to a single asset on platforms / picker versions that ignore
+ * `allowsMultipleSelection`.
+ */
+export async function pickImages(opts?: { selectionLimit?: number; quality?: number }): Promise<string[]> {
+    await ensureMediaLibraryPermission();
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsMultipleSelection: true,
+        selectionLimit: opts?.selectionLimit,
+        quality: opts?.quality ?? 0.8,
+    });
+
+    if (result.canceled || !result.assets?.length) return [];
+    return result.assets.map((a) => a.uri);
 }
 
 async function compressImage(uri: string, maxDim = 1200): Promise<string> {
@@ -64,4 +94,17 @@ export async function uploadMarketplaceMedia(
     const storageRef = ref(storage, `${folder}/${uid}/${fileId}.jpg`);
     await uploadBytes(storageRef, blob, { contentType: 'image/jpeg' });
     return getDownloadURL(storageRef);
+}
+
+export async function deleteMarketplaceMedia(
+    folder: 'packages' | 'gigs' | 'applications',
+    fileId: string,
+): Promise<void> {
+    const uid = requireUid();
+    const storageRef = ref(storage, `${folder}/${uid}/${fileId}.jpg`);
+    try {
+        await deleteObject(storageRef);
+    } catch {
+        // Best-effort cleanup — swallow not-found and permission errors.
+    }
 }

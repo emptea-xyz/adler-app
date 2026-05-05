@@ -43,16 +43,60 @@ if (getApps().length === 0) {
         persistence: getReactNativePersistence(ReactNativeAsyncStorage)
     });
 
-    // Initialize App Check
-    // WARNING: In React Native (Expo) using the Firebase JS SDK, native App Check (DeviceCheck/Play Integrity) 
-    // requires a custom native module (like @react-native-firebase/app-check).
-    // The ReCaptcha provider is used here as a fallback/web provider.
-    // Do NOT strictly enforce App Check in the Firebase Console until you've integrated a native App Check library,
-    // otherwise, legitimate iOS/Android devices will be blocked.
-    if (Platform.OS === 'web') {
+    // App Check.
+    //
+    // We use the JS SDK throughout the app (firebase/firestore, firebase/auth,
+    // firebase/functions, firebase/storage), so we need a CustomProvider that
+    // bridges to the native @react-native-firebase/app-check module — it's the
+    // only path that gives us real Apple App Attest tokens on iOS.
+    //
+    // On simulators (no App Attest hardware), the debug provider is used.
+    // Grab the debug token Firebase prints to the console on first launch and
+    // register it under "Debug tokens" in the App Check Firebase Console.
+    //
+    // Until App Check is enabled in the Firebase Console (Monitor mode is the
+    // safe first step), this is a no-op for our backends — they don't yet
+    // require tokens. Defer enforcement until you've confirmed legit clients
+    // are passing in Monitor mode.
+    if (Platform.OS === 'ios') {
+        // Lazy require keeps the JS-only web bundle happy + survives test runs
+        // where the native module isn't linked.
+        try {
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            const rnAppCheckModule = require('@react-native-firebase/app-check');
+            const rnAppCheck = rnAppCheckModule.default ?? rnAppCheckModule;
+            const rnfbProvider = rnAppCheck().newReactNativeFirebaseAppCheckProvider();
+            rnfbProvider.configure({
+                apple: {
+                    provider: __DEV__ ? 'debug' : 'appAttestWithDeviceCheckFallback',
+                    debugToken: process.env.EXPO_PUBLIC_APP_CHECK_DEBUG_TOKEN,
+                },
+                isTokenAutoRefreshEnabled: true,
+            });
+            rnAppCheck().initializeAppCheck({
+                provider: rnfbProvider,
+                isTokenAutoRefreshEnabled: true,
+            });
+
+            // eslint-disable-next-line @typescript-eslint/no-require-imports
+            const { CustomProvider } = require('firebase/app-check');
+            const bridgeProvider = new CustomProvider({
+                getToken: async () => {
+                    const { token, expireTimeMillis } = await rnAppCheck().getToken();
+                    return { token, expireTimeMillis };
+                },
+            });
+            initializeAppCheck(app, {
+                provider: bridgeProvider,
+                isTokenAutoRefreshEnabled: true,
+            });
+        } catch (err) {
+            if (__DEV__) console.warn('App Check init failed', err);
+        }
+    } else if (Platform.OS === 'web') {
         if (!__DEV__) {
             initializeAppCheck(app, {
-                provider: new ReCaptchaEnterpriseProvider('RECAPTCHA_ENTERPRISE_SITE_KEY'), // Replace with actual key
+                provider: new ReCaptchaEnterpriseProvider('RECAPTCHA_ENTERPRISE_SITE_KEY'),
                 isTokenAutoRefreshEnabled: true,
             });
         } else {
@@ -63,8 +107,6 @@ if (getApps().length === 0) {
                 isTokenAutoRefreshEnabled: true,
             });
         }
-    } else {
-        if (__DEV__) console.warn("Native App Check isn't configured yet. Install @react-native-firebase/app-check and use CustomProvider to link it with JS SDK for iOS/Android.");
     }
 } else {
     app = getApp();

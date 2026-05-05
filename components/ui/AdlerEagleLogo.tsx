@@ -1,9 +1,9 @@
 import React from 'react';
-import EagleSvg from '@/assets/images/adler-eagle.svg';
+import EagleSvg from '@/assets/images/eagle-compact.svg';
 
-// Figma node 57:259 — sign-in hero logo. The 553KB SVG is loaded via
-// react-native-svg-transformer (metro.config.js) — paths preserved verbatim
-// from the Figma export. ViewBox is 133 × 171.
+// Figma node 57:259 — sign-in hero logo. Loaded via react-native-svg-transformer
+// (metro.config.js). `eagle-compact.svg` is pixel-identical to
+// `eagle-original.svg` with 221 redundant paths removed. ViewBox 133 × 171.
 
 interface Props {
   size?: number;

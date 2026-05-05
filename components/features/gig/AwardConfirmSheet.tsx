@@ -5,6 +5,7 @@ import { ThemedText } from '@/components/base/ThemedText';
 import { Button } from '@/components/ui/Button';
 import { KPI } from '@/components/ui/KPI';
 import { useTheme } from '@/contexts/ThemeContext';
+import { formatSol } from '@/lib/utils/formatNumber';
 
 interface Props {
   visible: boolean;
@@ -35,7 +36,7 @@ export function AwardConfirmSheet({
       {({ close }) => (
         <View style={{ gap: 20 }}>
           <View style={{ alignItems: 'center', gap: 4 }}>
-            <KPI size="lg" amount={amount} unit="SOL" />
+            <KPI size="lg" amount={formatSol(amount)} unit="SOL" />
             <ThemedText type="body-md" style={{ color: theme[500] }}>
               to {recipientLabel}
             </ThemedText>

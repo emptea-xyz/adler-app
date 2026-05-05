@@ -15,6 +15,7 @@ import { SOLANA_NETWORK } from '@/lib/constants/featureGates';
 import { ACCENT_COLORS } from '@/constants/ThemePalettes';
 import { toast } from '@/lib/utils/toast';
 import { haptic } from '@/lib/utils/haptic';
+import { formatSol, parseSolAmount } from '@/lib/utils/formatNumber';
 
 interface Props {
   visible: boolean;
@@ -62,8 +63,8 @@ export function SendSheet({ visible, onClose }: Props) {
   }, [visible]);
 
   const recipientValid = recipient.trim().length === 0 || isValidSolanaAddress(recipient.trim());
-  const parsedAmount = parseFloat(amount);
-  const amountValid = !isNaN(parsedAmount) && parsedAmount > 0;
+  const parsedAmount = parseSolAmount(amount);
+  const amountValid = parsedAmount !== null && parsedAmount > 0;
   const canSend =
     !submitting &&
     !!walletAddress &&
@@ -81,7 +82,7 @@ export function SendSheet({ visible, onClose }: Props) {
         toast.error('Recipient address is invalid');
         return;
       }
-      if (!amountValid) {
+      if (!amountValid || parsedAmount === null) {
         toast.error('Enter a valid SOL amount');
         return;
       }
@@ -150,7 +151,7 @@ export function SendSheet({ visible, onClose }: Props) {
           </Field>
 
           <Button
-            title={submitting ? 'Sending…' : `Send ${amountValid ? parsedAmount + ' ' : ''}SOL`}
+            title={submitting ? 'Sending…' : `Send ${parsedAmount !== null && amountValid ? formatSol(parsedAmount) + ' ' : ''}SOL`}
             onPress={() => send(close)}
             disabled={!canSend}
             loading={submitting}

@@ -1,5 +1,4 @@
 import React, { useEffect } from 'react';
-import { View } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -9,7 +8,7 @@ import Animated, {
   runOnJS,
 } from 'react-native-reanimated';
 import { ThemedView } from './ThemedView';
-import { Loader } from '@/components/ui/Loader';
+import { EagleLoader } from '@/components/ui/EagleLoader';
 import { useTheme } from '@/contexts/ThemeContext';
 
 interface InitialLoadingScreenProps {
@@ -66,7 +65,7 @@ export function InitialLoadingScreen({ onLoadingComplete, status }: InitialLoadi
       style={[{ backgroundColor: theme[50] }, containerStyle]}
     >
       <ThemedView className="items-center" style={{ gap: 24 }}>
-        <Loader size={230} />
+        <EagleLoader size={230} />
         {status && (
           <Animated.Text
             style={[

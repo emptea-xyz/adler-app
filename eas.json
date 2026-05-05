@@ -12,13 +12,22 @@
       "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "ios": {
+        "simulator": false
+      }
     },
     "production": {
       "autoIncrement": true
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "appleTeamId": "8Q97322X2M",
+        "appleId": "wowreto@outlook.com",
+        "ascAppId": "6766116309"
+      }
+    }
   }
 }

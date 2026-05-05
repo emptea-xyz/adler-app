@@ -3,12 +3,15 @@ import { Pressable, View, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
+import { Bookmark } from 'lucide-react-native';
 import { ThemedText } from '@/components/base/ThemedText';
 import { useTheme } from '@/contexts/ThemeContext';
 import { haptic } from '@/lib/utils/haptic';
 import { formatRelative } from '@/lib/utils/dates';
+import { formatSol } from '@/lib/utils/formatNumber';
 import { getProfile } from '@/lib/services/profileService';
 import { PROFILE_KEYS } from '@/lib/constants/queryKeys';
+import { useSaves } from '@/hooks/useSaves';
 import { KPI } from './KPI';
 import { Pill, type PillIntent } from './Pill';
 
@@ -22,9 +25,12 @@ interface ListingCardProps {
   title: string;
   ownerId: string;       // sellerId or brandId — used to fetch the @username
   createdAt: number;
-  /** Optional cover image. First entry is rendered as the 130px hero;
-   *  if absent we fall back to the peach gradient placeholder. */
+  /** Explicit cover image. Takes priority over mediaUrls[0]. */
+  coverImageUrl?: string | null;
+  /** Gallery media. mediaUrls[0] is used as the hero only when coverImageUrl is absent. */
   mediaUrls?: string[];
+  /** Listing id — required when the bookmark heart should be shown. */
+  listingId?: string;
   onPress: () => void;
 }
 
@@ -49,11 +55,14 @@ export function ListingCard({
   title,
   ownerId,
   createdAt,
+  coverImageUrl,
   mediaUrls,
+  listingId,
   onPress,
 }: ListingCardProps) {
   const { theme } = useTheme();
   const router = useRouter();
+  const saves = useSaves();
 
   const profileQuery = useQuery({
     queryKey: PROFILE_KEYS.profile(ownerId),
@@ -62,11 +71,18 @@ export function ListingCard({
   });
 
   const username = profileQuery.data?.username ?? '—';
-  const heroUri = mediaUrls?.[0];
+  const heroUri = coverImageUrl ?? mediaUrls?.[0];
+  const saved = listingId ? saves.isSaved(kind, listingId) : false;
 
   const goToProfile = () => {
     haptic('light');
     router.push(`/profile/${ownerId}`);
+  };
+
+  const onToggleSave = () => {
+    if (!listingId) return;
+    haptic('light');
+    saves.toggle(kind, listingId);
   };
 
   return (
@@ -95,9 +111,36 @@ export function ListingCard({
           style={{ height: 130 }}
         />
       )}
+      {listingId ? (
+        <Pressable
+          onPress={onToggleSave}
+          hitSlop={12}
+          accessibilityRole="button"
+          accessibilityLabel={saved ? 'Remove from saved' : 'Save listing'}
+          accessibilityState={{ selected: saved }}
+          style={{
+            position: 'absolute',
+            top: 10,
+            right: 10,
+            width: 36,
+            height: 36,
+            borderRadius: 18,
+            backgroundColor: 'rgba(0,0,0,0.55)',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Bookmark
+            size={18}
+            color="#fff"
+            fill={saved ? '#fff' : 'transparent'}
+            strokeWidth={2}
+          />
+        </Pressable>
+      ) : null}
       <View style={{ padding: 16, gap: 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <KPI size="md" amount={amount} unit="SOL" />
+          <KPI size="md" amount={formatSol(amount)} unit="SOL" />
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <Pill intent={categoryToIntent(category)} label={category} />
             <Pill

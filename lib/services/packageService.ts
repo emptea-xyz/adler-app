@@ -8,6 +8,7 @@ import {
     orderBy,
     query,
     serverTimestamp,
+    startAfter,
     Timestamp,
     updateDoc,
     where,
@@ -18,6 +19,7 @@ import type { PackageListing, PackageStatus } from '@/types/marketplace';
 const COLLECTION = 'packages';
 
 function fromDoc(id: string, data: any): PackageListing {
+    const mediaUrls: string[] = data.mediaUrls ?? [];
     return {
         id,
         sellerId: data.sellerId,
@@ -25,7 +27,8 @@ function fromDoc(id: string, data: any): PackageListing {
         description: data.description,
         priceSol: data.priceSol,
         deliverables: data.deliverables ?? [],
-        mediaUrls: data.mediaUrls ?? [],
+        coverImageUrl: data.coverImageUrl ?? mediaUrls[0] ?? null,
+        mediaUrls,
         category: data.category ?? 'general',
         status: data.status as PackageStatus,
         createdAt: (data.createdAt as Timestamp | undefined)?.toMillis() ?? Date.now(),
@@ -37,6 +40,7 @@ export interface CreatePackageInput {
     description: string;
     priceSol: number;
     deliverables: string[];
+    coverImageUrl: string | null;
     mediaUrls: string[];
     category: string;
 }
@@ -70,6 +74,40 @@ export async function listActivePackages(opts?: { category?: string; limit?: num
     );
     const snap = await getDocs(q);
     return snap.docs.map((d) => fromDoc(d.id, d.data()));
+}
+
+export interface PackagesPage {
+    items: PackageListing[];
+    /** `createdAt` ms of the last item — pass back as `cursor` to fetch the
+     * next page. `null` when there are no more results. */
+    nextCursor: number | null;
+}
+
+/**
+ * Cursor-paged variant. Used by Browse's infinite scroll. Cursor is the
+ * `createdAt` Timestamp of the last item; we pass it to `startAfter` so
+ * we avoid offset-based pagination (which Firestore doesn't support).
+ */
+export async function listActivePackagesPage(opts?: {
+    category?: string;
+    limit?: number;
+    cursor?: number | null;
+}): Promise<PackagesPage> {
+    const limit = opts?.limit ?? 25;
+    const constraints = [where('status', '==', 'active' satisfies PackageStatus)];
+    if (opts?.category) constraints.push(where('category', '==', opts.category));
+    const baseQuery = query(
+        collection(db, COLLECTION),
+        ...constraints,
+        orderBy('createdAt', 'desc'),
+    );
+    const finalQuery = opts?.cursor
+        ? query(baseQuery, startAfter(Timestamp.fromMillis(opts.cursor)), fsLimit(limit))
+        : query(baseQuery, fsLimit(limit));
+    const snap = await getDocs(finalQuery);
+    const items = snap.docs.map((d) => fromDoc(d.id, d.data()));
+    const nextCursor = items.length === limit ? items[items.length - 1].createdAt : null;
+    return { items, nextCursor };
 }
 
 export async function listPackagesBySeller(sellerId: string): Promise<PackageListing[]> {

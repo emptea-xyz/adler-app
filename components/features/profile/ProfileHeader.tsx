@@ -13,6 +13,7 @@ import { useUser } from '@/contexts/UserContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useOverlaySheets } from '@/contexts/OverlaySheetsContext';
 import { getConnection, lamportsToSol } from '@/lib/solana/connection';
+import { formatSol } from '@/lib/utils/formatNumber';
 import { PROFILE_KEYS } from '@/lib/constants/queryKeys';
 import { haptic } from '@/lib/utils/haptic';
 
@@ -53,11 +54,7 @@ export function ProfileHeader({ listingsCount, onPressEdit }: Props) {
   });
 
   const balanceText =
-    balanceQuery.data === undefined
-      ? '—'
-      : balanceQuery.data >= 100
-        ? balanceQuery.data.toFixed(0)
-        : balanceQuery.data.toFixed(3);
+    balanceQuery.data === undefined ? '—' : formatSol(balanceQuery.data);
 
   const joined = profile?.createdAt ? formatJoinedDate(profile.createdAt) : null;
 

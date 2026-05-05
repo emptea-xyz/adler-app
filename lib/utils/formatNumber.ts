@@ -22,3 +22,32 @@ export const formatLargeNumber = (num: number): string => {
   }
   return num.toString();
 };
+
+/**
+ * Formats a SOL amount with up to 3 decimal places. Strips trailing zeros
+ * and a trailing decimal point — whole numbers render without a decimal.
+ *
+ *   formatSol(1)        === '1'
+ *   formatSol(1.5)      === '1.5'
+ *   formatSol(1.234)    === '1.234'
+ *   formatSol(1.2345)   === '1.235'
+ *   formatSol(0)        === '0'
+ *   formatSol(0.001)    === '0.001'
+ *   formatSol(100.5)    === '100.5'
+ */
+export const formatSol = (sol: number): string => {
+  if (!Number.isFinite(sol)) return '—';
+  return parseFloat(sol.toFixed(3)).toString();
+};
+
+/**
+ * Strict SOL amount parser. Accepts both `.` and `,` as decimal separator
+ * (iOS `decimal-pad` shows `,` in DE/FR/CH locales). Returns null for any
+ * malformed input — `parseFloat` quirks like `"1abc" → 1` are rejected.
+ */
+export const parseSolAmount = (raw: string): number | null => {
+  const trimmed = raw.trim();
+  if (!/^\d+([.,]\d+)?$/.test(trimmed)) return null;
+  const n = Number(trimmed.replace(',', '.'));
+  return Number.isFinite(n) ? n : null;
+};

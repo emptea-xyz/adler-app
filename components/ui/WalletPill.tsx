@@ -51,6 +51,9 @@ export function WalletPill({ amount, loading = false, onPress }: WalletPillProps
           onPress();
         }}
         hitSlop={6}
+        accessibilityRole="button"
+        accessibilityLabel={`Wallet · ${amount} SOL`}
+        accessibilityHint="Opens the wallet sheet"
       >
         {inner}
       </Pressable>
