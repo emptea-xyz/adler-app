@@ -38,6 +38,23 @@ service cloud.firestore {
       return value == null ||
              (value is string && value.matches('^[A-Z]{2}$'));
     }
+    // Cold-DM opt-in contact channels. Each field is independently nullable;
+    // an entirely empty contact must be persisted as `null` rather than
+    // `{email:null,telegram:null,phone:null}` so directory queries can use
+    // a simple presence check. Length caps are deliberately generous —
+    // these strings are user-typed and we don't validate format server-side.
+    function validProfileDmContact(value) {
+      return value == null || (
+        value is map &&
+        value.keys().hasOnly(['email', 'telegram', 'phone']) &&
+        (value.email == null ||
+         (value.email is string && value.email.size() > 0 && value.email.size() <= 254)) &&
+        (value.telegram == null ||
+         (value.telegram is string && value.telegram.size() > 0 && value.telegram.size() <= 32)) &&
+        (value.phone == null ||
+         (value.phone is string && value.phone.size() > 0 && value.phone.size() <= 20))
+      );
+    }
     // Creator side: null = no Creator presence. Otherwise: niches list
     // (size 0-6; per-element validation is left to the client, see
     // `lib/utils/niches.ts` in the web app — Firestore rules can't easily
@@ -47,13 +64,14 @@ service cloud.firestore {
     function validProfileCreator(value) {
       return value == null || (
         value is map &&
-        value.keys().hasOnly(['niches', 'portfolioUrl', 'socialLinks']) &&
+        value.keys().hasOnly(['niches', 'portfolioUrl', 'socialLinks', 'dmContact']) &&
         value.niches is list &&
         value.niches.size() <= 6 &&
         (value.portfolioUrl == null ||
          (value.portfolioUrl is string && value.portfolioUrl.size() <= 2048)) &&
         (!('socialLinks' in value) ||
-         (value.socialLinks is list && value.socialLinks.size() <= 16))
+         (value.socialLinks is list && value.socialLinks.size() <= 16)) &&
+        (!('dmContact' in value) || validProfileDmContact(value.dmContact))
       );
     }
     // Brand side: null = no Brand presence. Otherwise: companyName (1-60),
@@ -61,15 +79,22 @@ service cloud.firestore {
     function validProfileBrand(value) {
       return value == null || (
         value is map &&
-        value.keys().hasOnly(['companyName', 'industry', 'websiteUrl']) &&
+        value.keys().hasOnly(['companyName', 'industry', 'websiteUrl', 'dmContact']) &&
         value.companyName is string &&
         value.companyName.size() > 0 &&
         value.companyName.size() <= 60 &&
         (value.industry == null ||
          (value.industry is string && value.industry.size() <= 60)) &&
         (value.websiteUrl == null ||
-         (value.websiteUrl is string && value.websiteUrl.size() <= 2048))
+         (value.websiteUrl is string && value.websiteUrl.size() <= 2048)) &&
+        (!('dmContact' in value) || validProfileDmContact(value.dmContact))
       );
+    }
+    // Denormalized role flags must mirror the corresponding sub-profile
+    // presence so directory queries (`where("isBrand","==",true)`) can't be
+    // tampered into surfacing users who haven't actually set up that side.
+    function validProfileRoleFlag(value, subProfile) {
+      return value is bool && value == (subProfile != null);
     }
     // Per-user "saved listings" — like a bookmark. Doc id is deterministic
     // (`${userId}_${kind}_${listingId}`) so a tampered client can't masquerade
@@ -108,6 +133,7 @@ service cloud.firestore {
                           'username', 'displayName', 'bio', 'avatarUrl',
                           'role', 'walletAddress', 'pushToken',
                           'country', 'creatorProfile', 'brandProfile',
+                          'isCreator', 'isBrand',
                           'updatedAt',
                         ])
                       && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['username'])
@@ -128,6 +154,10 @@ service cloud.firestore {
                           || validProfileCreator(request.resource.data.creatorProfile))
                       && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['brandProfile'])
                           || validProfileBrand(request.resource.data.brandProfile))
+                      && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['isCreator'])
+                          || validProfileRoleFlag(request.resource.data.isCreator, request.resource.data.creatorProfile))
+                      && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['isBrand'])
+                          || validProfileRoleFlag(request.resource.data.isBrand, request.resource.data.brandProfile))
                       // walletAddress is append-only: null → string, but never overwritten.
                       && (
                         resource.data.walletAddress == null ||
