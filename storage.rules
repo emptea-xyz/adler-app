@@ -57,5 +57,25 @@ service firebase.storage {
         && isSafeRasterImage()
         && request.resource.size <= 8 * 1024 * 1024;
     }
+
+    // Message attachments live under threads/{threadId}/{messageId}/{file}.
+    // Unlike listing media these are private to the two thread participants
+    // — Firestore is the source of truth on who that is, so the rules look
+    // up the parent thread doc on every read/write.
+    function isThreadParticipant(threadId) {
+      return request.auth != null
+        && firestore.exists(/databases/(default)/documents/threads/$(threadId))
+        && (request.auth.uid in
+            firestore.get(/databases/(default)/documents/threads/$(threadId)).data.participants);
+    }
+    match /threads/{threadId}/{messageId}/{fileName} {
+      allow read: if isThreadParticipant(threadId);
+      // The Firestore rule on the message subcollection enforces sender ==
+      // auth.uid; here we only need to confirm the uploader is one of the
+      // two participants. 25 MB cap (deliverables tend to be short clips).
+      allow write: if isThreadParticipant(threadId)
+        && isSafeListingMedia()
+        && request.resource.size <= 25 * 1024 * 1024;
+    }
   }
 }

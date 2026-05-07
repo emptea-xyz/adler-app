@@ -12,6 +12,7 @@ admin.initializeApp();
 const PRIVY_APP_ID = defineSecret('PRIVY_APP_ID');
 const PRIVY_APP_SECRET = defineSecret('PRIVY_APP_SECRET');
 const HELIUS_RPC_URL = defineSecret('HELIUS_RPC_URL');
+const HELIUS_RPC_URL_DEVNET = defineSecret('HELIUS_RPC_URL_DEVNET');
 
 // JWKS resolver is cached at module scope so warm Cloud Function invocations
 // reuse the same key set instead of re-fetching `jwks.json` each call.
@@ -407,7 +408,7 @@ export const notifyApplicationDecided = onDocumentUpdated(
 // Cost guardrails: maxInstances limits concurrency-driven blow-up,
 // concurrency lets a single instance handle many parallel requests
 // (RPC calls are I/O-bound).
-export const solanaRpcProxy = onRequest(
+export const solanaRpcProxyMainnet = onRequest(
   {
     cors: true,
     secrets: [HELIUS_RPC_URL],
@@ -436,7 +437,42 @@ export const solanaRpcProxy = onRequest(
       res.set('Content-Type', response.headers.get('content-type') ?? 'application/json');
       res.send(text);
     } catch (err) {
-      console.error('solanaRpcProxy error', err);
+      console.error('solanaRpcProxyMainnet error', err);
+      res.status(502).send('RPC upstream failure');
+    }
+  },
+);
+
+export const solanaRpcProxyDevnet = onRequest(
+  {
+    cors: true,
+    secrets: [HELIUS_RPC_URL_DEVNET],
+    maxInstances: 10,
+    concurrency: 80,
+  },
+  async (req, res) => {
+    if (req.method !== 'POST') {
+      res.status(405).send('Method not allowed');
+      return;
+    }
+    const upstream = HELIUS_RPC_URL_DEVNET.value();
+    if (!upstream) {
+      res.status(503).send('RPC endpoint not configured');
+      return;
+    }
+    try {
+      const body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+      const response = await fetch(upstream, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+      });
+      const text = await response.text();
+      res.status(response.status);
+      res.set('Content-Type', response.headers.get('content-type') ?? 'application/json');
+      res.send(text);
+    } catch (err) {
+      console.error('solanaRpcProxyDevnet error', err);
       res.status(502).send('RPC upstream failure');
     }
   },
@@ -489,5 +525,49 @@ export const notifyOrderStateChanged = onDocumentUpdated(
         data: { kind: 'order', orderId },
       },
     ]);
+  },
+);
+
+// New thread message → fan out metadata onto the parent thread doc:
+// lastMessage*, counterparty unreadCount++. Clients only write the message
+// (rules forbid them from touching these fields), so this trigger is the
+// sole writer for them.
+//
+// Notifications are intentionally not enqueued here yet — that lives in the
+// Notifications group (TODO). When push lands, this is the place to call it
+// for new-message events.
+export const onMessageCreate = onDocumentCreated(
+  'threads/{threadId}/messages/{messageId}',
+  async (event) => {
+    const message = event.data?.data();
+    if (!message) return;
+    const { threadId } = event.params;
+    const senderId = message.senderId;
+    const body = typeof message.body === 'string' ? message.body : '';
+    const preview = body.slice(0, 120);
+
+    const db = admin.firestore();
+    const threadRef = db.collection('threads').doc(threadId);
+    const threadSnap = await threadRef.get();
+    if (!threadSnap.exists) return;
+    const thread = threadSnap.data() || {};
+    const participants = Array.isArray(thread.participants)
+      ? thread.participants
+      : [];
+
+    const update = {
+      lastMessageAt: admin.firestore.FieldValue.serverTimestamp(),
+      lastMessagePreview: preview,
+      lastMessageSenderId: senderId,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+    for (const uid of participants) {
+      if (uid === senderId) {
+        update[`unreadCount.${uid}`] = 0;
+      } else {
+        update[`unreadCount.${uid}`] = admin.firestore.FieldValue.increment(1);
+      }
+    }
+    await threadRef.update(update);
   },
 );

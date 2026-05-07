@@ -325,6 +325,62 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Threads back the messaging primitive. One thread per
+    // (kind, parentId) pair — `application_{appId}` for pre-award gig
+    // negotiation, `order_{orderId}` for the contract phase. Both
+    // participants are denormalized on the doc so the inbox can run a
+    // single `participants array-contains` query (see indexes file).
+    //
+    // Threat model note: clients only write the message subdocument and
+    // self-zero their own unreadCount entry. Thread metadata fan-out
+    // (lastMessageAt, lastMessagePreview, counterparty unreadCount bump)
+    // is owned by the onMessageCreate Cloud Function in functions/.
+    function threadAt(threadId) {
+      return get(/databases/$(database)/documents/threads/$(threadId)).data;
+    }
+    match /threads/{threadId} {
+      allow read: if isAuthed() &&
+                    request.auth.uid in resource.data.participants;
+      allow create: if isAuthed() &&
+                      request.auth.uid in request.resource.data.participants &&
+                      request.resource.data.participants.size() == 2 &&
+                      request.resource.data.participants[0] != request.resource.data.participants[1] &&
+                      request.resource.data.kind in ['application', 'order'] &&
+                      request.resource.data.parentId is string &&
+                      request.resource.data.parentId.size() > 0 &&
+                      request.resource.data.unreadCount[request.resource.data.participants[0]] == 0 &&
+                      request.resource.data.unreadCount[request.resource.data.participants[1]] == 0;
+      // Clients may only self-zero their own unreadCount entry; everything
+      // else is the Cloud Function's job (which uses admin creds and
+      // bypasses rules).
+      allow update: if isAuthed() &&
+                      request.auth.uid in resource.data.participants &&
+                      request.resource.data.diff(resource.data).affectedKeys()
+                        .hasOnly(['unreadCount', 'updatedAt']) &&
+                      request.resource.data.unreadCount.diff(resource.data.unreadCount)
+                        .affectedKeys().hasOnly([request.auth.uid]) &&
+                      request.resource.data.unreadCount[request.auth.uid] == 0;
+      allow delete: if false;
+
+      // Append-only message log. Whitepaper §9 treats this as evidence
+      // during disputes — no edits, no deletes, no exceptions.
+      match /messages/{messageId} {
+        allow read: if isAuthed() &&
+                      request.auth.uid in threadAt(threadId).participants;
+        allow create: if isAuthed() &&
+                        request.resource.data.senderId == request.auth.uid &&
+                        request.auth.uid in threadAt(threadId).participants &&
+                        request.resource.data.body is string &&
+                        request.resource.data.body.size() <= 2000 &&
+                        request.resource.data.attachments is list &&
+                        request.resource.data.attachments.size() <= 5 &&
+                        request.resource.data.kind in
+                          ['text', 'deliverable', 'revision_request', 'approval', 'system'];
+        allow update: if false;
+        allow delete: if false;
+      }
+    }
+
     // Reviews are public-readable. Each reviewer gets one review per order
     // (deterministic doc id `${orderId}_${reviewerId}`). Order must be in the
     // 'complete' state and the reviewer + reviewee must be the order's two
