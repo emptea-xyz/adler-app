@@ -1,5 +1,13 @@
 {
   "projects": {
     "default": "emptea-adler"
+  },
+  "targets": {},
+  "etags": {
+    "emptea-adler": {
+      "extensionInstances": {
+        "firestore-send-email": "9b7da46bf15258d4f5a14847acf4db35fb9dd883637b00aecedcfda84f83f817"
+      }
+    }
   }
 }
