@@ -382,11 +382,24 @@ service cloud.firestore {
     }
 
     // Reviews are public-readable. Each reviewer gets one review per order
-    // (deterministic doc id `${orderId}_${reviewerId}`). Order must be in the
-    // 'complete' state and the reviewer + reviewee must be the order's two
-    // counter-parties.
+    // (deterministic doc id `${orderId}_${reviewerId}`). Order must be in
+    // the 'complete' state and the reviewer + reviewee must be the order's
+    // two counter-parties.
+    //
+    // Schema (per whitepaper §7): four axes — scope, communication,
+    // timeliness, quality — each 1..5. amountSol + listingId are
+    // denormalized at write time and pinned to the parent order via the
+    // rule, so the public reputation aggregate (weighted by deal size) can
+    // run on a single collection without a join.
     function reviewedOrder(orderId) {
       return get(/databases/$(database)/documents/orders/$(orderId)).data;
+    }
+    function isValidAxes(axes) {
+      return axes is map &&
+             axes.scope is number && axes.scope >= 1 && axes.scope <= 5 &&
+             axes.communication is number && axes.communication >= 1 && axes.communication <= 5 &&
+             axes.timeliness is number && axes.timeliness >= 1 && axes.timeliness <= 5 &&
+             axes.quality is number && axes.quality >= 1 && axes.quality <= 5;
     }
     match /reviews/{reviewId} {
       allow read: if true;
@@ -394,9 +407,7 @@ service cloud.firestore {
                       request.resource.data.reviewerId == request.auth.uid &&
                       reviewId == request.resource.data.orderId + '_' + request.auth.uid &&
                       request.resource.data.reviewerId != request.resource.data.revieweeId &&
-                      request.resource.data.rating is number &&
-                      request.resource.data.rating >= 1 &&
-                      request.resource.data.rating <= 5 &&
+                      isValidAxes(request.resource.data.axes) &&
                       request.resource.data.comment is string &&
                       request.resource.data.comment.size() <= 500 &&
                       reviewedOrder(request.resource.data.orderId).status == 'complete' &&
@@ -407,14 +418,21 @@ service cloud.firestore {
                       request.resource.data.revieweeId in [
                         reviewedOrder(request.resource.data.orderId).buyerId,
                         reviewedOrder(request.resource.data.orderId).sellerId,
-                      ];
+                      ] &&
+                      // amountSol + listingId must mirror the parent order
+                      // exactly — they're the weight + per-listing key for
+                      // the reputation aggregate, and a forged value would
+                      // poison the public score.
+                      request.resource.data.amountSol == reviewedOrder(request.resource.data.orderId).amountSol &&
+                      request.resource.data.listingId == reviewedOrder(request.resource.data.orderId).listingId;
+      // Edits are limited to axes + comment (the reviewer's opinion). The
+      // contract-level fields (amountSol, listingId, revieweeId, orderId)
+      // can never change.
       allow update: if isAuthed() &&
                       resource.data.reviewerId == request.auth.uid &&
                       request.resource.data.diff(resource.data).affectedKeys()
-                        .hasOnly(['rating', 'comment']) &&
-                      request.resource.data.rating is number &&
-                      request.resource.data.rating >= 1 &&
-                      request.resource.data.rating <= 5 &&
+                        .hasOnly(['axes', 'comment']) &&
+                      isValidAxes(request.resource.data.axes) &&
                       request.resource.data.comment is string &&
                       request.resource.data.comment.size() <= 500;
       allow delete: if false;
