@@ -649,3 +649,90 @@ export const onMessageCreate = onDocumentCreated(
     }
   },
 );
+
+// Dispute filed → ping the counterparty + every arbiter. The arbiter
+// fan-out reads the small /roles collection (typically a handful of
+// docs in v1) and emits one notification per arbiter.
+export const notifyDisputeFiled = onDocumentCreated(
+  'disputes/{id}',
+  async (event) => {
+    const dispute = event.data?.data();
+    if (!dispute) return;
+    const disputeId = event.params.id;
+    const orderId = dispute.orderId;
+    const filedBy = dispute.filedBy;
+    const counterpartyId = filedBy === 'buyer' ? dispute.sellerId : dispute.buyerId;
+
+    const reasonPreview = typeof dispute.reason === 'string'
+      ? dispute.reason.slice(0, 200)
+      : '';
+
+    await bumpActivity(counterpartyId);
+    await emitNotification({
+      recipientId: counterpartyId,
+      kind: 'dispute_filed',
+      title: 'Dispute opened',
+      body: reasonPreview || 'Adler will review the message log shortly.',
+      href: '/inbox/order_' + orderId,
+      refs: { disputeId, orderId, threadId: 'order_' + orderId },
+    });
+
+    // Arbiters: read the /roles collection. Tiny in v1 — no pagination.
+    try {
+      const arbiterSnap = await admin.firestore().collection('roles')
+        .where('role', '==', 'arbiter').get();
+      for (const doc of arbiterSnap.docs) {
+        await emitNotification({
+          recipientId: doc.id,
+          kind: 'dispute_filed',
+          title: 'Dispute opened',
+          body: reasonPreview || 'Open the panel to review.',
+          href: '/admin/disputes/' + disputeId,
+          refs: { disputeId, orderId, threadId: 'order_' + orderId },
+        });
+      }
+    } catch (err) {
+      console.warn('notifyDisputeFiled arbiter fan-out failed', err);
+    }
+  },
+);
+
+// Dispute resolved → ping both parties with the outcome.
+export const notifyDisputeResolved = onDocumentUpdated(
+  'disputes/{id}',
+  async (event) => {
+    const before = event.data?.before?.data();
+    const after = event.data?.after?.data();
+    if (!before || !after) return;
+    if (before.status !== 'open' || after.status !== 'resolved') return;
+
+    const disputeId = event.params.id;
+    const orderId = after.orderId;
+    let outcomeLabel = 'Decided';
+    if (after.outcome === 'release_to_creator') outcomeLabel = 'release to creator';
+    else if (after.outcome === 'refund_to_brand') outcomeLabel = 'refund to brand';
+    else if (after.outcome === 'split') {
+      const pct = typeof after.splitPercentToCreator === 'number'
+        ? Math.round(after.splitPercentToCreator) : 50;
+      outcomeLabel = 'split (' + pct + '% to creator)';
+    }
+    const title = 'Dispute resolved — ' + outcomeLabel;
+    const note = typeof after.outcomeNote === 'string'
+      ? after.outcomeNote.slice(0, 200) : '';
+    const body = note || 'See the order thread for the arbiter note.';
+
+    for (const recipientId of [after.buyerId, after.sellerId]) {
+      if (!recipientId) continue;
+      await bumpActivity(recipientId);
+      await emitNotification({
+        recipientId,
+        kind: 'dispute_resolved',
+        title,
+        body,
+        href: '/inbox/order_' + orderId,
+        refs: { disputeId, orderId, threadId: 'order_' + orderId },
+      });
+    }
+  },
+);
+
