@@ -437,5 +437,19 @@ service cloud.firestore {
                       request.resource.data.comment.size() <= 500;
       allow delete: if false;
     }
+
+    // Notifications: server-only writer. Cloud Functions use admin creds
+    // and bypass `allow create: if false`. Recipients can read their own
+    // and flip the `read` flag to true; nothing else from a client.
+    match /notifications/{notificationId} {
+      allow read: if isAuthed() &&
+                    resource.data.recipientId == request.auth.uid;
+      allow update: if isAuthed() &&
+                      resource.data.recipientId == request.auth.uid &&
+                      request.resource.data.diff(resource.data).affectedKeys()
+                        .hasOnly(['read']) &&
+                      request.resource.data.read == true;
+      allow create, delete: if false;
+    }
   }
 }

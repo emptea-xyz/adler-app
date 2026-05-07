@@ -99,6 +99,38 @@ function fmtSol(amount) {
   return parseFloat(amount.toFixed(3)).toString();
 }
 
+/**
+ * Write one /notifications/{auto} doc for a recipient. Server-only — the
+ * Firestore rule rejects client creates with `if false`; admin SDK
+ * bypasses. Best-effort: a failed write logs but never throws, since the
+ * Expo push (where applicable) is the audit trail and a missing in-app
+ * row is tolerated.
+ */
+async function emitNotification({
+  recipientId,
+  kind,
+  title,
+  body,
+  href,
+  refs,
+}) {
+  if (!recipientId || !kind || !title) return;
+  try {
+    await admin.firestore().collection('notifications').add({
+      recipientId,
+      kind,
+      title: String(title).slice(0, 120),
+      body: typeof body === 'string' ? body.slice(0, 240) : '',
+      href: typeof href === 'string' ? href : '/notifications',
+      refs: refs && typeof refs === 'object' ? refs : {},
+      read: false,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  } catch (err) {
+    console.warn('emitNotification failed', err);
+  }
+}
+
 // Privy access token → Firebase custom token. The Firebase auth uid is set to
 // the Privy user id, so existing Firestore rules using
 // `request.auth.uid == <userId>` continue to work.
@@ -340,14 +372,24 @@ export const notifyApplicationReceived = onDocumentCreated(
     const gig = gigSnap.data();
     if (!gig?.brandId || gig.brandId === app.creatorId) return;
     await bumpActivity(gig.brandId);
+    const title = 'New application';
+    const body = `Someone applied to "${gig.title}".`;
+    await emitNotification({
+      recipientId: gig.brandId,
+      kind: 'application_received',
+      title,
+      body,
+      href: '/applicants',
+      refs: { applicationId: event.params.id, listingId: app.gigId },
+    });
     const token = await pushTokenFor(gig.brandId);
     if (!token) return;
     await sendExpoPush([
       {
         to: token,
         sound: 'default',
-        title: 'New application',
-        body: `Someone applied to "${gig.title}".`,
+        title,
+        body,
         data: { kind: 'gigApplication', gigId: app.gigId, applicationId: event.params.id },
       },
     ]);
@@ -379,6 +421,14 @@ export const notifyApplicationDecided = onDocumentUpdated(
     }
 
     await bumpActivity(after.creatorId);
+    await emitNotification({
+      recipientId: after.creatorId,
+      kind: 'application_decided',
+      title,
+      body,
+      href: '/inbox/application_' + event.params.id,
+      refs: { applicationId: event.params.id, listingId: after.gigId },
+    });
     const token = await pushTokenFor(after.creatorId);
     if (!token) return;
     await sendExpoPush([
@@ -514,6 +564,14 @@ export const notifyOrderStateChanged = onDocumentUpdated(
     }
 
     await bumpActivity(recipientId);
+    await emitNotification({
+      recipientId,
+      kind: 'order_state',
+      title,
+      body,
+      href: '/inbox/order_' + orderId,
+      refs: { orderId },
+    });
     const token = await pushTokenFor(recipientId);
     if (!token) return;
     await sendExpoPush([
@@ -531,11 +589,8 @@ export const notifyOrderStateChanged = onDocumentUpdated(
 // New thread message → fan out metadata onto the parent thread doc:
 // lastMessage*, counterparty unreadCount++. Clients only write the message
 // (rules forbid them from touching these fields), so this trigger is the
-// sole writer for them.
-//
-// Notifications are intentionally not enqueued here yet — that lives in the
-// Notifications group (TODO). When push lands, this is the place to call it
-// for new-message events.
+// sole writer for them. Also emits one /notifications doc per
+// counterparty so the web bell pings on new messages.
 export const onMessageCreate = onDocumentCreated(
   'threads/{threadId}/messages/{messageId}',
   async (event) => {
@@ -554,6 +609,13 @@ export const onMessageCreate = onDocumentCreated(
     const participants = Array.isArray(thread.participants)
       ? thread.participants
       : [];
+    const senderSnapshot =
+      (thread.participantSnapshots &&
+        thread.participantSnapshots[senderId]) ||
+      {};
+    const senderLabel =
+      senderSnapshot.displayName ||
+      (senderSnapshot.handle ? `@${senderSnapshot.handle}` : 'Someone');
 
     const update = {
       lastMessageAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -569,5 +631,21 @@ export const onMessageCreate = onDocumentCreated(
       }
     }
     await threadRef.update(update);
+
+    // Bell ping for the counterparty (or counterparties — generic over
+    // participant count). Skip system messages, since those are
+    // lifecycle markers the actor already triggered themselves.
+    if (message.kind === 'system') return;
+    for (const uid of participants) {
+      if (uid === senderId) continue;
+      await emitNotification({
+        recipientId: uid,
+        kind: 'thread_message',
+        title: senderLabel,
+        body: preview || 'Sent an attachment',
+        href: '/inbox/' + threadId,
+        refs: { threadId },
+      });
+    }
   },
 );
