@@ -545,5 +545,14 @@ service cloud.firestore {
                       request.resource.data.read == true;
       allow create, delete: if false;
     }
+
+    // Email outbox for the firebase/firestore-send-email extension. The
+    // Cloud Function `onNotificationCreateEmail` writes `{ to, message }`
+    // docs here via the admin SDK; the extension reads them with its own
+    // service account. Clients are denied entirely — no one tampers with
+    // the outbox.
+    match /mail/{id} {
+      allow read, write: if false;
+    }
   }
 }

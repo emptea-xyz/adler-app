@@ -14,6 +14,11 @@ const PRIVY_APP_SECRET = defineSecret('PRIVY_APP_SECRET');
 const HELIUS_RPC_URL = defineSecret('HELIUS_RPC_URL');
 const HELIUS_RPC_URL_DEVNET = defineSecret('HELIUS_RPC_URL_DEVNET');
 
+// Public origin used to build absolute CTA links inside emails. Override
+// at deploy time with `firebase functions:config` or by setting the env
+// var on the function. Adler's marketing domain is the default.
+const ADLER_PUBLIC_URL = process.env.ADLER_PUBLIC_URL ?? 'https://adler.com';
+
 // JWKS resolver is cached at module scope so warm Cloud Function invocations
 // reuse the same key set instead of re-fetching `jwks.json` each call.
 let jwksCache = null;
@@ -229,6 +234,37 @@ async function deletePrivyUser(privyUserId, appId, appSecret) {
   if (!res.ok && res.status !== 404) {
     const body = await res.text().catch(() => '');
     throw new Error(`Privy delete HTTP ${res.status}: ${body}`);
+  }
+}
+
+// Resolve a user's email via the Privy admin API. Firebase Auth users in
+// this project carry no email field (custom-token mint via Privy), so we
+// have to ask Privy. Mirrors deletePrivyUser's auth pattern. Returns null
+// if the user has no email linked, or on any HTTP error — callers should
+// treat null as "skip this email send" rather than throwing.
+async function emailForPrivyUser(privyUserId, appId, appSecret) {
+  const tail = privyUserId.startsWith('did:privy:')
+    ? privyUserId.slice('did:privy:'.length)
+    : privyUserId;
+  const auth = Buffer.from(`${appId}:${appSecret}`).toString('base64');
+  try {
+    const res = await fetch(`https://api.privy.io/v1/users/${tail}`, {
+      headers: {
+        'Authorization': `Basic ${auth}`,
+        'privy-app-id': appId,
+      },
+    });
+    if (!res.ok) {
+      console.warn(`emailForPrivyUser HTTP ${res.status}`);
+      return null;
+    }
+    const body = await res.json();
+    const linked = Array.isArray(body?.linked_accounts) ? body.linked_accounts : [];
+    const emailAccount = linked.find((acc) => acc?.type === 'email');
+    return emailAccount?.address ?? null;
+  } catch (err) {
+    console.warn('emailForPrivyUser failed', err);
+    return null;
   }
 }
 
@@ -765,6 +801,144 @@ export const notifyDisputeResolved = onDocumentUpdated(
         href: '/inbox/order_' + orderId,
         refs: { disputeId, orderId, threadId: 'order_' + orderId },
       });
+    }
+  },
+);
+
+// ─────────────────────────────────────────────────────────────────────────
+// Email channel — Trigger Email extension
+// ─────────────────────────────────────────────────────────────────────────
+//
+// Mirrors the in-app /notifications fan-out as transactional email. The
+// trigger fires on every notification doc create, resolves the recipient's
+// email through Privy admin, and writes /mail/{auto} for the
+// firebase/firestore-send-email extension to dispatch via SMTP.
+//
+// Channel preference for v1 is single-boolean: the existing
+// preferences/{uid}.notifications[kind] gate covers both in-app and email.
+// emitNotification already filters on it before writing the
+// /notifications doc; the email trigger re-checks defensively because it
+// reads the doc independently.
+
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function ctaLabelFor(kind) {
+  switch (kind) {
+    case 'application_received': return 'Open applicants';
+    case 'application_decided': return 'Open thread';
+    case 'order_state': return 'Open order';
+    case 'thread_message': return 'Open thread';
+    case 'dispute_filed': return 'Open thread';
+    case 'dispute_resolved': return 'Open thread';
+    default: return 'Open Adler';
+  }
+}
+
+function subjectFor(notification) {
+  const kind = notification.kind;
+  const title = typeof notification.title === 'string' ? notification.title : 'Adler';
+  switch (kind) {
+    case 'application_received': return 'New application on Adler';
+    case 'application_decided': return 'Update on your Adler application';
+    case 'thread_message':
+      return `${title} messaged you on Adler`;
+    case 'dispute_filed': return 'Dispute opened on your Adler order';
+    case 'dispute_resolved': return 'Adler arbitration resolved';
+    case 'order_state':
+    case 'system':
+    default:
+      return title;
+  }
+}
+
+function renderEmailHtml({ title, body, url, ctaLabel }) {
+  const safeTitle = escapeHtml(title);
+  const safeBody = escapeHtml(body);
+  const safeUrl = escapeHtml(url);
+  const safeCta = escapeHtml(ctaLabel);
+  return `<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background:#fafafa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafafa;padding:32px 16px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border:1px solid #e5e5e5;border-radius:16px;padding:32px;">
+            <tr>
+              <td style="font-size:20px;font-weight:600;color:#0a0a0a;letter-spacing:-0.02em;line-height:1.25;">${safeTitle}</td>
+            </tr>
+            <tr>
+              <td style="padding-top:12px;font-size:15px;line-height:1.55;color:#404040;">${safeBody}</td>
+            </tr>
+            <tr>
+              <td style="padding-top:24px;">
+                <a href="${safeUrl}" style="display:inline-block;background:#ff2e88;color:#ffffff;text-decoration:none;font-size:14px;font-weight:600;letter-spacing:-0.01em;padding:12px 20px;border-radius:9999px;">${safeCta}</a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding-top:32px;font-size:12px;line-height:1.5;color:#737373;border-top:1px solid #e5e5e5;padding-top:24px;margin-top:24px;">
+                You're getting this because you have an Adler account. Manage notifications in Settings → Notifications.
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+}
+
+function renderEmail(notification) {
+  const href = typeof notification.href === 'string' ? notification.href : '';
+  const url = href.startsWith('http') ? href : `${ADLER_PUBLIC_URL}${href}`;
+  const title = typeof notification.title === 'string' ? notification.title : 'Adler';
+  const body = typeof notification.body === 'string' ? notification.body : '';
+  const ctaLabel = ctaLabelFor(notification.kind);
+  const subject = subjectFor(notification);
+  const text = `${body}\n\n${ctaLabel}: ${url}\n\n— Adler`;
+  const html = renderEmailHtml({ title, body, url, ctaLabel });
+  return { subject, text, html };
+}
+
+export const onNotificationCreateEmail = onDocumentCreated(
+  {
+    document: 'notifications/{notificationId}',
+    secrets: [PRIVY_APP_ID, PRIVY_APP_SECRET],
+  },
+  async (event) => {
+    const notification = event.data?.data();
+    if (!notification) return;
+    const { recipientId, kind } = notification;
+    if (!recipientId || !kind) return;
+
+    // emitNotification already gates on preferences before writing the
+    // doc, but this trigger reads /notifications independently — a doc
+    // could in principle land here from anywhere admin-SDK code wrote
+    // it. Re-check rather than assume.
+    const enabled = await isNotificationKindEnabled(recipientId, kind);
+    if (!enabled) return;
+
+    const email = await emailForPrivyUser(
+      recipientId,
+      PRIVY_APP_ID.value(),
+      PRIVY_APP_SECRET.value(),
+    );
+    if (!email) return;
+
+    const { subject, text, html } = renderEmail(notification);
+    try {
+      await admin.firestore().collection('mail').add({
+        to: email,
+        message: { subject, text, html },
+      });
+    } catch (err) {
+      console.warn('onNotificationCreateEmail mail write failed', err);
     }
   },
 );
