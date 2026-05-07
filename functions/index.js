@@ -100,11 +100,42 @@ function fmtSol(amount) {
 }
 
 /**
+ * Read the recipient's notification preferences. Missing doc means
+ * "everything on" — same default the web client uses when rendering
+ * the prefs page. The result is memoized by the calling closure when
+ * a single trigger fans out to multiple recipients (e.g. arbiter
+ * fan-out on disputeFiled).
+ */
+async function isNotificationKindEnabled(recipientId, kind) {
+  if (!recipientId || !kind) return true;
+  try {
+    const snap = await admin
+      .firestore()
+      .collection('preferences')
+      .doc(recipientId)
+      .get();
+    if (!snap.exists) return true;
+    const prefs = snap.data()?.notifications;
+    if (!prefs || typeof prefs !== 'object') return true;
+    const value = prefs[kind];
+    return value !== false; // explicit false mutes; missing key stays on
+  } catch (err) {
+    console.warn('isNotificationKindEnabled failed; allowing', err);
+    return true;
+  }
+}
+
+/**
  * Write one /notifications/{auto} doc for a recipient. Server-only — the
  * Firestore rule rejects client creates with `if false`; admin SDK
  * bypasses. Best-effort: a failed write logs but never throws, since the
  * Expo push (where applicable) is the audit trail and a missing in-app
  * row is tolerated.
+ *
+ * Honours per-user notification preferences in /preferences/{uid}: if
+ * the recipient has muted this kind, the in-app row is skipped. Mobile
+ * push paths sit alongside this helper in each trigger and are not
+ * gated here — mobile preferences will land in a follow-up.
  */
 async function emitNotification({
   recipientId,
@@ -115,6 +146,8 @@ async function emitNotification({
   refs,
 }) {
   if (!recipientId || !kind || !title) return;
+  const enabled = await isNotificationKindEnabled(recipientId, kind);
+  if (!enabled) return;
   try {
     await admin.firestore().collection('notifications').add({
       recipientId,

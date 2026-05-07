@@ -452,6 +452,15 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Per-user notification preferences. Doc id == owner uid. Default
+    // (no doc) means "everything on" — preferencesService falls back to
+    // that on read. Writes only by the owner; the Cloud Function's
+    // emitNotification helper uses admin creds to read the doc and gate
+    // each fan-out.
+    match /preferences/{uid} {
+      allow read, write: if isOwner(uid);
+    }
+
     // Roles assign elevated capabilities (arbiter for v1). Public read so
     // both rules and clients can `exists()`/get-check the doc; writes are
     // admin-only — you provision arbiters by writing the doc directly via
