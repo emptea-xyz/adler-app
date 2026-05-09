@@ -1,113 +1,32 @@
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import { View, ScrollView, ActivityIndicator, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { MoreHorizontal } from 'lucide-react-native';
 import { ThemedText } from '@/components/base/ThemedText';
 import { ThemedView } from '@/components/base/ThemedView';
 import { ScreenHeader } from '@/components/base/ScreenHeader';
 import { SectionLabel } from '@/components/base/SectionLabel';
-import EmptyState from '@/components/ui/EmptyState';
 import { Button } from '@/components/ui/Button';
 import { KPI } from '@/components/ui/KPI';
 import { Pill, type PillIntent } from '@/components/ui/Pill';
 import { CtaFooter } from '@/components/ui/CtaFooter';
-import { ApplySheet } from '@/components/features/gig/ApplySheet';
-import { AwardConfirmSheet } from '@/components/features/gig/AwardConfirmSheet';
 import { ManageListingSheet } from '@/components/features/listing/ManageListingSheet';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUser } from '@/contexts/UserContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { getListing, updateGig } from '@/lib/services/listingsService';
+import { getListing } from '@/lib/services/listingsService';
 import { formatSol } from '@/lib/utils/formatNumber';
 import { getProfile } from '@/lib/services/profileService';
-import {
-  listApplicationsForGig,
-  setApplicationStatus,
-} from '@/lib/services/applicationsService';
-import { useSolanaPayment } from '@/hooks/useSolanaPayment';
 import { qk } from '@/lib/constants/queryKeys';
-import { toast } from '@/lib/utils/toast';
-import { haptic } from '@/lib/utils/haptic';
 import { viewModeFor } from '@/lib/utils/role';
-import { EMPTY_GIG_APPLICATIONS } from '@/lib/utils/copy';
-import type { GigApplication, Gig, GigStatus, ApplicationStatus } from '@/types/marketplace';
+import type { Gig, GigStatus } from '@/types/marketplace';
 
 function gigStatusIntent(status: GigStatus): PillIntent {
   if (status === 'open') return 'cyan';
   if (status === 'awarded') return 'lime';
   return 'neutral';
-}
-
-function applicationStatusIntent(status: ApplicationStatus): PillIntent {
-  if (status === 'awarded') return 'lime';
-  if (status === 'shortlisted') return 'cyan';
-  return 'neutral';
-}
-
-interface AwardTarget {
-  applicationId: string;
-  creatorId: string;
-  recipientLabel: string;
-}
-
-function ApplicationCard({
-  application,
-  gig,
-  onAwardPress,
-  awardingId,
-  onPressCreator,
-}: {
-  application: GigApplication;
-  gig: Gig;
-  onAwardPress: (target: AwardTarget) => void;
-  awardingId: string | null;
-  onPressCreator: (creatorId: string) => void;
-}) {
-  const { theme } = useTheme();
-  const profileQuery = useQuery({
-    queryKey: qk.profiles.detail(application.creatorId),
-    queryFn: () => getProfile(application.creatorId),
-  });
-
-  const recipientLabel = profileQuery.data?.displayName ?? `@${profileQuery.data?.username ?? 'creator'}`;
-  const awarding = awardingId === application.id;
-  const disabled = !!awardingId || gig.status !== 'open';
-
-  return (
-    <View style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12, gap: 8 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Pressable
-          onPress={() => onPressCreator(application.creatorId)}
-          style={{ flex: 1, gap: 2 }}
-          hitSlop={6}
-        >
-          <ThemedText type="body-md-semibold" style={{ color: theme[950] }} numberOfLines={1}>
-            {profileQuery.data?.displayName ?? '—'}
-          </ThemedText>
-          <ThemedText type="body-sm" style={{ color: theme[500] }} numberOfLines={1}>
-            @{profileQuery.data?.username ?? '—'}
-          </ThemedText>
-        </Pressable>
-        <Pill intent={applicationStatusIntent(application.status)} label={application.status} />
-      </View>
-      <ThemedText type="body-md" style={{ color: theme[950] }} numberOfLines={4}>
-        {application.message}
-      </ThemedText>
-      {application.status === 'pending' && (
-        <Button
-          title={`Award ${formatSol(gig.budgetSol)} SOL`}
-          onPress={() => onAwardPress({ applicationId: application.id, creatorId: application.creatorId, recipientLabel })}
-          loading={awarding}
-          disabled={disabled}
-          variant="primary"
-          size="sm"
-          className="self-start"
-        />
-      )}
-    </View>
-  );
 }
 
 export default function GigDetailScreen() {
@@ -116,12 +35,7 @@ export default function GigDetailScreen() {
   const { profile } = useUser();
   const { theme } = useTheme();
   const router = useRouter();
-  const queryClient = useQueryClient();
-  const { pay } = useSolanaPayment();
 
-  const [applySheet, setApplySheet] = useState(false);
-  const [awardTarget, setAwardTarget] = useState<AwardTarget | null>(null);
-  const [awardingId, setAwardingId] = useState<string | null>(null);
   const [manageOpen, setManageOpen] = useState(false);
 
   const gigQuery = useQuery({
@@ -140,42 +54,7 @@ export default function GigDetailScreen() {
 
   const isCreator = viewModeFor(profile) === 'creator';
   const isOwnGig = !!user && gig?.brandId === user.id;
-
-  const applicationsQuery = useQuery({
-    queryKey: id ? ['applications', 'gig', id] : ['applications', 'gig', 'unknown'],
-    enabled: !!id && !!user && !!gig && gig.brandId === user.id,
-    queryFn: () => listApplicationsForGig(id!),
-  });
-
-  const confirmAward = useCallback(async () => {
-    if (!gig || !awardTarget) return;
-    haptic('medium');
-    setAwardingId(awardTarget.applicationId);
-    try {
-      const { signature } = await pay({
-        type: 'gig',
-        listingId: gig.id,
-        sellerId: awardTarget.creatorId,
-        amountSol: gig.budgetSol,
-        listingTitle: gig.title,
-      });
-      await setApplicationStatus(awardTarget.applicationId, 'awarded');
-      await updateGig(gig.id, { status: 'awarded' });
-      queryClient.invalidateQueries({ queryKey: qk.listings.detail('gig', gig.id) });
-      queryClient.invalidateQueries({ queryKey: ['applications', 'gig', gig.id] });
-      haptic('heavy');
-      toast.success(`Awarded · tx ${signature.slice(0, 8)}…`);
-      setAwardTarget(null);
-    } catch (err: any) {
-      toast.error(err?.message ?? 'Award failed');
-    } finally {
-      setAwardingId(null);
-    }
-  }, [gig, awardTarget, pay, queryClient]);
-
   const showApplyCta = !!gig && isCreator && !isOwnGig && gig.status === 'open';
-  const showApplications = !!gig && isOwnGig;
-  const applications = applicationsQuery.data ?? [];
 
   return (
     <ThemedView className="flex-1">
@@ -271,43 +150,14 @@ export default function GigDetailScreen() {
                   This gig is no longer open for applications.
                 </ThemedText>
               )}
-
-              {showApplications && (
-                <View style={{ gap: 12 }}>
-                  <SectionLabel label={`Applications · ${applications.length}`} />
-                  {applicationsQuery.isLoading ? (
-                    <ActivityIndicator color={theme[500]} />
-                  ) : applications.length === 0 ? (
-                    <View style={{ paddingTop: 16 }}>
-                      <EmptyState
-                        title={EMPTY_GIG_APPLICATIONS.title}
-                        description={EMPTY_GIG_APPLICATIONS.description}
-                      />
-                    </View>
-                  ) : (
-                    applications.map((app: GigApplication) => (
-                      <ApplicationCard
-                        key={app.id}
-                        application={app}
-                        gig={gig}
-                        onAwardPress={setAwardTarget}
-                        awardingId={awardingId}
-                        onPressCreator={(creatorId) => router.push(`/profile/${creatorId}`)}
-                      />
-                    ))
-                  )}
-                </View>
-              )}
             </ScrollView>
 
             {showApplyCta && (
-              <CtaFooter>
+              <CtaFooter helperText="Applications land in Step 3.">
                 <Button
-                  title="Apply to gig"
-                  onPress={() => {
-                    haptic('light');
-                    setApplySheet(true);
-                  }}
+                  title="Coming soon"
+                  onPress={() => {}}
+                  disabled
                   variant="primary"
                   size="lg"
                   className="w-full"
@@ -317,23 +167,6 @@ export default function GigDetailScreen() {
           </>
         )}
       </SafeAreaView>
-
-      <ApplySheet
-        visible={applySheet}
-        onClose={() => setApplySheet(false)}
-        gig={gig ?? null}
-      />
-
-      <AwardConfirmSheet
-        visible={!!awardTarget}
-        onClose={() => {
-          if (!awardingId) setAwardTarget(null);
-        }}
-        onConfirm={confirmAward}
-        amount={gig?.budgetSol ?? 0}
-        recipientLabel={awardTarget?.recipientLabel ?? ''}
-        submitting={!!awardingId}
-      />
 
       {gig && isOwnGig ? (
         <ManageListingSheet

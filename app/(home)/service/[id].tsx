@@ -53,8 +53,7 @@ export default function ServiceDetailScreen() {
   });
 
   const isOwnService = !!user && service?.sellerId === user.id;
-  const sellerHasWallet = !!sellerQuery.data?.walletAddress;
-  const canBuy = !!service && !isOwnService && service.status === 'active' && sellerHasWallet;
+  const showBuyCta = !!service && !isOwnService && service.status === 'active';
 
   const slides = useMemo(() => {
     if (!service) return [] as string[];
@@ -101,7 +100,7 @@ export default function ServiceDetailScreen() {
             <ScrollView
               contentContainerStyle={{
                 paddingTop: slides.length > 0 ? 0 : 8,
-                paddingBottom: canBuy ? 134 : 32,
+                paddingBottom: showBuyCta ? 134 : 32,
                 gap: 16,
               }}
               showsVerticalScrollIndicator={false}
@@ -199,34 +198,15 @@ export default function ServiceDetailScreen() {
                     You are the seller of this service.
                   </ThemedText>
                 )}
-                {!isOwnService && service.status === 'active' && !sellerHasWallet && (
-                  <ThemedText
-                    type="body-sm"
-                    align="center"
-                    style={{ color: theme[500], marginTop: 8 }}
-                  >
-                    This seller hasn&apos;t set up a wallet yet, so payment is unavailable.
-                  </ThemedText>
-                )}
               </View>
             </ScrollView>
 
-            {canBuy && (
-              <CtaFooter>
+            {showBuyCta && (
+              <CtaFooter helperText="Checkout lands with escrow in Step 4.">
                 <Button
-                  title={`Buy for ${formatSol(service.priceSol)} SOL`}
-                  onPress={() =>
-                    router.push({
-                      pathname: '/checkout',
-                      params: {
-                        type: 'service',
-                        listingId: service.id,
-                        sellerId: service.sellerId,
-                        amountSol: String(service.priceSol),
-                        title: service.title,
-                      },
-                    })
-                  }
+                  title="Coming soon"
+                  onPress={() => {}}
+                  disabled
                   variant="primary"
                   size="lg"
                   className="w-full"
