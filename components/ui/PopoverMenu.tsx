@@ -10,6 +10,7 @@ import { ThemedText } from "@/components/base/ThemedText";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Check } from "lucide-react-native";
 import { ThemeColors } from "@/constants/ThemeColors";
+import { Neutral } from "@/constants/NeutralColors";
 import { haptic } from "@/lib/utils/haptic";
 
 const MENU_ITEM_HEIGHT = 40;
@@ -96,7 +97,7 @@ export function PopoverMenu({ items, children }: PopoverMenuProps) {
                                 borderRadius: 8,
                                 borderWidth: 1,
                                 borderColor: theme[200],
-                                shadowColor: "#000",
+                                shadowColor: Neutral.black,
                                 shadowOffset: { width: 0, height: 4 },
                                 shadowOpacity: 0.12,
                                 shadowRadius: 12,

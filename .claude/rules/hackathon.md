@@ -18,13 +18,14 @@ Never reintroduce Android: no `Platform.OS === 'android'` branches, no Android d
 ## Theme + tokens (no exceptions)
 Each role has exactly one source of truth. Do not cross the streams.
 
-- **Neutral / surface colors:** `theme[N]` from `useTheme()`.
-- **Brand accents** (category chips, illustrative highlights, decorative pops): `Accent` from `constants/AccentColors.ts` — `Accent.pink` `#ff0088`, `Accent.cyan` `#00d4ff` (blue), `Accent.lime` `#4cd900` (green), `Accent.orange` `#ff5900`, `Accent.sable` `#f1c917` (yellow). Pulled 1:1 from Figma's `accent/*` collection.
+- **Theme-aware neutrals** (root surfaces, body text, dividers — flip with light/dark): `theme[N]` from `useTheme()`.
+- **Theme-invariant neutrals** (foreground contrast over a brand-colored bg that itself doesn't flip): `Neutral` from `constants/NeutralColors.ts` — `Neutral.white` `#ffffff`, `Neutral.black` `#000000`, `Neutral.whiteSoft` `#fafafa`, `Neutral.blackSoft` `#0a0a0a`. Use these for icon foregrounds on `Accent`/`Status` buttons, shadow colors, etc. Never use a raw `'#fff'` literal.
+- **Brand accents** (category chips, illustrative highlights, decorative pops): `Accent` from `constants/ThemePalettes.ts` — `Accent.pink` `#ff0088`, `Accent.cyan` `#00d4ff` (blue), `Accent.lime` `#4cd900` (green), `Accent.orange` `#ff5900`, `Accent.sable` `#f1c917` (yellow). `Accent.pinkDark` exists only as the gradient companion in the upload-arrow icon. Pulled 1:1 from Figma's `accent/*` collection.
 - **Semantic status** (success, error, warning, info): `Status` from `constants/StatusColors.ts` — `Status.success` `#10b981`, `Status.error` `#f43f5e`, `Status.warning` `#f97316`, `Status.info` `#0ea5e9`.
 - **Destructive** (irreversible actions like delete account, sign out): the literal `#DC143C`. Distinct from `Status.error` — error means "something went wrong," destructive means "you are about to lose data."
 - **Never swap roles.** A green checkmark is `Status.success`, not `Accent.lime`. A category chip is `Accent.pink`, not `Status.error`. The hues may rhyme; the semantics don't.
-- **Other utility shades** that don't fit any of the above (rare): `TailwindColors.<name>[500]`. Default answer is "use `Accent` or `Status`," not this.
-- **Hex literals are forbidden** except `#DC143C`.
+- **Other utility shades** (rare): `TailwindColors.<name>[500]`. Default answer is "use one of the four palettes above," not this.
+- **Hex literals are forbidden** except `#DC143C` and the documented `ErrorBoundary` fallback theme (it mounts above `ThemeProvider` and must keep working when context crashes).
 - Layout numbers: `LayoutConstants` (`TAB_BAR_HEIGHT`, `BottomInset`, `AnimationDuration`). Add to constants if missing — never inline a magic number.
 - Safe areas: `useSafeAreaInsets()`. Never hardcode `59` or `34`.
 

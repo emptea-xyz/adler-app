@@ -17,6 +17,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { UserProvider } from "@/contexts/UserContext";
 import { QueryProvider } from "@/contexts/QueryProvider";
 import { ThemeProvider, useTheme } from "@/contexts/ThemeContext";
+import { MONO_PALETTE } from "@/constants/ThemePalettes";
 import { OfflineBanner } from "@/components/base/OfflineBanner";
 import { setupForegroundHandler } from "@/lib/services/pushService";
 
@@ -65,7 +66,7 @@ function RootLayoutContent() {
         },
       }}
     >
-      <View style={{ flex: 1, backgroundColor: systemScheme === 'dark' ? '#0a0a0a' : '#fafafa' }}>
+      <View style={{ flex: 1, backgroundColor: systemScheme === 'dark' ? MONO_PALETTE[950] : MONO_PALETTE[50] }}>
         <QueryProvider>
           <ThemeProvider>
             <DynamicStatusBar />

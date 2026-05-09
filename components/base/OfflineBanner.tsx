@@ -11,6 +11,7 @@ import { ThemedText } from '@/components/base/ThemedText';
 import { Check } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { Status } from '@/constants/StatusColors';
+import { Neutral } from '@/constants/NeutralColors';
 
 const BANNER_CONTENT_HEIGHT = 28;
 
@@ -65,7 +66,7 @@ export function OfflineBanner() {
                 </ThemedText>
             ) : (
                 <View className="flex-row items-center gap-1.5">
-                    <Check size={16} color="#fff" strokeWidth={2.5} />
+                    <Check size={16} color={Neutral.white} strokeWidth={2.5} />
                     <ThemedText type="body-md-semibold" className="!text-white">
                         Back Online
                     </ThemedText>

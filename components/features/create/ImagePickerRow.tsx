@@ -3,6 +3,7 @@ import { Pressable, View, Image, ScrollView, ActivityIndicator } from 'react-nat
 import { Plus, X } from 'lucide-react-native';
 import { ThemedText } from '@/components/base/ThemedText';
 import { useTheme } from '@/contexts/ThemeContext';
+import { Neutral } from '@/constants/NeutralColors';
 import { haptic } from '@/lib/utils/haptic';
 import { pickImages } from '@/lib/services/imageUploadService';
 import { toast } from '@/lib/utils/toast';
@@ -91,7 +92,7 @@ export function ImagePickerRow({ values, onChange, max = DEFAULT_MAX, disabled =
               justifyContent: 'center',
             }}
           >
-            <X size={14} color="#fff" />
+            <X size={14} color={Neutral.white} />
           </Pressable>
         </View>
       ))}

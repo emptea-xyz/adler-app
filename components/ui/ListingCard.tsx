@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Bookmark } from 'lucide-react-native';
 import { ThemedText } from '@/components/base/ThemedText';
 import { useTheme } from '@/contexts/ThemeContext';
+import { Neutral } from '@/constants/NeutralColors';
 import { haptic } from '@/lib/utils/haptic';
 import { formatRelative } from '@/lib/utils/dates';
 import { formatSol } from '@/lib/utils/formatNumber';
@@ -13,6 +14,12 @@ import { getProfile } from '@/lib/services/profileService';
 import { PROFILE_KEYS } from '@/lib/constants/queryKeys';
 import { useSaves } from '@/hooks/useSaves';
 import { KPI } from './KPI';
+
+// Placeholder gradient when a listing has no hero image. Decorative
+// peach → blush tints — intentional one-off, not part of the brand
+// palette. Local constants so they don't leak into the design system.
+const PLACEHOLDER_GRADIENT_TOP = '#ffd6a8';
+const PLACEHOLDER_GRADIENT_BOTTOM = '#ffccd4';
 import { Pill, type PillIntent } from './Pill';
 
 // Figma node 127:124 — feed card on Browse. Peach gradient hero + KPI + status
@@ -105,7 +112,7 @@ export function ListingCard({
         />
       ) : (
         <LinearGradient
-          colors={['#ffd6a8', '#ffccd4']}
+          colors={[PLACEHOLDER_GRADIENT_TOP, PLACEHOLDER_GRADIENT_BOTTOM]}
           start={{ x: 0, y: 0 }}
           end={{ x: 0, y: 1 }}
           style={{ height: 130 }}
@@ -132,8 +139,8 @@ export function ListingCard({
         >
           <Bookmark
             size={18}
-            color="#fff"
-            fill={saved ? '#fff' : 'transparent'}
+            color={Neutral.white}
+            fill={saved ? Neutral.white : 'transparent'}
             strokeWidth={2}
           />
         </Pressable>

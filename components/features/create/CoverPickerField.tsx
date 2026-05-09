@@ -3,6 +3,7 @@ import { ActivityIndicator, Image, Pressable, View } from 'react-native';
 import { ImageIcon, X } from 'lucide-react-native';
 import { ThemedText } from '@/components/base/ThemedText';
 import { useTheme } from '@/contexts/ThemeContext';
+import { Neutral } from '@/constants/NeutralColors';
 import { haptic } from '@/lib/utils/haptic';
 import { pickImage } from '@/lib/services/imageUploadService';
 import { toast } from '@/lib/utils/toast';
@@ -78,7 +79,7 @@ export function CoverPickerField({ value, onChange, disabled = false, aspectRati
             justifyContent: 'center',
           }}
         >
-          <X size={16} color="#fff" />
+          <X size={16} color={Neutral.white} />
         </Pressable>
         {picking ? (
           <View
@@ -93,7 +94,7 @@ export function CoverPickerField({ value, onChange, disabled = false, aspectRati
               justifyContent: 'center',
             }}
           >
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={Neutral.white} />
           </View>
         ) : null}
       </Pressable>

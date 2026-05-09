@@ -9,24 +9,25 @@ import {
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
-import { ACCENT_COLORS } from '@/constants/ThemePalettes';
+import { Accent } from '@/constants/ThemePalettes';
+import { Neutral } from '@/constants/NeutralColors';
 import { A, D, EAGLE_VIEWBOX } from './EagleLoader.paths';
 
-// Animated Adler eagle. The silhouette stays #FAFAFA; the accent layer cycles
-// through ACCENT_COLORS — pink → cyan → lime → orange → pink — driven by a
-// single Reanimated shared value that loops every `duration` ms.
+// Animated Adler eagle. The silhouette stays Neutral.whiteSoft; the accent
+// layer cycles through Accent — pink → cyan → lime → orange → pink — driven
+// by a single Reanimated shared value that loops every `duration` ms.
 //
 // Path data is sourced from assets/images/eagle-compact.svg (visually
 // identical to eagle-original.svg, 911 paths in document order). Each path's
 // fill is encoded in the bit string `A`: '1' = accent, '0' = silhouette.
 
-const SILHOUETTE_COLOR = '#fafafa';
+const SILHOUETTE_COLOR = Neutral.whiteSoft;
 
 const CYCLE_COLORS = [
-  ACCENT_COLORS.pink,
-  ACCENT_COLORS.cyan,
-  ACCENT_COLORS.lime,
-  ACCENT_COLORS.orange,
+  Accent.pink,
+  Accent.cyan,
+  Accent.lime,
+  Accent.orange,
 ];
 
 const CYCLE_STOPS = [0, 0.25, 0.5, 0.75, 1];

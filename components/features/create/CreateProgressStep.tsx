@@ -3,6 +3,7 @@ import { ActivityIndicator, View } from 'react-native';
 import { Check, X } from 'lucide-react-native';
 import { ThemedText } from '@/components/base/ThemedText';
 import { Status } from '@/constants/StatusColors';
+import { Neutral } from '@/constants/NeutralColors';
 import { useTheme } from '@/contexts/ThemeContext';
 
 export type PublishTaskStatus = 'pending' | 'running' | 'done' | 'failed';
@@ -41,7 +42,7 @@ function StatusIcon({ status }: { status: PublishTaskStatus }) {
           justifyContent: 'center',
         }}
       >
-        <Check size={16} color="#fff" strokeWidth={3} />
+        <Check size={16} color={Neutral.white} strokeWidth={3} />
       </View>
     );
   }
@@ -57,7 +58,7 @@ function StatusIcon({ status }: { status: PublishTaskStatus }) {
           justifyContent: 'center',
         }}
       >
-        <X size={16} color="#fff" strokeWidth={3} />
+        <X size={16} color={Neutral.white} strokeWidth={3} />
       </View>
     );
   }

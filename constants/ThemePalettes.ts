@@ -87,17 +87,42 @@ export const SIGNAL_PALETTE = {
 } as const;
 
 /**
- * ACCENT PALETTE — fixed brand hues for status pills, signal accents, and
- * decorative surfaces (sign-in halo, inbox underline). Theme-independent: each
- * value renders identically in light and dark mode. Pair with `useTheme()`
- * neutrals when a surrounding surface needs to flip.
+ * ACCENT PALETTE — canonical Adler brand hues, pulled 1:1 from the Figma
+ * `accent/*` collection. Use for category chips, illustrative highlights,
+ * and decorative surfaces (sign-in halo, upload-arrow gradient, etc.).
+ * Theme-independent: each value renders identically in light and dark
+ * mode. Pair with `useTheme()` neutrals for surrounding surfaces.
+ *
+ * Do NOT use these for semantic state (success / error / warning / info)
+ * — that's what `Status` from `constants/StatusColors.ts` is for.
  */
-export const ACCENT_COLORS = {
+export const Accent = {
     pink: '#ff0088',
     cyan: '#00d4ff',
     lime: '#4cd900',
     orange: '#ff5900',
+    sable: '#f1c917',
+    /**
+     * Darker pink companion — gradient end-stop paired with `pink` in the
+     * canonical Adler upload-arrow icon (Figma node 132:157). Use only as
+     * the second stop of the brand pink gradient.
+     */
+    pinkDark: '#be185d',
 } as const;
+
+export type AccentName = keyof typeof Accent;
+
+/** Ordered list, matches the Figma swatch order in the design file. */
+export const ACCENT_NAMES: readonly AccentName[] = [
+    'pink',
+    'cyan',
+    'lime',
+    'orange',
+    'sable',
+] as const;
+
+/** @deprecated Use `Accent` instead. Kept for compatibility with existing imports. */
+export const ACCENT_COLORS = Accent;
 
 /**
  * Static signal slots used across the app's accent surfaces. Values are

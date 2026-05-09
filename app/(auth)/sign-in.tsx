@@ -7,10 +7,12 @@ import { ThemedText } from '@/components/base/ThemedText';
 import { ThemedView } from '@/components/base/ThemedView';
 import { AdlerEagleLogo } from '@/components/ui/AdlerEagleLogo';
 import { useTheme } from '@/contexts/ThemeContext';
+import { Accent } from '@/constants/ThemePalettes';
+import { Neutral } from '@/constants/NeutralColors';
 import { toast } from '@/lib/utils/toast';
 import { haptic } from '@/lib/utils/haptic';
 
-type Provider = 'apple' | 'google';
+type Provider = 'google';
 
 // Figma node 56:236 — sign-in bottom radial halo. Hot pink center fading to
 // transparent at the edges. Center is below the visible bounds so we see only
@@ -23,10 +25,10 @@ function PinkHalo() {
       <Svg width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 393 280">
         <Defs>
           <RadialGradient id="halo" cx="196" cy="460" rx="260" ry="360" gradientUnits="userSpaceOnUse">
-            <Stop offset="0" stopColor="#ff0088" stopOpacity="1" />
+            <Stop offset="0" stopColor={Accent.pink} stopOpacity="1" />
             <Stop offset="0.35" stopColor="#ff40a6" stopOpacity="0.7" />
             <Stop offset="0.65" stopColor="#ff80c4" stopOpacity="0.35" />
-            <Stop offset="1" stopColor="#ffffff" stopOpacity="0" />
+            <Stop offset="1" stopColor={Accent.pink} stopOpacity="0" />
           </RadialGradient>
         </Defs>
         <Rect x="0" y="0" width="393" height="280" fill="url(#halo)" />
@@ -89,42 +91,20 @@ export default function SignInScreen() {
           {/* CTA stack */}
           <View style={{ gap: 12 }}>
             <Pressable
-              onPress={() => onSocialPress('apple')}
-              disabled={!!pending}
-              className="rounded-card h-14 flex-row items-center justify-center"
-              style={{
-                backgroundColor: theme[950],
-                opacity: pending && pending !== 'apple' ? 0.5 : 1,
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Sign in with Apple"
-            >
-              {pending === 'apple' ? (
-                <ActivityIndicator size="small" color={theme[50]} />
-              ) : (
-                <ThemedText type="body-lg-semibold" style={{ color: theme[50] }}>
-                  Sign in with Apple
-                </ThemedText>
-              )}
-            </Pressable>
-
-            <Pressable
               onPress={() => onSocialPress('google')}
               disabled={!!pending}
               className="rounded-card h-14 flex-row items-center justify-center"
               style={{
-                backgroundColor: theme[50],
-                borderWidth: 1,
-                borderColor: theme[300],
+                backgroundColor: Accent.pink,
                 opacity: pending && pending !== 'google' ? 0.5 : 1,
               }}
               accessibilityRole="button"
               accessibilityLabel="Sign in with Google"
             >
               {pending === 'google' ? (
-                <ActivityIndicator size="small" color={theme[950]} />
+                <ActivityIndicator size="small" color={Neutral.white} />
               ) : (
-                <ThemedText type="body-lg-semibold" style={{ color: theme[950] }}>
+                <ThemedText type="body-lg-semibold" style={{ color: Neutral.white }}>
                   Sign in with Google
                 </ThemedText>
               )}

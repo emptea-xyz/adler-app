@@ -1,5 +1,7 @@
 import React from 'react';
 import { Canvas, Group, Path, LinearGradient, Shadow, vec } from '@shopify/react-native-skia';
+import { Accent } from '@/constants/ThemePalettes';
+import { Neutral } from '@/constants/NeutralColors';
 
 // Figma node 132:157 — center "Create" tab icon. Paths copied verbatim from
 // the Figma SVG export (per Rule Zero of design-code-migration.md).
@@ -33,28 +35,28 @@ export function SolanaUploadArrow({ size = 52 }: Props) {
   return (
     <Canvas style={{ width, height }}>
       <Group transform={[{ translateX: padding, translateY: padding }, { scale }]}>
-        <Path path={PATH_OUTER} color="white">
+        <Path path={PATH_OUTER} color={Neutral.white}>
           <Shadow dx={0} dy={2} blur={3} color="rgba(0,0,0,0.12)" />
         </Path>
         <Path path={PATH_TRI}>
           <LinearGradient
             start={vec(31.7333, 2)}
             end={vec(31.7333, 54)}
-            colors={['#FF0088', '#BE185D']}
+            colors={[Accent.pink, Accent.pinkDark]}
           />
         </Path>
         <Path path={PATH_BAR_1}>
           <LinearGradient
             start={vec(31.7333, 2)}
             end={vec(31.7333, 54)}
-            colors={['#FF0088', '#BE185D']}
+            colors={[Accent.pink, Accent.pinkDark]}
           />
         </Path>
         <Path path={PATH_BAR_2}>
           <LinearGradient
             start={vec(31.7333, 2)}
             end={vec(31.7333, 54)}
-            colors={['#FF0088', '#BE185D']}
+            colors={[Accent.pink, Accent.pinkDark]}
           />
         </Path>
       </Group>

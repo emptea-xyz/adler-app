@@ -4,6 +4,7 @@ import { AlertTriangle, Check } from 'lucide-react-native';
 import { ThemedText } from '@/components/base/ThemedText';
 import { Button } from '@/components/ui/Button';
 import { Status } from '@/constants/StatusColors';
+import { Neutral } from '@/constants/NeutralColors';
 import { useTheme } from '@/contexts/ThemeContext';
 
 const HERO = 56;
@@ -41,7 +42,7 @@ export function CreateResultStep(props: Props) {
             justifyContent: 'center',
           }}
         >
-          <Check size={28} color="#fff" strokeWidth={3} />
+          <Check size={28} color={Neutral.white} strokeWidth={3} />
         </View>
         <View style={{ gap: 6, alignItems: 'center' }}>
           <ThemedText type="h5" style={{ color: theme[950] }}>
@@ -71,7 +72,7 @@ export function CreateResultStep(props: Props) {
           justifyContent: 'center',
         }}
       >
-        <AlertTriangle size={28} color="#fff" strokeWidth={2.5} />
+        <AlertTriangle size={28} color={Neutral.white} strokeWidth={2.5} />
       </View>
       <View style={{ gap: 6, alignItems: 'center' }}>
         <ThemedText type="h5" style={{ color: theme[950] }}>

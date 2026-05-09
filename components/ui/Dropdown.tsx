@@ -9,6 +9,7 @@ import { ThemedText } from "@/components/base/ThemedText";
 import { useTheme } from "@/contexts/ThemeContext";
 import { ChevronDown } from "lucide-react-native";
 import { haptic } from "@/lib/utils/haptic";
+import { Neutral } from "@/constants/NeutralColors";
 
 interface DropdownOption<T extends string> {
     label: string;
@@ -87,7 +88,7 @@ export function Dropdown<T extends string>({
                                 borderRadius: 8,
                                 borderWidth: 1,
                                 borderColor: theme[200],
-                                shadowColor: "#000",
+                                shadowColor: Neutral.black,
                                 shadowOffset: { width: 0, height: 4 },
                                 shadowOpacity: 0.12,
                                 shadowRadius: 12,
