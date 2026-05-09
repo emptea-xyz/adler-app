@@ -29,6 +29,11 @@ function statusToIntent(status: ServiceStatus): PillIntent {
 
 const GALLERY_HEIGHT = 280;
 
+function isVideoUrl(url: string): boolean {
+  const value = url.toLowerCase();
+  return value.includes('.mp4') || value.includes('.mov') || value.includes('.webm');
+}
+
 export default function ServiceDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
@@ -114,11 +119,44 @@ export default function ServiceDetailScreen() {
                     data={slides}
                     keyExtractor={(uri, i) => `${uri}-${i}`}
                     renderItem={({ item }) => (
-                      <Image
-                        source={{ uri: item }}
-                        style={{ width: screenWidth, height: GALLERY_HEIGHT }}
-                        resizeMode="cover"
-                      />
+                      isVideoUrl(item) ? (
+                        <View
+                          style={{
+                            width: screenWidth,
+                            height: GALLERY_HEIGHT,
+                            backgroundColor: theme[950],
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            paddingHorizontal: 24,
+                            gap: 6,
+                          }}
+                        >
+                          <ThemedText type="body-md-semibold" style={{ color: theme[50] }}>
+                            Studio clip attached
+                          </ThemedText>
+                          {service.overlay?.text ? (
+                            <ThemedText
+                              type="body-md-semibold"
+                              style={{
+                                color: service.overlay.color || theme[50],
+                                transform: [{ scale: service.overlay.scale ?? 1 }],
+                              }}
+                            >
+                              {service.overlay.text}
+                            </ThemedText>
+                          ) : (
+                            <ThemedText type="caption" style={{ color: theme[200] }}>
+                              Playback preview lands in the next studio slice.
+                            </ThemedText>
+                          )}
+                        </View>
+                      ) : (
+                        <Image
+                          source={{ uri: item }}
+                          style={{ width: screenWidth, height: GALLERY_HEIGHT }}
+                          resizeMode="cover"
+                        />
+                      )
                     )}
                     onMomentumScrollEnd={onGalleryScroll}
                   />
