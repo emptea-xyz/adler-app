@@ -3,7 +3,7 @@ import { View, Pressable, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { Compass, Inbox, User } from 'lucide-react-native';
+import { Compass, Inbox, User, Bookmark } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { haptic } from '@/lib/utils/haptic';
 import { TAB_BAR_HEIGHT } from '@/constants/LayoutConstants';
@@ -19,12 +19,14 @@ import { useViewMode } from '@/contexts/ViewModeContext';
 
 const ICONS: Record<string, React.ComponentType<{ size: number; color: string; strokeWidth?: number }>> = {
     browse: Compass,
+    saved: Bookmark,
     inbox: Inbox,
     profile: User,
 };
 
 const LABELS: Record<string, string> = {
     browse: 'Browse',
+    saved: 'Saved',
     inbox: 'Inbox',
     create: 'Create',
     profile: 'Profile',
@@ -36,7 +38,7 @@ export function AdlerTabBar({ state, navigation }: BottomTabBarProps) {
     const { unread: inboxUnread } = useInboxUnread();
     const { viewMode } = useViewMode();
     const tabOrder = viewMode === 'creator'
-        ? (['browse', 'inbox', 'create', 'profile'] as const)
+        ? (['browse', 'saved', 'create', 'inbox', 'profile'] as const)
         : (['browse', 'inbox', 'profile'] as const);
 
     const onPress = useCallback(
