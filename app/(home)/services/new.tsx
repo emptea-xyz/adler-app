@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 import { ChevronDown } from 'lucide-react-native';
@@ -16,13 +16,14 @@ import { SearchableSheet, type SearchableSheetOption } from '@/components/ui/Sea
 import TextInput from '@/components/ui/TextInput';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useUser } from '@/contexts/UserContext';
+import { Neutral } from '@/constants/NeutralColors';
 import { FEED_KEYS, qk } from '@/lib/constants/queryKeys';
 import { createService } from '@/lib/services/listingsService';
 import { compressImageForUpload } from '@/lib/services/imageUploadService';
 import { uploadListingMedia } from '@/lib/services/listingMediaUploadService';
 import { parseSolAmount } from '@/lib/utils/formatNumber';
 import { toast } from '@/lib/utils/toast';
-import { CATEGORY_LABEL, LISTING_CATEGORIES, type ListingCategory } from '@/lib/types/listing';
+import { CATEGORY_LABEL, LISTING_CATEGORIES, type ListingCategory, type ListingOverlay } from '@/lib/types/listing';
 
 const TITLE_MAX = 80;
 const DESCRIPTION_MAX = 1000;
@@ -38,6 +39,12 @@ type ServiceForm = {
     mediaUris: string[];
 };
 
+interface StudioMedia {
+    uri: string;
+    contentType: string;
+    durationMs: number;
+}
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
         <View style={{ gap: 8 }}>
@@ -47,7 +54,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     );
 }
 
-function validate(form: ServiceForm): string | null {
+function validate(form: ServiceForm, studioMedia: StudioMedia | null): string | null {
     const titleLen = form.title.trim().length;
     if (titleLen < 1 || titleLen > TITLE_MAX) return `Title must be 1-${TITLE_MAX} characters.`;
     const descLen = form.description.trim().length;
@@ -56,12 +63,31 @@ function validate(form: ServiceForm): string | null {
     if (amount === null || amount <= 0 || amount > PRICE_MAX_SOL) {
         return `Price must be > 0 and <= ${PRICE_MAX_SOL} SOL.`;
     }
-    if (form.mediaUris.length > MEDIA_MAX) return `Add up to ${MEDIA_MAX} media files.`;
+    const mediaCount = form.mediaUris.length + (studioMedia ? 1 : 0);
+    if (mediaCount > MEDIA_MAX) return `Add up to ${MEDIA_MAX} media files.`;
     return null;
+}
+
+function inferContentTypeFromUri(uri: string): string {
+    const value = uri.toLowerCase();
+    if (value.endsWith('.mov')) return 'video/quicktime';
+    if (value.endsWith('.webm')) return 'video/webm';
+    if (value.endsWith('.mp4')) return 'video/mp4';
+    if (value.endsWith('.png')) return 'image/png';
+    if (value.endsWith('.webp')) return 'image/webp';
+    return 'image/jpeg';
 }
 
 export default function NewServiceScreen() {
     const router = useRouter();
+    const params = useLocalSearchParams<{
+        studioMediaUri?: string;
+        studioContentType?: string;
+        studioDurationMs?: string;
+        overlayText?: string;
+        overlayColor?: string;
+        overlayScale?: string;
+    }>();
     const { theme } = useTheme();
     const { profile } = useUser();
     const queryClient = useQueryClient();
@@ -73,6 +99,35 @@ export default function NewServiceScreen() {
     const [mediaUris, setMediaUris] = useState<string[]>([]);
     const [categoryOpen, setCategoryOpen] = useState(false);
     const [saving, setSaving] = useState(false);
+
+    const studioMedia = useMemo<StudioMedia | null>(() => {
+        const uri = typeof params.studioMediaUri === 'string' ? params.studioMediaUri : '';
+        if (!uri) return null;
+        const contentTypeParam = typeof params.studioContentType === 'string' ? params.studioContentType : '';
+        const contentType = contentTypeParam || inferContentTypeFromUri(uri);
+        const durationMsRaw = Number(params.studioDurationMs ?? 0);
+        return {
+            uri,
+            contentType,
+            durationMs: Number.isFinite(durationMsRaw) ? durationMsRaw : 0,
+        };
+    }, [params.studioContentType, params.studioDurationMs, params.studioMediaUri]);
+
+    const studioOverlay = useMemo<ListingOverlay | null>(() => {
+        const text = typeof params.overlayText === 'string' ? params.overlayText.trim() : '';
+        if (!text) return null;
+        const rawScale = Number(params.overlayScale ?? 1);
+        return {
+            text,
+            color:
+                typeof params.overlayColor === 'string' && params.overlayColor.trim()
+                    ? params.overlayColor
+                    : Neutral.white,
+            scale: Number.isFinite(rawScale) ? rawScale : 1,
+            x: 0,
+            y: 0,
+        };
+    }, [params.overlayColor, params.overlayScale, params.overlayText]);
 
     const categoryOptions = useMemo<readonly SearchableSheetOption[]>(
         () => LISTING_CATEGORIES.map((id) => ({
@@ -91,7 +146,7 @@ export default function NewServiceScreen() {
             category,
             mediaUris,
         };
-        const error = validate(form);
+        const error = validate(form, studioMedia);
         if (error) {
             toast.error(error);
             return;
@@ -106,6 +161,15 @@ export default function NewServiceScreen() {
         setSaving(true);
         try {
             const mediaUrls: string[] = [];
+            if (studioMedia) {
+                const videoResult = await uploadListingMedia({
+                    kind: 'service',
+                    uid: profile.id,
+                    uri: studioMedia.uri,
+                    contentType: studioMedia.contentType,
+                });
+                mediaUrls.push(videoResult.url);
+            }
             for (const uri of mediaUris) {
                 const compressedUri = await compressImageForUpload(uri, 1600);
                 const result = await uploadListingMedia({
@@ -126,6 +190,7 @@ export default function NewServiceScreen() {
                 ownerDisplayName: profile.displayName,
                 ownerAvatarUrl: profile.avatarUrl,
                 mediaUrls,
+                overlay: studioOverlay,
             });
 
             queryClient.invalidateQueries({ queryKey: FEED_KEYS.browse() });
@@ -210,16 +275,45 @@ export default function NewServiceScreen() {
                         </Field>
 
                         <Field label="Media (optional)">
+                            {studioMedia ? (
+                                <View
+                                    style={{
+                                        borderRadius: 12,
+                                        backgroundColor: theme[100],
+                                        paddingHorizontal: 14,
+                                        paddingVertical: 12,
+                                        gap: 2,
+                                    }}
+                                >
+                                    <ThemedText type="body-sm-semibold">Studio clip attached</ThemedText>
+                                    <ThemedText type="caption" style={{ color: theme[500] }}>
+                                        {Math.max(0, studioMedia.durationMs / 1000).toFixed(1)}s · {studioMedia.contentType}
+                                    </ThemedText>
+                                    {studioOverlay?.text ? (
+                                        <ThemedText type="caption" style={{ color: theme[500] }}>
+                                            Overlay: &quot;{studioOverlay.text}&quot;
+                                        </ThemedText>
+                                    ) : null}
+                                    <Button
+                                        title="Retake clip"
+                                        size="sm"
+                                        variant="secondary"
+                                        onPress={() => router.push('/studio/camera')}
+                                        disabled={saving}
+                                        className="self-start"
+                                    />
+                                </View>
+                            ) : null}
                             <ImagePickerRow
                                 values={mediaUris}
                                 onChange={setMediaUris}
-                                max={MEDIA_MAX}
+                                max={studioMedia ? MEDIA_MAX - 1 : MEDIA_MAX}
                                 disabled={saving}
                             />
                         </Field>
                     </ScrollView>
 
-                    <CtaFooter helperText="Video studio integration lands in the next authoring slice.">
+                    <CtaFooter helperText="Studio clip + optional photos are published together.">
                         <Button
                             title="Publish service"
                             onPress={onPublish}
@@ -242,4 +336,3 @@ export default function NewServiceScreen() {
         </ProfileGate>
     );
 }
-

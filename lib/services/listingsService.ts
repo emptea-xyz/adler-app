@@ -15,12 +15,14 @@ import {
     type QueryConstraint,
 } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase/config';
+import { Neutral } from '@/constants/NeutralColors';
 import type {
     Gig,
     GigStatus,
     Listing,
     ListingCategory,
     ListingKind,
+    ListingOverlay,
     ListingSort,
     Service,
     ServiceStatus,
@@ -49,6 +51,19 @@ function readMediaUrls(value: unknown): string[] {
     return value.filter((v): v is string => typeof v === 'string');
 }
 
+function readOverlay(value: unknown): ListingOverlay | null {
+    if (!value || typeof value !== 'object') return null;
+    const row = value as Record<string, unknown>;
+    if (typeof row.text !== 'string' || !row.text.trim()) return null;
+    return {
+        text: row.text,
+        x: typeof row.x === 'number' ? row.x : 0,
+        y: typeof row.y === 'number' ? row.y : 0,
+        scale: typeof row.scale === 'number' ? row.scale : 1,
+        color: typeof row.color === 'string' ? row.color : Neutral.white,
+    };
+}
+
 function readService(id: string, data: Record<string, unknown>): Service {
     return {
         kind: 'service',
@@ -63,6 +78,7 @@ function readService(id: string, data: Record<string, unknown>): Service {
         ownerDisplayName: (data.sellerDisplayName as string | undefined) ?? null,
         ownerAvatarUrl: (data.sellerAvatarUrl as string | undefined) ?? null,
         mediaUrls: readMediaUrls(data.mediaUrls),
+        overlay: readOverlay(data.overlay),
         createdAt: tsMs(data.createdAt),
         updatedAt: tsMs(data.updatedAt),
     };
@@ -83,6 +99,7 @@ function readGig(id: string, data: Record<string, unknown>): Gig {
         ownerDisplayName: (data.brandDisplayName as string | undefined) ?? null,
         ownerAvatarUrl: (data.brandAvatarUrl as string | undefined) ?? null,
         mediaUrls: readMediaUrls(data.mediaUrls),
+        overlay: readOverlay(data.overlay),
         createdAt: tsMs(data.createdAt),
         updatedAt: tsMs(data.updatedAt),
     };
@@ -175,6 +192,7 @@ export interface CreateServiceInput {
     ownerDisplayName: string;
     ownerAvatarUrl: string | null;
     mediaUrls?: string[];
+    overlay?: ListingOverlay | null;
 }
 
 export interface CreateGigInput {
@@ -205,6 +223,7 @@ export async function createService(
         sellerDisplayName: input.ownerDisplayName,
         sellerAvatarUrl: input.ownerAvatarUrl,
         mediaUrls: input.mediaUrls ?? [],
+        overlay: input.overlay ?? null,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
     });

@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
+import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Compass, Inbox, User } from 'lucide-react-native';
@@ -7,7 +8,6 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { haptic } from '@/lib/utils/haptic';
 import { TAB_BAR_HEIGHT } from '@/constants/LayoutConstants';
 import { SolanaUploadArrow } from '@/components/ui/SolanaUploadArrow';
-import { useOverlaySheets } from '@/contexts/OverlaySheetsContext';
 import { useInboxUnread } from '@/hooks/useInboxUnread';
 import { Status } from '@/constants/StatusColors';
 import { useViewMode } from '@/contexts/ViewModeContext';
@@ -33,7 +33,6 @@ const LABELS: Record<string, string> = {
 export function AdlerTabBar({ state, navigation }: BottomTabBarProps) {
     const { theme } = useTheme();
     const insets = useSafeAreaInsets();
-    const { openCreate } = useOverlaySheets();
     const { unread: inboxUnread } = useInboxUnread();
     const { viewMode } = useViewMode();
     const tabOrder = viewMode === 'creator'
@@ -60,8 +59,8 @@ export function AdlerTabBar({ state, navigation }: BottomTabBarProps) {
 
     const onCreatePress = useCallback(() => {
         haptic('medium');
-        openCreate();
-    }, [openCreate]);
+        router.push('/studio/camera');
+    }, []);
 
     const focusedRouteName = state.routes[state.index]?.name ?? '';
 

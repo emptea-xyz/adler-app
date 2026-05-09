@@ -24,6 +24,14 @@ export type ListingKind = "service" | "gig";
 export type ServiceStatus = "active" | "paused" | "sold";
 export type GigStatus = "open" | "awarded" | "closed";
 
+export interface ListingOverlay {
+  text: string;
+  x: number;
+  y: number;
+  scale: number;
+  color: string;
+}
+
 interface ListingBase {
   id: string;
   title: string;
@@ -36,6 +44,8 @@ interface ListingBase {
   ownerAvatarUrl: string | null;
   /** Storage download URLs for media (image + short-form video). Cap 5. */
   mediaUrls: string[];
+  /** Optional text overlay metadata for short-form studio clips. */
+  overlay?: ListingOverlay | null;
 }
 
 export interface Service extends ListingBase {
