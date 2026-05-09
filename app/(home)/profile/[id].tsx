@@ -1,8 +1,9 @@
-import React from 'react';
-import { View, ScrollView, ActivityIndicator } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, ScrollView, ActivityIndicator, Pressable, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter, Redirect } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
+import { Camera } from 'lucide-react-native';
 import { ThemedText } from '@/components/base/ThemedText';
 import { ThemedView } from '@/components/base/ThemedView';
 import { ScreenHeader } from '@/components/base/ScreenHeader';
@@ -11,13 +12,18 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Pill } from '@/components/ui/Pill';
 import { ListingCard } from '@/components/ui/ListingCard';
 import EmptyState from '@/components/ui/EmptyState';
+import { Button } from '@/components/ui/Button';
+import { EditProfileSheet } from '@/components/features/profile/EditProfileSheet';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { getProfile } from '@/lib/services/profileService';
+import { getProfileByHandle } from '@/lib/services/directoryService';
 import { listMyListings } from '@/lib/services/listingsService';
+import { aggregate, listReviewsByReviewee } from '@/lib/services/reviewsService';
 import { qk } from '@/lib/constants/queryKeys';
 import { haptic } from '@/lib/utils/haptic';
-import { viewModeFor } from '@/lib/utils/role';
+import { PLATFORM_LABEL, socialLinkUrl } from '@/lib/utils/socialLinks';
+import { formatSol } from '@/lib/utils/formatNumber';
 import type { Gig, Service } from '@/types/marketplace';
 import {
   EMPTY_PACKAGES_BY_SELLER,
@@ -35,48 +41,79 @@ function ucfirst(s: string | null | undefined): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+function normalizeProfileId(value: string | undefined): string {
+  return decodeURIComponent(value ?? '').trim().replace(/^@/, '').toLowerCase();
+}
+
 export default function PublicProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
   const { theme } = useTheme();
   const router = useRouter();
-
-  // Tapping your own @username should land on the dashboard, not a read-only
-  // mirror. Compute as a flag and short-circuit *after* hooks below — keeping
-  // the early return above the hook calls violates rules-of-hooks.
-  const redirectToOwnProfile = !!user && id === user.id;
+  const [editOpen, setEditOpen] = useState(false);
+  const profileId = normalizeProfileId(id);
 
   const profileQuery = useQuery({
-    queryKey: id ? qk.profiles.detail(id) : ['profiles', 'detail', 'unknown'],
-    enabled: !!id && !redirectToOwnProfile,
-    queryFn: () => getProfile(id!),
+    queryKey: profileId ? ['profiles', 'public', profileId] : ['profiles', 'public', 'unknown'],
+    enabled: !!profileId,
+    queryFn: async () => {
+      const direct = await getProfile(profileId);
+      if (direct) return direct;
+      return getProfileByHandle(profileId);
+    },
   });
 
   const profile = profileQuery.data;
-  const role = viewModeFor(profile);
-  const isCreator = role === 'creator';
+  const isOwnProfile = !!user && profile?.id === user.id;
 
   const servicesQuery = useQuery({
     queryKey: profile?.id ? qk.listings.byOwner('service', profile.id) : ['listings', 'byOwner', 'service', 'anon'],
-    enabled: !!profile?.id && isCreator && !redirectToOwnProfile,
+    enabled: !!profile?.id && profile.isCreator,
     queryFn: () => listMyListings('service', profile!.id),
   });
 
   const gigsQuery = useQuery({
     queryKey: profile?.id ? qk.listings.byOwner('gig', profile.id) : ['listings', 'byOwner', 'gig', 'anon'],
-    enabled: !!profile?.id && !isCreator && !redirectToOwnProfile,
+    enabled: !!profile?.id && profile.isBrand,
     queryFn: () => listMyListings('gig', profile!.id),
   });
 
-  if (redirectToOwnProfile) {
-    return <Redirect href="/(home)/(tabs)/profile" />;
-  }
+  const reviewsQuery = useQuery({
+    queryKey: profile?.id ? qk.reviews.byReviewee(profile.id) : ['reviews', 'byReviewee', 'anon'],
+    enabled: !!profile?.id,
+    queryFn: () => listReviewsByReviewee(profile!.id),
+  });
 
-  const listings = isCreator ? servicesQuery.data ?? [] : gigsQuery.data ?? [];
-  const listingsLoading = isCreator ? servicesQuery.isLoading : gigsQuery.isLoading;
-  const listingsTitle = isCreator ? 'Services' : 'Gigs';
-  const listingsEmpty = isCreator ? EMPTY_PACKAGES_BY_SELLER : EMPTY_GIGS_BY_BRAND;
+  const reputation = useMemo(
+    () => aggregate(reviewsQuery.data ?? []),
+    [reviewsQuery.data],
+  );
+
+  const services = servicesQuery.data ?? [];
+  const gigs = gigsQuery.data ?? [];
   const joined = profile?.createdAt ? formatJoinedDate(profile.createdAt) : null;
+
+  const renderListing = (item: Service | Gig) => {
+    const isService = item.kind === 'service';
+    const amount = isService ? item.priceSol : item.budgetSol;
+    return (
+      <ListingCard
+        key={item.id}
+        kind={item.kind}
+        amount={amount}
+        category={item.category}
+        title={item.title}
+        ownerId={profile?.id ?? ''}
+        createdAt={item.createdAt}
+        mediaUrls={item.mediaUrls}
+        listingId={item.id}
+        onPress={() => {
+          haptic('light');
+          router.push(isService ? `/service/${item.id}` : `/gig/${item.id}`);
+        }}
+      />
+    );
+  };
 
   return (
     <ThemedView className="flex-1">
@@ -124,9 +161,10 @@ export default function PublicProfileScreen() {
                 </ThemedText>
               </View>
 
-              {role ? (
-                <View style={{ marginTop: 2 }}>
-                  <Pill intent="dark" label={ucfirst(role)} />
+              {profile.isCreator || profile.isBrand ? (
+                <View style={{ marginTop: 2, flexDirection: 'row', gap: 8 }}>
+                  {profile.isCreator ? <Pill intent="dark" label={ucfirst('creator')} /> : null}
+                  {profile.isBrand ? <Pill intent="neutral" label={ucfirst('brand')} /> : null}
                 </View>
               ) : null}
 
@@ -142,7 +180,13 @@ export default function PublicProfileScreen() {
 
               <View style={{ flexDirection: 'row', gap: 6, marginTop: 8 }}>
                 <ThemedText type="body-xs" style={{ color: theme[500] }}>
-                  {listings.length} {isCreator ? 'service' : 'gig'}{listings.length === 1 ? '' : 's'}
+                  {services.length} service{services.length === 1 ? '' : 's'}
+                </ThemedText>
+                <ThemedText type="body-xs" style={{ color: theme[500] }}>
+                  ·
+                </ThemedText>
+                <ThemedText type="body-xs" style={{ color: theme[500] }}>
+                  {gigs.length} gig{gigs.length === 1 ? '' : 's'}
                 </ThemedText>
                 {joined ? (
                   <>
@@ -155,54 +199,142 @@ export default function PublicProfileScreen() {
                   </>
                 ) : null}
               </View>
+
+              {isOwnProfile && !profile.avatarUrl ? (
+                <Button
+                  title="Add avatar"
+                  onPress={() => setEditOpen(true)}
+                  variant="secondary"
+                  size="sm"
+                  leftIcon={<Camera size={14} color={theme[950]} />}
+                  className="mt-3"
+                />
+              ) : null}
             </View>
 
             <View style={{ gap: 12 }}>
-              <SectionLabel label={listingsTitle} />
+              <SectionLabel label="Creator" />
+              <View style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12, gap: 10 }}>
+                {profile.creatorProfile ? (
+                  <>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                      {profile.creatorProfile.niches.map((niche) => (
+                        <Pill key={niche} intent="cyan" label={niche} />
+                      ))}
+                    </View>
+                    {profile.creatorProfile.portfolioUrl ? (
+                      <Pressable onPress={() => Linking.openURL(profile.creatorProfile!.portfolioUrl!)}>
+                        <ThemedText type="body-sm-semibold" style={{ color: theme[950] }}>
+                          Portfolio
+                        </ThemedText>
+                      </Pressable>
+                    ) : null}
+                    {profile.creatorProfile.socialLinks.length > 0 ? (
+                      <View style={{ gap: 6 }}>
+                        {profile.creatorProfile.socialLinks.map((link) => (
+                          <Pressable
+                            key={`${link.platform}:${link.handle}`}
+                            onPress={() => Linking.openURL(socialLinkUrl(link))}
+                          >
+                            <ThemedText type="body-sm" style={{ color: theme[700] }}>
+                              {PLATFORM_LABEL[link.platform]} @{link.handle}
+                            </ThemedText>
+                          </Pressable>
+                        ))}
+                      </View>
+                    ) : null}
+                  </>
+                ) : (
+                  <ThemedText type="body-sm" style={{ color: theme[500] }}>
+                    Creator profile is not set up.
+                  </ThemedText>
+                )}
+              </View>
+            </View>
 
-              {listingsLoading ? (
+            <View style={{ gap: 12 }}>
+              <SectionLabel label="Brand" />
+              <View style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12, gap: 8 }}>
+                {profile.brandProfile ? (
+                  <>
+                    <ThemedText type="body-md-semibold" style={{ color: theme[950] }}>
+                      {profile.brandProfile.companyName}
+                    </ThemedText>
+                    {profile.brandProfile.industry ? (
+                      <Pill intent="orange" label={profile.brandProfile.industry} />
+                    ) : null}
+                    {profile.brandProfile.websiteUrl ? (
+                      <Pressable onPress={() => Linking.openURL(profile.brandProfile!.websiteUrl!)}>
+                        <ThemedText type="body-sm-semibold" style={{ color: theme[950] }}>
+                          Website
+                        </ThemedText>
+                      </Pressable>
+                    ) : null}
+                  </>
+                ) : (
+                  <ThemedText type="body-sm" style={{ color: theme[500] }}>
+                    Brand profile is not set up.
+                  </ThemedText>
+                )}
+              </View>
+            </View>
+
+            <View style={{ gap: 12 }}>
+              <SectionLabel label="Reputation" />
+              <View style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12, gap: 4 }}>
+                {reviewsQuery.isLoading ? (
+                  <ActivityIndicator color={theme[500]} />
+                ) : reputation.count > 0 ? (
+                  <>
+                    <ThemedText type="body-2xl-semibold" style={{ color: theme[950] }}>
+                      {reputation.overall.toFixed(1)} / 5
+                    </ThemedText>
+                    <ThemedText type="body-sm" style={{ color: theme[500] }}>
+                      {reputation.count} review{reputation.count === 1 ? '' : 's'} · {formatSol(reputation.totalSol)} SOL reviewed
+                    </ThemedText>
+                  </>
+                ) : (
+                  <>
+                    <ThemedText type="body-md-semibold" style={{ color: theme[950] }}>
+                      Reputation pending
+                    </ThemedText>
+                    <ThemedText type="body-sm" style={{ color: theme[500] }}>
+                      Reviews appear here after completed orders.
+                    </ThemedText>
+                  </>
+                )}
+              </View>
+            </View>
+
+            <View style={{ gap: 12 }}>
+              <SectionLabel label="Services" />
+              {servicesQuery.isLoading ? (
                 <View style={{ paddingVertical: 24, alignItems: 'center' }}>
                   <ActivityIndicator color={theme[500]} />
                 </View>
-              ) : listings.length === 0 ? (
-                <View style={{ paddingTop: 8 }}>
-                  <EmptyState
-                    title={listingsEmpty.title}
-                    description={listingsEmpty.description}
-                  />
-                </View>
+              ) : services.length === 0 ? (
+                <EmptyState title={EMPTY_PACKAGES_BY_SELLER.title} description={EMPTY_PACKAGES_BY_SELLER.description} />
               ) : (
-                <View style={{ gap: 14 }}>
-                  {listings.map((item) => {
-                    const amount = isCreator
-                      ? (item as Service).priceSol
-                      : (item as Gig).budgetSol;
-                    return (
-                      <ListingCard
-                        key={item.id}
-                        kind={isCreator ? 'service' : 'gig'}
-                        amount={amount}
-                        category={item.category}
-                        title={item.title}
-                        ownerId={profile.id}
-                        createdAt={item.createdAt}
-                        mediaUrls={item.mediaUrls}
-                        listingId={item.id}
-                        onPress={() => {
-                          haptic('light');
-                          router.push(
-                            isCreator ? `/service/${item.id}` : `/gig/${item.id}`,
-                          );
-                        }}
-                      />
-                    );
-                  })}
+                <View style={{ gap: 14 }}>{services.map((item) => renderListing(item as Service))}</View>
+              )}
+            </View>
+
+            <View style={{ gap: 12 }}>
+              <SectionLabel label="Gigs" />
+              {gigsQuery.isLoading ? (
+                <View style={{ paddingVertical: 24, alignItems: 'center' }}>
+                  <ActivityIndicator color={theme[500]} />
                 </View>
+              ) : gigs.length === 0 ? (
+                <EmptyState title={EMPTY_GIGS_BY_BRAND.title} description={EMPTY_GIGS_BY_BRAND.description} />
+              ) : (
+                <View style={{ gap: 14 }}>{gigs.map((item) => renderListing(item as Gig))}</View>
               )}
             </View>
           </ScrollView>
         )}
       </SafeAreaView>
+      <EditProfileSheet visible={editOpen} onClose={() => setEditOpen(false)} />
     </ThemedView>
   );
 }
