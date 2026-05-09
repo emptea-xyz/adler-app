@@ -19,6 +19,8 @@ export default function HomeLayout() {
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="service/[id]" options={{ presentation: 'card' }} />
+          <Stack.Screen name="services/index" options={{ presentation: 'card' }} />
+          <Stack.Screen name="services/[id]/edit" options={{ presentation: 'card' }} />
           <Stack.Screen name="gig/[id]" options={{ presentation: 'card' }} />
           <Stack.Screen name="gigs/index" options={{ presentation: 'card' }} />
           <Stack.Screen name="gigs/[id]/edit" options={{ presentation: 'card' }} />
