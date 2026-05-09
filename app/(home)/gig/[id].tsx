@@ -13,6 +13,7 @@ import { KPI } from '@/components/ui/KPI';
 import { Pill, type PillIntent } from '@/components/ui/Pill';
 import { CtaFooter } from '@/components/ui/CtaFooter';
 import { ManageListingSheet } from '@/components/features/listing/ManageListingSheet';
+import { ApplySheet } from '@/components/features/gig/ApplySheet';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUser } from '@/contexts/UserContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -37,6 +38,7 @@ export default function GigDetailScreen() {
   const router = useRouter();
 
   const [manageOpen, setManageOpen] = useState(false);
+  const [applyOpen, setApplyOpen] = useState(false);
 
   const gigQuery = useQuery({
     queryKey: id ? qk.listings.detail('gig', id) : ['listings', 'detail', 'gig', 'unknown'],
@@ -153,11 +155,10 @@ export default function GigDetailScreen() {
             </ScrollView>
 
             {showApplyCta && (
-              <CtaFooter helperText="Applications land in Step 3.">
+              <CtaFooter helperText="Share your pitch and sample links.">
                 <Button
-                  title="Coming soon"
-                  onPress={() => {}}
-                  disabled
+                  title="Apply now"
+                  onPress={() => setApplyOpen(true)}
                   variant="primary"
                   size="lg"
                   className="w-full"
@@ -177,6 +178,9 @@ export default function GigDetailScreen() {
           status={gig.status}
           ownerId={gig.brandId}
         />
+      ) : null}
+      {!isOwnGig ? (
+        <ApplySheet visible={applyOpen} onClose={() => setApplyOpen(false)} gig={gig} />
       ) : null}
     </ThemedView>
   );

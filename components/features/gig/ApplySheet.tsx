@@ -24,6 +24,39 @@ interface Props {
 }
 
 const MESSAGE_MAX = 1000;
+const SAMPLE_URL_MAX = 4;
+
+function normalizeSampleUrls(values: string[]): { urls: string[]; error: string | null } {
+  const urls: string[] = [];
+  const seen = new Set<string>();
+
+  for (const raw of values) {
+    const trimmed = raw.trim();
+    if (!trimmed) continue;
+    const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+    let parsed: URL;
+    try {
+      parsed = new URL(candidate);
+    } catch {
+      return { urls: [], error: 'Sample URLs must be valid links' };
+    }
+    if (!['http:', 'https:'].includes(parsed.protocol)) {
+      return { urls: [], error: 'Sample URLs must start with http:// or https://' };
+    }
+    const normalized = parsed.toString();
+    const key = normalized.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      urls.push(normalized);
+    }
+  }
+
+  if (urls.length > SAMPLE_URL_MAX) {
+    return { urls: [], error: `Add up to ${SAMPLE_URL_MAX} sample URLs` };
+  }
+
+  return { urls, error: null };
+}
 
 export function ApplySheet({ visible, onClose, gig }: Props) {
   const { user } = useAuth();
@@ -31,6 +64,9 @@ export function ApplySheet({ visible, onClose, gig }: Props) {
   const { theme } = useTheme();
   const queryClient = useQueryClient();
   const [message, setMessage] = useState('');
+  const [sampleUrlInputs, setSampleUrlInputs] = useState<string[]>(
+    Array.from({ length: SAMPLE_URL_MAX }, () => ''),
+  );
   const [submitting, setSubmitting] = useState(false);
 
   // The deterministic doc id `${gigId}_${creatorId}` makes a server-side
@@ -48,9 +84,14 @@ export function ApplySheet({ visible, onClose, gig }: Props) {
   useEffect(() => {
     if (!visible) {
       setMessage('');
+      setSampleUrlInputs(Array.from({ length: SAMPLE_URL_MAX }, () => ''));
       setSubmitting(false);
     }
   }, [visible]);
+
+  const setSampleUrl = useCallback((index: number, value: string) => {
+    setSampleUrlInputs((prev) => prev.map((row, i) => (i === index ? value : row)));
+  }, []);
 
   const submit = useCallback(
     async (closeFn: () => void) => {
@@ -66,19 +107,24 @@ export function ApplySheet({ visible, onClose, gig }: Props) {
         toast.error(`Message must be ${MESSAGE_MAX} characters or less`);
         return;
       }
+      const normalizedSamples = normalizeSampleUrls(sampleUrlInputs);
+      if (normalizedSamples.error) {
+        toast.error(normalizedSamples.error);
+        return;
+      }
       setSubmitting(true);
       try {
         await createApplication({
           gigId: gig.id,
           brandId: gig.brandId,
           message: message.trim(),
-          sampleUrls: [],
           gigTitle: gig.title,
           brandHandle: gig.ownerHandle,
           brandDisplayName: gig.ownerDisplayName,
           creatorHandle: profile?.username ?? null,
           creatorDisplayName: profile?.displayName ?? null,
           creatorAvatarUrl: profile?.avatarUrl ?? null,
+          sampleUrls: normalizedSamples.urls,
         });
         queryClient.invalidateQueries({ queryKey: ['applications', 'gig', gig.id] });
         if (user) {
@@ -92,7 +138,7 @@ export function ApplySheet({ visible, onClose, gig }: Props) {
         setSubmitting(false);
       }
     },
-    [gig, message, alreadyApplied, queryClient, user, profile],
+    [gig, message, alreadyApplied, queryClient, user, profile, sampleUrlInputs],
   );
 
   return (
@@ -118,6 +164,22 @@ export function ApplySheet({ visible, onClose, gig }: Props) {
             style={{ minHeight: 140, textAlignVertical: 'top' }}
             editable={!alreadyApplied}
           />
+          <View style={{ gap: 8 }}>
+            <ThemedText type="body-sm" style={{ color: theme[500] }}>
+              Sample URLs (optional, up to {SAMPLE_URL_MAX})
+            </ThemedText>
+            {sampleUrlInputs.map((value, index) => (
+              <TextInput
+                key={`sample-${index}`}
+                value={value}
+                onChangeText={(next) => setSampleUrl(index, next)}
+                placeholder={`Sample URL ${index + 1}`}
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!alreadyApplied}
+              />
+            ))}
+          </View>
           <Button
             title={alreadyApplied ? 'Already applied' : 'Submit application'}
             onPress={() => submit(close)}
