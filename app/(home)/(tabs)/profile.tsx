@@ -99,7 +99,11 @@ export default function ProfileScreen() {
                   title={isCreator ? 'List a service' : 'Post a gig'}
                   onPress={() => {
                     haptic('light');
-                    openCreate();
+                    if (isCreator) {
+                      openCreate();
+                      return;
+                    }
+                    router.push('/gigs/new');
                   }}
                   variant="secondary"
                   className="self-center"
