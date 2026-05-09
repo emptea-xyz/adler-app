@@ -17,6 +17,8 @@ export const STORAGE_KEYS = {
      * RecoverPendingOrders job (step 4) replays any leftover entries.
      */
     PENDING_ORDERS: 'adler.pendingOrders',
+    /** Studio clip + overlay breadcrumb used when app backgrounding drops route params. */
+    STUDIO_DRAFT: 'adler.studioDraft',
 } as const;
 
 export type StorageKey = typeof STORAGE_KEYS[keyof typeof STORAGE_KEYS];

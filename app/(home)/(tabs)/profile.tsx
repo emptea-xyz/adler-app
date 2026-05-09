@@ -140,6 +140,7 @@ export default function ProfileScreen() {
                       ownerId={profile?.id ?? ''}
                       createdAt={item.createdAt}
                       mediaUrls={item.mediaUrls}
+                      overlay={isCreator ? (item as Service).overlay : null}
                       onPress={() => {
                         haptic('light');
                         router.push(

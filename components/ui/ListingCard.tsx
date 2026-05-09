@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { Bookmark } from 'lucide-react-native';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import { ThemedText } from '@/components/base/ThemedText';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Neutral } from '@/constants/NeutralColors';
@@ -13,6 +14,7 @@ import { formatSol } from '@/lib/utils/formatNumber';
 import { getProfile } from '@/lib/services/profileService';
 import { PROFILE_KEYS } from '@/lib/constants/queryKeys';
 import { useSaves } from '@/hooks/useSaves';
+import type { ListingOverlay } from '@/lib/types/listing';
 import { KPI } from './KPI';
 import { Pill, type PillIntent } from './Pill';
 
@@ -36,6 +38,8 @@ interface ListingCardProps {
   coverImageUrl?: string | null;
   /** Gallery media. mediaUrls[0] is used as the hero only when coverImageUrl is absent. */
   mediaUrls?: string[];
+  /** Optional studio text overlay metadata for the first video asset. */
+  overlay?: ListingOverlay | null;
   /** Listing id — required when the bookmark heart should be shown. */
   listingId?: string;
   onPress: () => void;
@@ -55,6 +59,55 @@ function categoryToIntent(category: string): PillIntent {
   return CATEGORY_INTENT[category.toLowerCase()] ?? 'neutral';
 }
 
+function isVideoUrl(url: string): boolean {
+  const value = url.toLowerCase();
+  return value.includes('.mp4') || value.includes('.mov') || value.includes('.webm');
+}
+
+function ListingCardVideo({ uri, overlay }: { uri: string; overlay?: ListingOverlay | null }) {
+  const { theme } = useTheme();
+  const player = useVideoPlayer({ uri }, (p) => {
+    p.loop = true;
+    p.muted = true;
+    p.play();
+  });
+  const x = Math.min(0.92, Math.max(0.08, overlay?.x ?? 0.5));
+  const y = Math.min(0.92, Math.max(0.08, overlay?.y ?? 0.5));
+
+  return (
+    <View style={{ height: 130, width: '100%', backgroundColor: theme[950] }}>
+      <VideoView
+        player={player}
+        nativeControls={false}
+        contentFit="cover"
+        style={{ height: '100%', width: '100%' }}
+      />
+      {overlay?.text ? (
+        <View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            left: `${x * 100}%`,
+            top: `${y * 100}%`,
+            transform: [{ translateX: -70 }, { translateY: -14 }, { scale: overlay.scale ?? 1 }],
+            width: 140,
+            alignItems: 'center',
+          }}
+        >
+          <ThemedText
+            type="body-sm-semibold"
+            numberOfLines={2}
+            align="center"
+            style={{ color: overlay.color || theme[50] }}
+          >
+            {overlay.text}
+          </ThemedText>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 export function ListingCard({
   kind,
   amount,
@@ -64,6 +117,7 @@ export function ListingCard({
   createdAt,
   coverImageUrl,
   mediaUrls,
+  overlay,
   listingId,
   onPress,
 }: ListingCardProps) {
@@ -105,11 +159,15 @@ export function ListingCard({
       }}
     >
       {heroUri ? (
-        <Image
-          source={{ uri: heroUri }}
-          style={{ height: 130, width: '100%' }}
-          resizeMode="cover"
-        />
+        isVideoUrl(heroUri) ? (
+          <ListingCardVideo uri={heroUri} overlay={overlay} />
+        ) : (
+          <Image
+            source={{ uri: heroUri }}
+            style={{ height: 130, width: '100%' }}
+            resizeMode="cover"
+          />
+        )
       ) : (
         <LinearGradient
           colors={[PLACEHOLDER_GRADIENT_TOP, PLACEHOLDER_GRADIENT_BOTTOM]}

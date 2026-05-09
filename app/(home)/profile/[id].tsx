@@ -116,6 +116,7 @@ export default function PublicProfileScreen() {
         ownerId={profile?.id ?? ''}
         createdAt={item.createdAt}
         mediaUrls={item.mediaUrls}
+        overlay={isService ? item.overlay : null}
         listingId={item.id}
         onPress={() => {
           haptic('light');

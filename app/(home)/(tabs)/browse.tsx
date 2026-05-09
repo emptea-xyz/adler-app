@@ -257,6 +257,7 @@ export default function BrowseScreen() {
                   ownerId={ownerId}
                   createdAt={item.data.createdAt}
                   mediaUrls={mediaUrls}
+                  overlay={item.kind === 'service' ? item.data.overlay : null}
                   listingId={item.data.id}
                   onPress={() => {
                     if (item.kind === 'service') router.push(`/service/${item.data.id}`);

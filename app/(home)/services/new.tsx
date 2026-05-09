@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -22,6 +22,7 @@ import { createService } from '@/lib/services/listingsService';
 import { compressImageForUpload } from '@/lib/services/imageUploadService';
 import { uploadListingMedia } from '@/lib/services/listingMediaUploadService';
 import { parseSolAmount } from '@/lib/utils/formatNumber';
+import { clearStudioDraft, readStudioDraft, type StudioDraft } from '@/lib/utils/studioDraft';
 import { toast } from '@/lib/utils/toast';
 import { CATEGORY_LABEL, LISTING_CATEGORIES, type ListingCategory, type ListingOverlay } from '@/lib/types/listing';
 
@@ -43,6 +44,7 @@ interface StudioMedia {
     uri: string;
     contentType: string;
     durationMs: number;
+    sizeBytes: number;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -84,9 +86,12 @@ export default function NewServiceScreen() {
         studioMediaUri?: string;
         studioContentType?: string;
         studioDurationMs?: string;
+        studioFileSize?: string;
         overlayText?: string;
         overlayColor?: string;
         overlayScale?: string;
+        overlayX?: string;
+        overlayY?: string;
     }>();
     const { theme } = useTheme();
     const { profile } = useUser();
@@ -99,24 +104,43 @@ export default function NewServiceScreen() {
     const [mediaUris, setMediaUris] = useState<string[]>([]);
     const [categoryOpen, setCategoryOpen] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [draft, setDraft] = useState<StudioDraft | null>(null);
+
+    useEffect(() => {
+        let mounted = true;
+        readStudioDraft()
+            .then((value) => {
+                if (mounted) setDraft(value);
+            })
+            .catch(() => {});
+        return () => {
+            mounted = false;
+        };
+    }, []);
 
     const studioMedia = useMemo<StudioMedia | null>(() => {
         const uri = typeof params.studioMediaUri === 'string' ? params.studioMediaUri : '';
-        if (!uri) return null;
+        const fallbackUri = draft?.uri ?? '';
+        const resolvedUri = uri || fallbackUri;
+        if (!resolvedUri) return null;
         const contentTypeParam = typeof params.studioContentType === 'string' ? params.studioContentType : '';
-        const contentType = contentTypeParam || inferContentTypeFromUri(uri);
         const durationMsRaw = Number(params.studioDurationMs ?? 0);
+        const sizeBytesRaw = Number(params.studioFileSize ?? 0);
         return {
-            uri,
-            contentType,
-            durationMs: Number.isFinite(durationMsRaw) ? durationMsRaw : 0,
+            uri: resolvedUri,
+            contentType: contentTypeParam || draft?.contentType || inferContentTypeFromUri(resolvedUri),
+            durationMs: Number.isFinite(durationMsRaw) && durationMsRaw > 0 ? durationMsRaw : draft?.durationMs ?? 0,
+            sizeBytes: Number.isFinite(sizeBytesRaw) && sizeBytesRaw > 0 ? sizeBytesRaw : draft?.sizeBytes ?? 0,
         };
-    }, [params.studioContentType, params.studioDurationMs, params.studioMediaUri]);
+    }, [draft, params.studioContentType, params.studioDurationMs, params.studioFileSize, params.studioMediaUri]);
 
     const studioOverlay = useMemo<ListingOverlay | null>(() => {
         const text = typeof params.overlayText === 'string' ? params.overlayText.trim() : '';
+        if (!text && draft?.overlay) return draft.overlay;
         if (!text) return null;
         const rawScale = Number(params.overlayScale ?? 1);
+        const rawX = Number(params.overlayX ?? 0.5);
+        const rawY = Number(params.overlayY ?? 0.5);
         return {
             text,
             color:
@@ -124,10 +148,10 @@ export default function NewServiceScreen() {
                     ? params.overlayColor
                     : Neutral.white,
             scale: Number.isFinite(rawScale) ? rawScale : 1,
-            x: 0,
-            y: 0,
+            x: Number.isFinite(rawX) ? rawX : 0.5,
+            y: Number.isFinite(rawY) ? rawY : 0.5,
         };
-    }, [params.overlayColor, params.overlayScale, params.overlayText]);
+    }, [draft, params.overlayColor, params.overlayScale, params.overlayText, params.overlayX, params.overlayY]);
 
     const categoryOptions = useMemo<readonly SearchableSheetOption[]>(
         () => LISTING_CATEGORIES.map((id) => ({
@@ -167,6 +191,7 @@ export default function NewServiceScreen() {
                     uid: profile.id,
                     uri: studioMedia.uri,
                     contentType: studioMedia.contentType,
+                    sizeBytes: studioMedia.sizeBytes || undefined,
                 });
                 mediaUrls.push(videoResult.url);
             }
@@ -197,6 +222,7 @@ export default function NewServiceScreen() {
             queryClient.invalidateQueries({ queryKey: FEED_KEYS.browse({ kind: 'service' }) });
             queryClient.invalidateQueries({ queryKey: qk.listings.byOwner('service', profile.id) });
 
+            await clearStudioDraft().catch(() => {});
             toast.success('Service published');
             router.replace(`/service/${id}`);
         } catch (err: any) {

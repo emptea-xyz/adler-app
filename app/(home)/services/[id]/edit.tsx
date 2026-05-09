@@ -189,8 +189,17 @@ export default function EditServiceScreen() {
                                 </View>
                             </ScrollView>
 
-                            <CtaFooter helperText="Media replacement routes through studio in the next slice.">
-                                <Button title="Save changes" onPress={save} loading={saving} disabled={saving} size="lg" />
+                            <CtaFooter helperText="Text edits stay here; replacing video starts a fresh studio clip.">
+                                <View style={{ gap: 10 }}>
+                                    <Button
+                                        title="Replace video in Studio"
+                                        onPress={() => router.push('/studio/camera')}
+                                        disabled={saving}
+                                        size="lg"
+                                        variant="secondary"
+                                    />
+                                    <Button title="Save changes" onPress={save} loading={saving} disabled={saving} size="lg" />
+                                </View>
                             </CtaFooter>
 
                             <SearchableSheet
@@ -208,4 +217,3 @@ export default function EditServiceScreen() {
         </ProfileGate>
     );
 }
-

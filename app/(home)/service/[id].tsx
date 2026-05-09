@@ -49,6 +49,8 @@ function ServiceVideoSlide({
     p.loop = true;
     p.play();
   });
+  const x = Math.min(0.92, Math.max(0.08, overlay?.x ?? 0.5));
+  const y = Math.min(0.92, Math.max(0.08, overlay?.y ?? 0.5));
 
   return (
     <View
@@ -66,11 +68,13 @@ function ServiceVideoSlide({
       />
       {overlay?.text ? (
         <View
+          pointerEvents="none"
           style={{
             position: 'absolute',
-            left: 24,
-            right: 24,
-            top: 24,
+            left: `${x * 100}%`,
+            top: `${y * 100}%`,
+            transform: [{ translateX: -120 }, { translateY: -18 }, { scale: overlay.scale ?? 1 }],
+            width: 240,
             alignItems: 'center',
           }}
         >
@@ -78,7 +82,6 @@ function ServiceVideoSlide({
             type="body-lg-semibold"
             style={{
               color: overlay.color || theme[50],
-              transform: [{ scale: overlay.scale ?? 1 }],
               textAlign: 'center',
             }}
           >

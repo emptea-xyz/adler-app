@@ -114,6 +114,7 @@ export default function SavedScreen() {
                   ownerId={ownerId}
                   createdAt={item.data.createdAt}
                   mediaUrls={item.data.mediaUrls}
+                  overlay={item.kind === 'service' ? item.data.overlay : null}
                   listingId={item.listingId}
                   onPress={() => {
                     if (item.kind === 'service') router.push(`/service/${item.listingId}`);
