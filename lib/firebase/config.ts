@@ -58,22 +58,25 @@ if (getApps().length === 0) {
     // safe first step), this is a no-op for our backends — they don't yet
     // require tokens. Defer enforcement until you've confirmed legit clients
     // are passing in Monitor mode.
-    if (Platform.OS === 'ios') {
+    if (Platform.OS === 'ios' && !__DEV__) {
         // Lazy require keeps the JS-only web bundle happy + survives test runs
         // where the native module isn't linked.
         try {
             // eslint-disable-next-line @typescript-eslint/no-require-imports
-            const rnAppCheckModule = require('@react-native-firebase/app-check');
-            const rnAppCheck = rnAppCheckModule.default ?? rnAppCheckModule;
-            const rnfbProvider = rnAppCheck().newReactNativeFirebaseAppCheckProvider();
+            const rnAppCheck = require('@react-native-firebase/app-check');
+            const {
+                ReactNativeFirebaseAppCheckProvider,
+                initializeAppCheck: rnInitializeAppCheck,
+                getToken: rnGetToken,
+            } = rnAppCheck;
+
+            const rnfbProvider = new ReactNativeFirebaseAppCheckProvider();
             rnfbProvider.configure({
-                apple: {
-                    provider: __DEV__ ? 'debug' : 'appAttestWithDeviceCheckFallback',
-                    debugToken: process.env.EXPO_PUBLIC_APP_CHECK_DEBUG_TOKEN,
-                },
+                apple: { provider: 'appAttestWithDeviceCheckFallback' },
                 isTokenAutoRefreshEnabled: true,
             });
-            rnAppCheck().initializeAppCheck({
+
+            const rnAppCheckInstance = rnInitializeAppCheck(undefined, {
                 provider: rnfbProvider,
                 isTokenAutoRefreshEnabled: true,
             });
@@ -82,7 +85,8 @@ if (getApps().length === 0) {
             const { CustomProvider } = require('firebase/app-check');
             const bridgeProvider = new CustomProvider({
                 getToken: async () => {
-                    const { token, expireTimeMillis } = await rnAppCheck().getToken();
+                    const instance = await rnAppCheckInstance;
+                    const { token, expireTimeMillis } = await rnGetToken(instance);
                     return { token, expireTimeMillis };
                 },
             });

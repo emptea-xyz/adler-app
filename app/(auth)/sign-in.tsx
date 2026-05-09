@@ -9,6 +9,7 @@ import { AdlerEagleLogo } from '@/components/ui/AdlerEagleLogo';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Accent } from '@/constants/ThemePalettes';
 import { Neutral } from '@/constants/NeutralColors';
+import { TailwindColors } from '@/constants/TailwindColors';
 import { toast } from '@/lib/utils/toast';
 import { haptic } from '@/lib/utils/haptic';
 
@@ -95,7 +96,7 @@ export default function SignInScreen() {
               disabled={!!pending}
               className="rounded-card h-14 flex-row items-center justify-center"
               style={{
-                backgroundColor: Accent.pink,
+                backgroundColor: TailwindColors.neutral[950],
                 opacity: pending && pending !== 'google' ? 0.5 : 1,
               }}
               accessibilityRole="button"
