@@ -8,6 +8,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "adler",
     "userInterfaceStyle": "automatic",
+    "platforms": ["ios", "web"],
     "ios": {
       "googleServicesFile": "./GoogleService-Info.plist",
       "bundleIdentifier": "com.m2dt.adler",

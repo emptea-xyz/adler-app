@@ -1,7 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
-import { Platform } from 'react-native';
 
 /**
  * Request notification permissions (iOS prompt) and obtain an Expo push token.
@@ -54,9 +53,9 @@ export async function registerForPushAsync(): Promise<string | null> {
 }
 
 /**
- * iOS-only: configure a default notification channel-equivalent so banners +
- * sounds appear while the app is in the foreground. Android also goes through
- * this code path harmlessly.
+ * Configure foreground notification presentation so banners + sounds appear
+ * while the app is in the foreground. iOS-only — this app doesn't ship to
+ * Android (see app.json `platforms`).
  */
 export function setupForegroundHandler() {
     Notifications.setNotificationHandler({
@@ -67,12 +66,4 @@ export function setupForegroundHandler() {
             shouldSetBadge: false,
         }),
     });
-
-    if (Platform.OS === 'android') {
-        Notifications.setNotificationChannelAsync('default', {
-            name: 'default',
-            importance: Notifications.AndroidImportance.DEFAULT,
-            vibrationPattern: [0, 250, 250, 250],
-        }).catch(() => {});
-    }
 }

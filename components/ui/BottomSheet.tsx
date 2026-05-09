@@ -5,7 +5,6 @@ import {
   View,
   StyleSheet,
   Keyboard,
-  Platform,
   TouchableWithoutFeedback,
   KeyboardEvent,
   StyleProp,
@@ -139,12 +138,11 @@ export function BottomSheet({
 
   const isClosingRef = useRef(false);
 
-  // Keyboard listeners
+  // Keyboard listeners — iOS-only `*Will*` events fire before the keyboard
+  // animates so the sheet animates in lockstep. Android `*Did*` fallbacks
+  // were dropped as part of the iOS-only cutover.
   useEffect(() => {
     if (!keyboardAware) return;
-
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 
     const handleKeyboardShow = (event: KeyboardEvent) => {
       setKeyboardVisible(true);
@@ -156,8 +154,8 @@ export function BottomSheet({
       setKeyboardHeight(0);
     };
 
-    const showSubscription = Keyboard.addListener(showEvent, handleKeyboardShow);
-    const hideSubscription = Keyboard.addListener(hideEvent, handleKeyboardHide);
+    const showSubscription = Keyboard.addListener('keyboardWillShow', handleKeyboardShow);
+    const hideSubscription = Keyboard.addListener('keyboardWillHide', handleKeyboardHide);
 
     return () => {
       showSubscription.remove();
