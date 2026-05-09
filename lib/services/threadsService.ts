@@ -9,6 +9,7 @@ import {
     serverTimestamp,
     setDoc,
     updateDoc,
+    writeBatch,
     where,
 } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase/config';
@@ -32,6 +33,19 @@ function truncatePreview(body: string): string {
     return trimmed.length <= MESSAGE_PREVIEW_MAX
         ? trimmed
         : `${trimmed.slice(0, MESSAGE_PREVIEW_MAX - 1)}…`;
+}
+
+function normalizeAttachments(values: string[]): string[] {
+    return values
+        .map((value) => value.trim())
+        .filter((value) => value.length > 0);
+}
+
+function assertMessageBody(body: string): void {
+    if (!body) throw new Error('Message body is required');
+    if (body.length > MESSAGE_BODY_MAX) {
+        throw new Error(`Message must be ${MESSAGE_BODY_MAX} characters or less`);
+    }
 }
 
 function readParticipantSnapshot(value: unknown): ParticipantSnapshot {
@@ -252,6 +266,7 @@ export interface SendMessageInput {
     kind?: 'text' | 'deliverable' | 'revision_request' | 'approval' | 'system';
     body: string;
     attachments?: string[];
+    messageId?: string;
     escrowTxSignature?: string | null;
     escrowTxConfirmedAt?: number | null;
 }
@@ -261,15 +276,14 @@ export async function sendMessage(input: SendMessageInput): Promise<string> {
     if (!uid) throw new Error('Not signed in');
 
     const body = input.body.trim();
-    if (!body) throw new Error('Message body is required');
-    if (body.length > MESSAGE_BODY_MAX) throw new Error(`Message must be ${MESSAGE_BODY_MAX} characters or less`);
+    assertMessageBody(body);
 
-    const attachments = (input.attachments ?? []).filter((value) => value.trim().length > 0);
+    const attachments = normalizeAttachments(input.attachments ?? []);
     if (attachments.length > MESSAGE_ATTACHMENTS_MAX) {
         throw new Error(`Add up to ${MESSAGE_ATTACHMENTS_MAX} attachments`);
     }
 
-    const ref = await addDoc(collection(db, THREADS, input.threadId, 'messages'), {
+    const payload = {
         threadId: input.threadId,
         senderId: uid,
         kind: (input.kind ?? 'text') as MessageKind,
@@ -278,7 +292,17 @@ export async function sendMessage(input: SendMessageInput): Promise<string> {
         escrowTxSignature: input.escrowTxSignature ?? null,
         escrowTxConfirmedAt: input.escrowTxConfirmedAt ?? null,
         createdAt: serverTimestamp(),
-    });
+    };
+
+    if (input.messageId) {
+        await setDoc(
+            doc(db, THREADS, input.threadId, 'messages', input.messageId),
+            payload,
+        );
+        return input.messageId;
+    }
+
+    const ref = await addDoc(collection(db, THREADS, input.threadId, 'messages'), payload);
     return ref.id;
 }
 
@@ -296,18 +320,41 @@ export interface SubmitDeliverableInput {
     orderId: string;
     body: string;
     attachments?: string[];
+    messageId?: string;
     /** On-chain `submit_delivery` signature; lives on the message doc. */
     escrowTxSignature?: string;
 }
 
 export async function submitDeliverable(input: SubmitDeliverableInput): Promise<void> {
-    await sendMessage({
+    const uid = auth.currentUser?.uid;
+    if (!uid) throw new Error('Not signed in');
+
+    const body = input.body.trim();
+    assertMessageBody(body);
+    const attachments = normalizeAttachments(input.attachments ?? []);
+    if (attachments.length > MESSAGE_ATTACHMENTS_MAX) {
+        throw new Error(`Add up to ${MESSAGE_ATTACHMENTS_MAX} attachments`);
+    }
+
+    const batch = writeBatch(db);
+    const messageRef = input.messageId
+        ? doc(db, THREADS, input.threadId, 'messages', input.messageId)
+        : doc(collection(db, THREADS, input.threadId, 'messages'));
+    batch.set(messageRef, {
         threadId: input.threadId,
-        kind: 'deliverable',
-        body: input.body,
-        attachments: input.attachments,
+        senderId: uid,
+        kind: 'deliverable' as MessageKind,
+        body,
+        attachments,
         escrowTxSignature: input.escrowTxSignature ?? null,
+        escrowTxConfirmedAt: null,
+        createdAt: serverTimestamp(),
     });
+    batch.update(doc(db, 'orders', input.orderId), {
+        status: 'delivered',
+        updatedAt: serverTimestamp(),
+    });
+    await batch.commit();
 }
 
 export interface RequestRevisionInput {
@@ -327,17 +374,36 @@ export interface ApproveDeliverableInput {
     threadId: string;
     orderId: string;
     body?: string;
+    messageId?: string;
     /** On-chain `approve_release` signature; lives on the message doc. */
     escrowTxSignature?: string;
 }
 
 export async function approveDeliverable(input: ApproveDeliverableInput): Promise<void> {
-    await sendMessage({
+    const uid = auth.currentUser?.uid;
+    if (!uid) throw new Error('Not signed in');
+    const body = input.body?.trim() ? input.body.trim() : 'Approved.';
+    assertMessageBody(body);
+
+    const batch = writeBatch(db);
+    const messageRef = input.messageId
+        ? doc(db, THREADS, input.threadId, 'messages', input.messageId)
+        : doc(collection(db, THREADS, input.threadId, 'messages'));
+    batch.set(messageRef, {
         threadId: input.threadId,
-        kind: 'approval',
-        body: input.body?.trim() ? input.body : 'Approved.',
+        senderId: uid,
+        kind: 'approval' as MessageKind,
+        body,
+        attachments: [],
         escrowTxSignature: input.escrowTxSignature ?? null,
+        escrowTxConfirmedAt: null,
+        createdAt: serverTimestamp(),
     });
+    batch.update(doc(db, 'orders', input.orderId), {
+        status: 'complete',
+        updatedAt: serverTimestamp(),
+    });
+    await batch.commit();
 }
 
 export function countRevisionRequests(messages: Message[]): number {

@@ -8,7 +8,10 @@
     "icon": "./assets/images/icon.png",
     "scheme": "adler",
     "userInterfaceStyle": "automatic",
-    "platforms": ["ios", "web"],
+    "platforms": [
+      "ios",
+      "web"
+    ],
     "ios": {
       "googleServicesFile": "./GoogleService-Info.plist",
       "bundleIdentifier": "com.m2dt.adler",
@@ -84,7 +87,8 @@
         }
       ],
       "@react-native-firebase/app",
-      "@react-native-firebase/app-check"
+      "@react-native-firebase/app-check",
+      "expo-video"
     ],
     "extra": {
       "router": {},
