@@ -8,6 +8,7 @@ import {
     orderBy,
     query,
     serverTimestamp,
+    setDoc,
     startAfter,
     updateDoc,
     where,
@@ -100,6 +101,13 @@ function readGig(id: string, data: Record<string, unknown>): Gig {
         ownerAvatarUrl: (data.brandAvatarUrl as string | undefined) ?? null,
         mediaUrls: readMediaUrls(data.mediaUrls),
         overlay: readOverlay(data.overlay),
+        contractId32: (data.contractId32 as string | undefined) ?? null,
+        escrowPda: (data.escrowPda as string | undefined) ?? null,
+        fundingTxSignature: (data.fundingTxSignature as string | undefined) ?? null,
+        deliveryDeadline:
+            typeof data.deliveryDeadline === 'number'
+                ? data.deliveryDeadline
+                : null,
         createdAt: tsMs(data.createdAt),
         updatedAt: tsMs(data.updatedAt),
     };
@@ -196,6 +204,7 @@ export interface CreateServiceInput {
 }
 
 export interface CreateGigInput {
+    id?: string;
     title: string;
     description: string;
     category: ListingCategory;
@@ -205,6 +214,10 @@ export interface CreateGigInput {
     ownerDisplayName: string;
     ownerAvatarUrl: string | null;
     mediaUrls?: string[];
+    contractId32?: string | null;
+    escrowPda?: string | null;
+    fundingTxSignature?: string | null;
+    deliveryDeadline?: number | null;
 }
 
 export async function createService(
@@ -233,7 +246,8 @@ export async function createService(
 export async function createGig(input: CreateGigInput): Promise<string> {
     const uid = auth.currentUser?.uid;
     if (!uid) throw new Error('Not signed in');
-    const ref = await addDoc(collection(db, GIGS), {
+    const ref = input.id ? doc(db, GIGS, input.id) : doc(collection(db, GIGS));
+    await setDoc(ref, {
         brandId: uid,
         status: 'open' satisfies GigStatus,
         title: input.title,
@@ -245,6 +259,10 @@ export async function createGig(input: CreateGigInput): Promise<string> {
         brandDisplayName: input.ownerDisplayName,
         brandAvatarUrl: input.ownerAvatarUrl,
         mediaUrls: input.mediaUrls ?? [],
+        contractId32: input.contractId32 ?? null,
+        escrowPda: input.escrowPda ?? null,
+        fundingTxSignature: input.fundingTxSignature ?? null,
+        deliveryDeadline: input.deliveryDeadline ?? null,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
     });

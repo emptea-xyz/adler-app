@@ -61,6 +61,10 @@ export interface Gig extends ListingBase {
   budgetSol: number;
   requirements: string;
   status: GigStatus;
+  contractId32?: string | null;
+  escrowPda?: string | null;
+  fundingTxSignature?: string | null;
+  deliveryDeadline?: number | null;
 }
 
 export type Listing = Service | Gig;

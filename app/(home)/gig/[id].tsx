@@ -107,6 +107,7 @@ export default function GigDetailScreen() {
                   <KPI size="md" amount={formatSol(gig.budgetSol)} unit="SOL" />
                   <View style={{ flexDirection: 'row', gap: 8 }}>
                     <Pill intent={gigStatusIntent(gig.status)} label={gig.status} />
+                    {gig.escrowPda ? <Pill intent="lime" label="Funded" /> : null}
                     <Pill intent="pink" label="Gig" />
                   </View>
                 </View>

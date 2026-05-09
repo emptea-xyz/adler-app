@@ -3,6 +3,8 @@ import { Pressable, ScrollView, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
+import { useEmbeddedSolanaWallet } from '@privy-io/expo';
+import * as Crypto from 'expo-crypto';
 import { ChevronDown } from 'lucide-react-native';
 import { ProfileGate } from '@/components/base/ProfileGate';
 import { ScreenHeader } from '@/components/base/ScreenHeader';
@@ -16,7 +18,9 @@ import { SearchableSheet, type SearchableSheetOption } from '@/components/ui/Sea
 import TextInput from '@/components/ui/TextInput';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useUser } from '@/contexts/UserContext';
+import { computeFeeSol } from '@/lib/constants/featureGates';
 import { FEED_KEYS, qk } from '@/lib/constants/queryKeys';
+import { fundGig } from '@/lib/escrow/fundGig';
 import { createGig } from '@/lib/services/listingsService';
 import { compressImageForUpload } from '@/lib/services/imageUploadService';
 import { uploadListingMedia } from '@/lib/services/listingMediaUploadService';
@@ -30,6 +34,7 @@ const REQUIREMENTS_MAX = 1000;
 const MEDIA_MAX = 5;
 const PRICE_MAX_SOL = 10000;
 const AMOUNT_MAX_LEN = 10;
+const DELIVERY_WINDOW_SECS = 14 * 24 * 60 * 60;
 
 type GigForm = {
     title: string;
@@ -68,6 +73,8 @@ export default function NewGigScreen() {
     const router = useRouter();
     const { theme } = useTheme();
     const { profile } = useUser();
+    const solana = useEmbeddedSolanaWallet();
+    const wallet = solana.wallets?.[0];
     const queryClient = useQueryClient();
 
     const [title, setTitle] = useState('');
@@ -108,9 +115,24 @@ export default function NewGigScreen() {
             toast.error('Budget is invalid.');
             return;
         }
+        if (!wallet?.address) {
+            toast.error('Wallet not ready yet');
+            return;
+        }
 
         setSaving(true);
         try {
+            const provider = await wallet.getProvider();
+            const gigId = Crypto.randomUUID();
+            const deliveryDeadline = Math.floor(Date.now() / 1000) + DELIVERY_WINDOW_SECS;
+            const funded = await fundGig({
+                gigId,
+                provider,
+                brandWalletAddress: wallet.address,
+                budgetSol: amount,
+                deliveryDeadline,
+            });
+
             const mediaUrls: string[] = [];
             for (const uri of mediaUris) {
                 const compressedUri = await compressImageForUpload(uri, 1600);
@@ -124,6 +146,7 @@ export default function NewGigScreen() {
             }
 
             const id = await createGig({
+                id: gigId,
                 title: form.title.trim(),
                 description: form.description.trim(),
                 category: form.category,
@@ -133,13 +156,17 @@ export default function NewGigScreen() {
                 ownerDisplayName: profile.displayName,
                 ownerAvatarUrl: profile.avatarUrl,
                 mediaUrls,
+                contractId32: funded.contractId32,
+                escrowPda: funded.escrowPda,
+                fundingTxSignature: funded.signature,
+                deliveryDeadline,
             });
 
             queryClient.invalidateQueries({ queryKey: FEED_KEYS.browse() });
             queryClient.invalidateQueries({ queryKey: FEED_KEYS.browse({ kind: 'gig' }) });
             queryClient.invalidateQueries({ queryKey: qk.listings.byOwner('gig', profile.id) });
 
-            toast.success('Gig published');
+            toast.success('Gig funded and published');
             router.replace(`/gig/${id}`);
         } catch (err: any) {
             toast.error(err?.message ?? 'Could not publish gig');
@@ -240,7 +267,7 @@ export default function NewGigScreen() {
                         </Field>
                     </ScrollView>
 
-                    <CtaFooter helperText="Routes to inbox and applicants land in the next build step.">
+                    <CtaFooter helperText={`Locks ${budget || '0'} SOL + ${computeFeeSol(parseSolAmount(budget) ?? 0).toFixed(4)} SOL fee on devnet escrow.`}>
                         <Button
                             title="Publish gig"
                             onPress={onPublish}

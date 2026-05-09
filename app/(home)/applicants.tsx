@@ -3,6 +3,7 @@ import { ActivityIndicator, ScrollView, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEmbeddedSolanaWallet } from '@privy-io/expo';
 import { ProfileGate } from '@/components/base/ProfileGate';
 import { ScreenHeader } from '@/components/base/ScreenHeader';
 import { SectionLabel } from '@/components/base/SectionLabel';
@@ -15,12 +16,17 @@ import { SegmentedToggle } from '@/components/ui/SegmentedToggle';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { APPLICATION_KEYS, qk } from '@/lib/constants/queryKeys';
+import { bindCreator } from '@/lib/escrow/bindCreator';
 import {
     awardApplicationAndCloseGig,
     listApplicationsForGig,
     setApplicationStatus,
 } from '@/lib/services/applicationsService';
 import { getListing } from '@/lib/services/listingsService';
+import { createOrder, getOrder, markOrderPaid } from '@/lib/services/ordersService';
+import { getProfile } from '@/lib/services/profileService';
+import { createOrderThread } from '@/lib/services/threadsService';
+import { computeFeeSol } from '@/lib/constants/featureGates';
 import { formatRelative } from '@/lib/utils/dates';
 import { toast } from '@/lib/utils/toast';
 import type { ApplicationStatus, GigApplication } from '@/lib/types/application';
@@ -39,6 +45,8 @@ function statusIntent(status: ApplicationStatus): PillIntent {
 export default function ApplicantsScreen() {
     const { gigId } = useLocalSearchParams<{ gigId?: string }>();
     const { user } = useAuth();
+    const solana = useEmbeddedSolanaWallet();
+    const wallet = solana.wallets?.[0];
     const { theme } = useTheme();
     const router = useRouter();
     const queryClient = useQueryClient();
@@ -72,8 +80,62 @@ export default function ApplicantsScreen() {
         setPendingAction(key);
         try {
             if (next === 'awarded') {
+                const gig = gigQuery.data;
+                if (!gig?.contractId32 || !gig.escrowPda || !gig.fundingTxSignature) {
+                    throw new Error('Gig escrow is missing. Repost this gig with escrow funding.');
+                }
+                if (!wallet?.address) throw new Error('Wallet not ready yet');
+                const creatorProfile = await getProfile(application.creatorId);
+                if (!creatorProfile?.walletAddress) throw new Error('Creator wallet missing');
+                const brandProfile = await getProfile(user.id);
+                const provider = await wallet.getProvider();
+                await bindCreator({
+                    contractIdHex: gig.contractId32,
+                    brandWalletAddress: wallet.address,
+                    creatorWalletAddress: creatorProfile.walletAddress,
+                    provider,
+                });
+
+                const existingOrder = await getOrder(gig.id);
+                if (!existingOrder) {
+                    await createOrder({
+                        orderId: gig.id,
+                        contractId32: gig.contractId32,
+                        escrowPda: gig.escrowPda,
+                        sellerId: application.creatorId,
+                        amountSol: gig.budgetSol,
+                        feeSol: computeFeeSol(gig.budgetSol),
+                        type: 'gig',
+                        listingId: gig.id,
+                        listingTitle: gig.title,
+                        buyerHandle: brandProfile?.username ?? gig.ownerHandle,
+                        buyerDisplayName: brandProfile?.displayName ?? gig.ownerDisplayName,
+                        sellerHandle: creatorProfile.username,
+                        sellerDisplayName: creatorProfile.displayName,
+                    });
+                }
+                const order = existingOrder ?? await getOrder(gig.id);
+                if (!order || order.status === 'pending') {
+                    await markOrderPaid(gig.id, gig.fundingTxSignature);
+                }
+                await createOrderThread({
+                    orderId: gig.id,
+                    parentTitle: gig.title,
+                    buyer: {
+                        uid: user.id,
+                        handle: brandProfile?.username ?? gig.ownerHandle,
+                        displayName: brandProfile?.displayName ?? gig.ownerDisplayName,
+                        avatarUrl: brandProfile?.avatarUrl ?? gig.ownerAvatarUrl,
+                    },
+                    seller: {
+                        uid: application.creatorId,
+                        handle: creatorProfile.username,
+                        displayName: creatorProfile.displayName,
+                        avatarUrl: creatorProfile.avatarUrl,
+                    },
+                }).catch(() => null);
                 await awardApplicationAndCloseGig({ gigId, applicationId: application.id });
-                toast.success('Gig awarded and remaining applicants rejected');
+                toast.success('Escrow bound and gig awarded');
             } else {
                 await setApplicationStatus(application.id, next);
                 toast.success(next === 'shortlisted' ? 'Applicant shortlisted' : 'Applicant rejected');
@@ -87,6 +149,8 @@ export default function ApplicantsScreen() {
                 queryClient.invalidateQueries({ queryKey: qk.listings.detail('gig', gigId) }),
                 queryClient.invalidateQueries({ queryKey: qk.listings.byOwner('gig', user.id) }),
                 queryClient.invalidateQueries({ queryKey: qk.listings.list('gig', null) }),
+                queryClient.invalidateQueries({ queryKey: qk.orders.byBuyer(user.id) }),
+                queryClient.invalidateQueries({ queryKey: qk.orders.bySeller(application.creatorId) }),
             ]);
         } catch (err: any) {
             toast.error(err?.message ?? 'Could not update application');
