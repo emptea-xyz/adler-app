@@ -93,3 +93,39 @@ export function setupForegroundHandler() {
         }),
     });
 }
+
+function asRecord(value: unknown): Record<string, unknown> {
+    return value && typeof value === 'object'
+        ? (value as Record<string, unknown>)
+        : {};
+}
+
+export function hrefFromPushData(payload: unknown): string | null {
+    const data = asRecord(payload);
+    if (typeof data.href === 'string' && data.href.trim().length > 0) {
+        const href = data.href.trim();
+        return href.startsWith('/') ? href : `/${href}`;
+    }
+    if (data.kind === 'order' && typeof data.orderId === 'string') {
+        return `/inbox/order_${data.orderId}`;
+    }
+    if (data.kind === 'gigApplication' && typeof data.applicationId === 'string') {
+        return `/inbox/application_${data.applicationId}`;
+    }
+    return null;
+}
+
+export function addNotificationResponseListener(
+    onHref: (href: string) => void,
+): { remove: () => void } {
+    return Notifications.addNotificationResponseReceivedListener((response) => {
+        const href = hrefFromPushData(response.notification.request.content.data);
+        if (href) onHref(href);
+    });
+}
+
+export async function readInitialNotificationHref(): Promise<string | null> {
+    const response = await Notifications.getLastNotificationResponseAsync();
+    if (!response) return null;
+    return hrefFromPushData(response.notification.request.content.data);
+}

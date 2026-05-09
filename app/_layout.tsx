@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback, useState } from "react";
-import { Slot } from "expo-router";
+import { Slot, useRouter } from "expo-router";
 import { useFonts } from "expo-font";
 import { Geist_400Regular, Geist_600SemiBold } from "@expo-google-fonts/geist";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -20,7 +20,11 @@ import { ThemeProvider, useTheme } from "@/contexts/ThemeContext";
 import { ViewModeProvider } from "@/contexts/ViewModeContext";
 import { MONO_PALETTE } from "@/constants/ThemePalettes";
 import { OfflineBanner } from "@/components/base/OfflineBanner";
-import { setupForegroundHandler } from "@/lib/services/pushService";
+import {
+  addNotificationResponseListener,
+  readInitialNotificationHref,
+  setupForegroundHandler,
+} from "@/lib/services/pushService";
 
 // Show banners + sound when a push lands while the app is in the foreground.
 // Module-scoped so it runs once per JS bundle, not per render.
@@ -56,6 +60,24 @@ const PRIVY_CLIENT_ID = process.env.EXPO_PUBLIC_PRIVY_CLIENT_ID;
 
 function RootLayoutContent() {
   const systemScheme = useColorScheme();
+  const router = useRouter();
+
+  useEffect(() => {
+    let mounted = true;
+    readInitialNotificationHref()
+      .then((href) => {
+        if (!mounted || !href) return;
+        router.push(href as any);
+      })
+      .catch(() => null);
+    const sub = addNotificationResponseListener((href) => {
+      router.push(href as any);
+    });
+    return () => {
+      mounted = false;
+      sub.remove();
+    };
+  }, [router]);
 
   return (
     <PrivyProvider
