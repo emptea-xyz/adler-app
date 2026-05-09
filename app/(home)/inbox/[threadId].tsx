@@ -361,6 +361,9 @@ export default function ThreadScreen() {
                 user?.id && order ? queryClient.invalidateQueries({ queryKey: qk.orders.bySeller(order.sellerId) }) : Promise.resolve(),
                 order?.id ? queryClient.invalidateQueries({ queryKey: qk.escrow.contractEscrow(order.id) }) : Promise.resolve(),
             ]);
+            if (mode === 'approval' && order) {
+                router.push(`/order/${order.id}?review=1`);
+            }
         } catch (err: any) {
             toast.error(err?.message ?? 'Action failed');
         } finally {

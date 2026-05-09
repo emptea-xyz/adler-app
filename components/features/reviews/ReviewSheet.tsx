@@ -134,6 +134,14 @@ export function ReviewSheet({ visible, onClose, orderId, revieweeId, revieweeLab
             size="lg"
             className="w-full"
           />
+          <Button
+            title="Skip"
+            onPress={() => close()}
+            disabled={submitting}
+            variant="secondary"
+            size="lg"
+            className="w-full"
+          />
         </View>
       )}
     </BottomSheet>

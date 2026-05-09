@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, ScrollView, ActivityIndicator, Linking, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -45,7 +45,7 @@ function meanRating(review: Review): number {
 }
 
 export default function OrderDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, review } = useLocalSearchParams<{ id: string; review?: string }>();
   const { user } = useAuth();
   const { theme } = useTheme();
   const router = useRouter();
@@ -86,6 +86,12 @@ export default function OrderDetailScreen() {
   const canLeaveReview =
     !!user && !!order && order.status === 'complete' && !myReview && !!counterpartyId;
   const [reviewSheet, setReviewSheet] = useState(false);
+
+  useEffect(() => {
+    if (review === '1' && canLeaveReview) {
+      setReviewSheet(true);
+    }
+  }, [canLeaveReview, review]);
 
   return (
     <ThemedView className="flex-1">
