@@ -19,7 +19,7 @@ import { Pill, type PillIntent } from './Pill';
 // pills + title + meta.
 
 interface ListingCardProps {
-  kind: 'package' | 'gig';
+  kind: 'service' | 'gig';
   amount: number;
   category: string;
   title: string;
@@ -144,8 +144,8 @@ export function ListingCard({
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <Pill intent={categoryToIntent(category)} label={category} />
             <Pill
-              intent={kind === 'package' ? 'pink' : 'dark'}
-              label={kind === 'package' ? 'Package' : 'Gig'}
+              intent={kind === 'service' ? 'pink' : 'dark'}
+              label={kind === 'service' ? 'Service' : 'Gig'}
             />
           </View>
         </View>

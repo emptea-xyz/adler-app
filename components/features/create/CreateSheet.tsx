@@ -6,12 +6,17 @@ import { useQueryClient } from '@tanstack/react-query';
 import Animated, { FadeIn } from 'react-native-reanimated';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { useUser } from '@/contexts/UserContext';
-import { createPackage } from '@/lib/services/packageService';
-import { createGig } from '@/lib/services/gigService';
-import { uploadMarketplaceMedia, deleteMarketplaceMedia } from '@/lib/services/imageUploadService';
-import { FEED_KEYS, PACKAGE_KEYS, GIG_KEYS } from '@/lib/constants/queryKeys';
+import { createService, createGig } from '@/lib/services/listingsService';
+import {
+  deleteListingMedia,
+  uploadListingMedia,
+} from '@/lib/services/listingMediaUploadService';
+import { compressImageForUpload } from '@/lib/services/imageUploadService';
+import { qk, FEED_KEYS } from '@/lib/constants/queryKeys';
 import { haptic } from '@/lib/utils/haptic';
 import { parseSolAmount } from '@/lib/utils/formatNumber';
+import { viewModeFor } from '@/lib/utils/role';
+import type { ListingCategory } from '@/types/marketplace';
 import {
   CreateFormStep,
   validatePackageForm,
@@ -48,7 +53,8 @@ export function CreateSheet({ visible, onClose }: Props) {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const isCreator = profile?.role === 'creator';
+  const isCreator = viewModeFor(profile) === 'creator';
+  const listingKind = isCreator ? 'service' : 'gig';
 
   const [step, setStep] = useState<Step>('form');
 
@@ -67,8 +73,8 @@ export function CreateSheet({ visible, onClose }: Props) {
   const [resultId, setResultId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Track files we've uploaded so we can clean up orphans on failure.
-  const uploadedFileIdsRef = useRef<string[]>([]);
+  // Track storage paths we've uploaded so we can delete orphans on failure.
+  const uploadedPathsRef = useRef<string[]>([]);
 
   // Reset everything when the sheet is dismissed.
   useEffect(() => {
@@ -85,7 +91,7 @@ export function CreateSheet({ visible, onClose }: Props) {
       setTasks([]);
       setResultId(null);
       setErrorMsg(null);
-      uploadedFileIdsRef.current = [];
+      uploadedPathsRef.current = [];
     }
   }, [visible]);
 
@@ -122,8 +128,13 @@ export function CreateSheet({ visible, onClose }: Props) {
 
     const parsedAmount = parseSolAmount(amount);
     if (parsedAmount === null) {
-      // Should never happen — guarded by validate before reaching confirm.
       setErrorMsg('Invalid amount');
+      setStep('error');
+      return;
+    }
+
+    if (!profile) {
+      setErrorMsg('Profile is not loaded');
       setStep('error');
       return;
     }
@@ -134,7 +145,7 @@ export function CreateSheet({ visible, onClose }: Props) {
       ...(totalUploads > 0
         ? [{ id: 'upload', label: `Uploading media (0/${totalUploads})`, status: 'pending' as PublishTaskStatus }]
         : []),
-      { id: 'create', label: isCreator ? 'Saving package' : 'Saving gig', status: 'pending' },
+      { id: 'create', label: isCreator ? 'Saving service' : 'Saving gig', status: 'pending' },
       { id: 'publish', label: 'Publishing', status: 'pending' },
     ];
     setTasks(initial);
@@ -155,13 +166,11 @@ export function CreateSheet({ visible, onClose }: Props) {
       // 1. Validate
       updateTask('validate', { status: 'done' });
 
-      let coverUrl: string | null = null;
-      let mediaUrls: string[] = [];
+      const collectedMediaUrls: string[] = [];
 
-      // 2. Uploads
+      // 2. Uploads (services only — gigs don't carry listing media in v1)
       if (totalUploads > 0) {
         updateTask('upload', { status: 'running', label: `Uploading media (0/${totalUploads})` });
-        const draftId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         let done = 0;
         const tick = () => {
           done += 1;
@@ -169,22 +178,18 @@ export function CreateSheet({ visible, onClose }: Props) {
         };
 
         try {
-          if (coverUri) {
-            const fileId = `${draftId}-cover`;
-            coverUrl = await uploadMarketplaceMedia(coverUri, 'packages', fileId);
-            uploadedFileIdsRef.current.push(fileId);
+          const allUris = [...(coverUri ? [coverUri] : []), ...mediaUris];
+          for (const uri of allUris) {
+            const compressedUri = await compressImageForUpload(uri, 1600);
+            const result = await uploadListingMedia({
+              kind: listingKind,
+              uid: profile.id,
+              uri: compressedUri,
+              contentType: 'image/jpeg',
+            });
+            uploadedPathsRef.current.push(result.path);
+            collectedMediaUrls.push(result.url);
             tick();
-          }
-          if (mediaUris.length > 0) {
-            mediaUrls = await Promise.all(
-              mediaUris.map(async (uri, i) => {
-                const fileId = `${draftId}-${i}`;
-                const url = await uploadMarketplaceMedia(uri, 'packages', fileId);
-                uploadedFileIdsRef.current.push(fileId);
-                tick();
-                return url;
-              }),
-            );
           }
           updateTask('upload', { status: 'done' });
         } catch (err: any) {
@@ -198,23 +203,27 @@ export function CreateSheet({ visible, onClose }: Props) {
       let id: string;
       try {
         if (isCreator) {
-          id = await createPackage({
+          id = await createService({
             title: title.trim(),
             description: description.trim(),
+            category: category as ListingCategory,
             priceSol: parsedAmount,
-            deliverables: [],
-            coverImageUrl: coverUrl,
-            mediaUrls,
-            category,
+            ownerHandle: profile.username,
+            ownerDisplayName: profile.displayName,
+            ownerAvatarUrl: profile.avatarUrl,
+            mediaUrls: collectedMediaUrls,
           });
         } else {
           id = await createGig({
             title: title.trim(),
             description: description.trim(),
+            category: category as ListingCategory,
             budgetSol: parsedAmount,
-            deadline: null,
             requirements: requirements.trim(),
-            category,
+            ownerHandle: profile.username,
+            ownerDisplayName: profile.displayName,
+            ownerAvatarUrl: profile.avatarUrl,
+            mediaUrls: [],
           });
         }
         updateTask('create', { status: 'done' });
@@ -228,11 +237,9 @@ export function CreateSheet({ visible, onClose }: Props) {
       try {
         queryClient.invalidateQueries({ queryKey: FEED_KEYS.browse() });
         if (profile?.id) {
-          if (isCreator) {
-            queryClient.invalidateQueries({ queryKey: PACKAGE_KEYS.bySeller(profile.id) });
-          } else {
-            queryClient.invalidateQueries({ queryKey: GIG_KEYS.byBrand(profile.id) });
-          }
+          queryClient.invalidateQueries({
+            queryKey: qk.listings.byOwner(listingKind, profile.id),
+          });
         }
         updateTask('publish', { status: 'done' });
       } catch (err: any) {
@@ -253,8 +260,9 @@ export function CreateSheet({ visible, onClose }: Props) {
     coverUri,
     description,
     isCreator,
+    listingKind,
     mediaUris,
-    profile?.id,
+    profile,
     queryClient,
     requirements,
     title,
@@ -262,10 +270,10 @@ export function CreateSheet({ visible, onClose }: Props) {
 
   const handleRetry = useCallback(() => {
     // Clean up orphaned uploads from the failed attempt before re-trying.
-    const orphans = uploadedFileIdsRef.current;
-    uploadedFileIdsRef.current = [];
+    const orphans = uploadedPathsRef.current;
+    uploadedPathsRef.current = [];
     if (orphans.length > 0) {
-      void Promise.all(orphans.map((fid) => deleteMarketplaceMedia('packages', fid)));
+      void Promise.all(orphans.map((path) => deleteListingMedia(path)));
     }
     setErrorMsg(null);
     setTasks([]);
@@ -275,7 +283,7 @@ export function CreateSheet({ visible, onClose }: Props) {
   const handleViewResult = useCallback(
     (close: () => void) => {
       if (!resultId) return;
-      const path = isCreator ? `/package/${resultId}` : `/gig/${resultId}`;
+      const path = isCreator ? `/service/${resultId}` : `/gig/${resultId}`;
       close();
       router.push(path as any);
     },
@@ -283,7 +291,7 @@ export function CreateSheet({ visible, onClose }: Props) {
   );
 
   const sheetTitle: Record<Step, string> = {
-    form: isCreator ? 'List a package' : 'Post a gig',
+    form: isCreator ? 'List a service' : 'Post a gig',
     category: 'Category',
     confirm: 'Review',
     progress: 'Publishing…',

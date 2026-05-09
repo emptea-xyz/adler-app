@@ -5,7 +5,12 @@ import type { OrderType } from '@/types/marketplace';
 
 /**
  * Wraps `payForListing` with the Privy embedded Solana wallet provider so
- * screens can call `pay({ type, referenceId, sellerId, amountSol })` directly.
+ * screens can call `pay({ type, listingId, sellerId, amountSol })` directly.
+ *
+ * Step 4 replaces this hook + paymentService with the on-chain escrow
+ * flow (`fundService` + `markOrderPaid`). Until then this is the legacy
+ * direct-transfer path — works against the v1 orders schema, but doesn't
+ * settle through the Anchor program.
  */
 export function useSolanaPayment() {
     const solana = useEmbeddedSolanaWallet();
@@ -14,7 +19,8 @@ export function useSolanaPayment() {
     const pay = useCallback(
         async (args: {
             type: OrderType;
-            referenceId: string;
+            listingId: string;
+            listingTitle?: string | null;
             sellerId: string;
             amountSol: number;
         }): Promise<PayResult> => {

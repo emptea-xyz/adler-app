@@ -2,6 +2,7 @@ import React from 'react';
 import { Stack, Redirect, useSegments } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUser } from '@/contexts/UserContext';
+import { viewModeFor } from '@/lib/utils/role';
 
 /**
  * Routing rules for the (auth) group:
@@ -15,7 +16,7 @@ export default function AuthLayout() {
   const segments = useSegments() as string[];
 
   if (isReady && !isBridging && user && !loading) {
-    if (profile?.role) {
+    if (viewModeFor(profile) !== null) {
       return <Redirect href="/(home)/(tabs)/browse" />;
     }
     // segments[1] is the screen name within the (auth) group

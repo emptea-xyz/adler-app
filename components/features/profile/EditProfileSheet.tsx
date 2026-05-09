@@ -13,7 +13,10 @@ import {
   pickImage,
   uploadProfilePicture,
 } from '@/lib/services/imageUploadService';
-import { isUsernameAvailable, updateProfile } from '@/lib/services/profileService';
+import {
+  setAvatarUrl,
+  updateProfileBasics,
+} from '@/lib/services/profileService';
 import { toast } from '@/lib/utils/toast';
 import { haptic } from '@/lib/utils/haptic';
 
@@ -23,9 +26,7 @@ interface Props {
 }
 
 const DISPLAY_NAME_MAX = 50;
-const USERNAME_MAX = 20;
 const BIO_MAX = 280;
-const USERNAME_REGEX = /^[a-z0-9_]{3,20}$/;
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   const { theme } = useTheme();
@@ -45,7 +46,6 @@ export function EditProfileSheet({ visible, onClose }: Props) {
   const { theme } = useTheme();
 
   const [displayName, setDisplayName] = useState(profile?.displayName ?? '');
-  const [username, setUsername] = useState(profile?.username ?? '');
   const [bio, setBio] = useState(profile?.bio ?? '');
   const [pendingAvatarUri, setPendingAvatarUri] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -53,12 +53,11 @@ export function EditProfileSheet({ visible, onClose }: Props) {
   useEffect(() => {
     if (visible) {
       setDisplayName(profile?.displayName ?? '');
-      setUsername(profile?.username ?? '');
       setBio(profile?.bio ?? '');
       setPendingAvatarUri(null);
       setSubmitting(false);
     }
-  }, [visible, profile?.displayName, profile?.username, profile?.bio]);
+  }, [visible, profile?.displayName, profile?.bio]);
 
   const onAvatarTap = useCallback(async () => {
     haptic('light');
@@ -74,17 +73,12 @@ export function EditProfileSheet({ visible, onClose }: Props) {
     async (closeFn: () => void) => {
       if (!user) return;
       const trimmedDisplay = displayName.trim();
-      const trimmedUsername = username.trim().toLowerCase().replace(/\s+/g, '');
-      if (!trimmedDisplay || !trimmedUsername) {
-        toast.error('Display name and username are required');
+      if (!trimmedDisplay) {
+        toast.error('Display name is required');
         return;
       }
       if (trimmedDisplay.length > DISPLAY_NAME_MAX) {
         toast.error(`Display name must be ${DISPLAY_NAME_MAX} characters or less`);
-        return;
-      }
-      if (!USERNAME_REGEX.test(trimmedUsername)) {
-        toast.error('Username must be 3–20 characters, lowercase letters, digits, or underscore');
         return;
       }
       if (bio.trim().length > BIO_MAX) {
@@ -93,28 +87,17 @@ export function EditProfileSheet({ visible, onClose }: Props) {
       }
       setSubmitting(true);
       try {
-        // Best-effort availability check up front — saves a transaction roundtrip
-        // when the username is obviously taken. The transactional write below
-        // is still the source of truth for race-free claims.
-        if (trimmedUsername !== profile?.username) {
-          const available = await isUsernameAvailable(trimmedUsername, user.id);
-          if (!available) {
-            toast.error('That username is taken');
-            setSubmitting(false);
-            return;
-          }
-        }
-
-        let avatarUrl = profile?.avatarUrl ?? null;
-        if (pendingAvatarUri) {
-          avatarUrl = await uploadProfilePicture(pendingAvatarUri);
-        }
-        await updateProfile(user.id, {
+        // Username is read-only in v1 — renaming requires a transactional
+        // slug migration that's out of scope. The full creator/brand
+        // settings page (step 3) handles dmContact/niches/industry.
+        await updateProfileBasics(user.id, {
           displayName: trimmedDisplay,
-          username: trimmedUsername,
           bio: bio.trim(),
-          avatarUrl,
         });
+        if (pendingAvatarUri) {
+          const url = await uploadProfilePicture(pendingAvatarUri);
+          await setAvatarUrl(user.id, url);
+        }
         await refreshProfile();
         toast.success('Profile updated');
         closeFn();
@@ -123,7 +106,7 @@ export function EditProfileSheet({ visible, onClose }: Props) {
         setSubmitting(false);
       }
     },
-    [user, displayName, username, bio, pendingAvatarUri, profile?.username, profile?.avatarUrl, refreshProfile],
+    [user, displayName, bio, pendingAvatarUri, refreshProfile],
   );
 
   return (
@@ -189,13 +172,14 @@ export function EditProfileSheet({ visible, onClose }: Props) {
           </Field>
           <Field label="Username">
             <TextInput
-              value={username}
-              onChangeText={setUsername}
-              placeholder="lowercase, no spaces"
+              value={profile?.username ?? ''}
+              editable={false}
               autoCapitalize="none"
               autoCorrect={false}
-              maxLength={USERNAME_MAX}
             />
+            <ThemedText type="caption" style={{ color: theme[500] }}>
+              Username is locked in v1 — renaming is coming later.
+            </ThemedText>
           </Field>
           <Field label="Bio">
             <TextInput

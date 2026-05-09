@@ -14,7 +14,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useSolanaPayment } from '@/hooks/useSolanaPayment';
 import { formatSol, parseSolAmount } from '@/lib/utils/formatNumber';
-import { ORDER_KEYS } from '@/lib/constants/queryKeys';
+import { qk } from '@/lib/constants/queryKeys';
 import { toast } from '@/lib/utils/toast';
 import { haptic } from '@/lib/utils/haptic';
 import { SOLANA_NETWORK } from '@/lib/constants/featureGates';
@@ -29,7 +29,7 @@ function shortenAddress(address: string | null): string {
 export default function CheckoutScreen() {
   const params = useLocalSearchParams<{
     type: OrderType;
-    referenceId: string;
+    listingId: string;
     sellerId: string;
     amountSol: string;
     title: string;
@@ -53,12 +53,13 @@ export default function CheckoutScreen() {
     try {
       const { signature } = await pay({
         type: params.type,
-        referenceId: params.referenceId,
+        listingId: params.listingId,
+        listingTitle: params.title,
         sellerId: params.sellerId,
         amountSol,
       });
       if (user) {
-        queryClient.invalidateQueries({ queryKey: ORDER_KEYS.asBuyer(user.id) });
+        queryClient.invalidateQueries({ queryKey: qk.orders.byBuyer(user.id) });
       }
       haptic('heavy');
       toast.success(`Payment sent · ${signature.slice(0, 8)}…`);

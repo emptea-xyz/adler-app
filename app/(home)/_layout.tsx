@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useUser } from '@/contexts/UserContext';
 import { LoadingScreen } from '@/components/base/LoadingScreen';
 import { OverlaySheetsProvider } from '@/contexts/OverlaySheetsContext';
+import { viewModeFor } from '@/lib/utils/role';
 
 export default function HomeLayout() {
   const { user, isReady, isBridging } = useAuth();
@@ -11,13 +12,13 @@ export default function HomeLayout() {
 
   if (!isReady || isBridging || loading) return <LoadingScreen />;
   if (!user) return <Redirect href="/(auth)/sign-in" />;
-  if (!profile?.role) return <Redirect href="/(auth)/role-select" />;
+  if (viewModeFor(profile) === null) return <Redirect href="/(auth)/role-select" />;
 
   return (
     <OverlaySheetsProvider>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="package/[id]" options={{ presentation: 'card' }} />
+        <Stack.Screen name="service/[id]" options={{ presentation: 'card' }} />
         <Stack.Screen name="gig/[id]" options={{ presentation: 'card' }} />
         <Stack.Screen name="checkout" options={{ presentation: 'modal' }} />
         <Stack.Screen name="order/[id]" options={{ presentation: 'card' }} />

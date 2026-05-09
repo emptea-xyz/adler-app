@@ -14,10 +14,11 @@ import EmptyState from '@/components/ui/EmptyState';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { getProfile } from '@/lib/services/profileService';
-import { listPackagesBySeller } from '@/lib/services/packageService';
-import { listGigsByBrand } from '@/lib/services/gigService';
-import { PROFILE_KEYS, PACKAGE_KEYS, GIG_KEYS } from '@/lib/constants/queryKeys';
+import { listMyListings } from '@/lib/services/listingsService';
+import { qk } from '@/lib/constants/queryKeys';
 import { haptic } from '@/lib/utils/haptic';
+import { viewModeFor } from '@/lib/utils/role';
+import type { Gig, Service } from '@/types/marketplace';
 import {
   EMPTY_PACKAGES_BY_SELLER,
   EMPTY_GIGS_BY_BRAND,
@@ -46,33 +47,34 @@ export default function PublicProfileScreen() {
   const redirectToOwnProfile = !!user && id === user.id;
 
   const profileQuery = useQuery({
-    queryKey: id ? PROFILE_KEYS.profile(id) : ['profile', 'unknown'],
+    queryKey: id ? qk.profiles.detail(id) : ['profiles', 'detail', 'unknown'],
     enabled: !!id && !redirectToOwnProfile,
     queryFn: () => getProfile(id!),
   });
 
   const profile = profileQuery.data;
-  const isCreator = profile?.role === 'creator';
+  const role = viewModeFor(profile);
+  const isCreator = role === 'creator';
 
-  const packagesQuery = useQuery({
-    queryKey: profile?.id ? PACKAGE_KEYS.bySeller(profile.id) : ['packages', 'seller', 'anon'],
+  const servicesQuery = useQuery({
+    queryKey: profile?.id ? qk.listings.byOwner('service', profile.id) : ['listings', 'byOwner', 'service', 'anon'],
     enabled: !!profile?.id && isCreator && !redirectToOwnProfile,
-    queryFn: () => listPackagesBySeller(profile!.id),
+    queryFn: () => listMyListings('service', profile!.id),
   });
 
   const gigsQuery = useQuery({
-    queryKey: profile?.id ? GIG_KEYS.byBrand(profile.id) : ['gigs', 'brand', 'anon'],
+    queryKey: profile?.id ? qk.listings.byOwner('gig', profile.id) : ['listings', 'byOwner', 'gig', 'anon'],
     enabled: !!profile?.id && !isCreator && !redirectToOwnProfile,
-    queryFn: () => listGigsByBrand(profile!.id),
+    queryFn: () => listMyListings('gig', profile!.id),
   });
 
   if (redirectToOwnProfile) {
     return <Redirect href="/(home)/(tabs)/profile" />;
   }
 
-  const listings = isCreator ? packagesQuery.data ?? [] : gigsQuery.data ?? [];
-  const listingsLoading = isCreator ? packagesQuery.isLoading : gigsQuery.isLoading;
-  const listingsTitle = isCreator ? 'Packages' : 'Gigs';
+  const listings = isCreator ? servicesQuery.data ?? [] : gigsQuery.data ?? [];
+  const listingsLoading = isCreator ? servicesQuery.isLoading : gigsQuery.isLoading;
+  const listingsTitle = isCreator ? 'Services' : 'Gigs';
   const listingsEmpty = isCreator ? EMPTY_PACKAGES_BY_SELLER : EMPTY_GIGS_BY_BRAND;
   const joined = profile?.createdAt ? formatJoinedDate(profile.createdAt) : null;
 
@@ -92,121 +94,113 @@ export default function PublicProfileScreen() {
             </ThemedText>
           </View>
         ) : (
-          <>
-            <ScrollView
-              contentContainerStyle={{
-                paddingHorizontal: 16,
-                paddingTop: 8,
-                paddingBottom: 32,
-                gap: 24,
-              }}
-              showsVerticalScrollIndicator={false}
-            >
-              {/* Centered identity block */}
-              <View style={{ alignItems: 'center', gap: 8, paddingTop: 12 }}>
-                <View style={{ width: AVATAR_PX, height: AVATAR_PX, borderRadius: AVATAR_PX / 2, overflow: 'hidden' }}>
-                  <Avatar
-                    avatarUrl={profile.avatarUrl}
-                    size="lg"
-                    initial={profile.displayName?.[0]}
+          <ScrollView
+            contentContainerStyle={{
+              paddingHorizontal: 16,
+              paddingTop: 8,
+              paddingBottom: 32,
+              gap: 24,
+            }}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={{ alignItems: 'center', gap: 8, paddingTop: 12 }}>
+              <View style={{ width: AVATAR_PX, height: AVATAR_PX, borderRadius: AVATAR_PX / 2, overflow: 'hidden' }}>
+                <Avatar
+                  avatarUrl={profile.avatarUrl}
+                  size="lg"
+                  initial={profile.displayName?.[0]}
+                />
+              </View>
+              <View style={{ alignItems: 'center', gap: 2 }}>
+                <ThemedText
+                  type="body-2xl-semibold"
+                  style={{ color: theme[950] }}
+                  numberOfLines={1}
+                >
+                  {profile.displayName}
+                </ThemedText>
+                <ThemedText type="body-sm" style={{ color: theme[500] }} numberOfLines={1}>
+                  @{profile.username}
+                </ThemedText>
+              </View>
+
+              {role ? (
+                <View style={{ marginTop: 2 }}>
+                  <Pill intent="dark" label={ucfirst(role)} />
+                </View>
+              ) : null}
+
+              {profile.bio ? (
+                <ThemedText
+                  type="body-sm"
+                  align="center"
+                  style={{ color: theme[700], marginTop: 4, paddingHorizontal: 8 }}
+                >
+                  {profile.bio}
+                </ThemedText>
+              ) : null}
+
+              <View style={{ flexDirection: 'row', gap: 6, marginTop: 8 }}>
+                <ThemedText type="body-xs" style={{ color: theme[500] }}>
+                  {listings.length} {isCreator ? 'service' : 'gig'}{listings.length === 1 ? '' : 's'}
+                </ThemedText>
+                {joined ? (
+                  <>
+                    <ThemedText type="body-xs" style={{ color: theme[500] }}>
+                      ·
+                    </ThemedText>
+                    <ThemedText type="body-xs" style={{ color: theme[500] }}>
+                      Joined {joined}
+                    </ThemedText>
+                  </>
+                ) : null}
+              </View>
+            </View>
+
+            <View style={{ gap: 12 }}>
+              <SectionLabel label={listingsTitle} />
+
+              {listingsLoading ? (
+                <View style={{ paddingVertical: 24, alignItems: 'center' }}>
+                  <ActivityIndicator color={theme[500]} />
+                </View>
+              ) : listings.length === 0 ? (
+                <View style={{ paddingTop: 8 }}>
+                  <EmptyState
+                    title={listingsEmpty.title}
+                    description={listingsEmpty.description}
                   />
                 </View>
-                <View style={{ alignItems: 'center', gap: 2 }}>
-                  <ThemedText
-                    type="body-2xl-semibold"
-                    style={{ color: theme[950] }}
-                    numberOfLines={1}
-                  >
-                    {profile.displayName}
-                  </ThemedText>
-                  <ThemedText type="body-sm" style={{ color: theme[500] }} numberOfLines={1}>
-                    @{profile.username}
-                  </ThemedText>
+              ) : (
+                <View style={{ gap: 14 }}>
+                  {listings.map((item) => {
+                    const amount = isCreator
+                      ? (item as Service).priceSol
+                      : (item as Gig).budgetSol;
+                    return (
+                      <ListingCard
+                        key={item.id}
+                        kind={isCreator ? 'service' : 'gig'}
+                        amount={amount}
+                        category={item.category}
+                        title={item.title}
+                        ownerId={profile.id}
+                        createdAt={item.createdAt}
+                        mediaUrls={item.mediaUrls}
+                        listingId={item.id}
+                        onPress={() => {
+                          haptic('light');
+                          router.push(
+                            isCreator ? `/service/${item.id}` : `/gig/${item.id}`,
+                          );
+                        }}
+                      />
+                    );
+                  })}
                 </View>
-
-                {profile.role ? (
-                  <View style={{ marginTop: 2 }}>
-                    <Pill intent="dark" label={ucfirst(profile.role)} />
-                  </View>
-                ) : null}
-
-                {profile.bio ? (
-                  <ThemedText
-                    type="body-sm"
-                    align="center"
-                    style={{ color: theme[700], marginTop: 4, paddingHorizontal: 8 }}
-                  >
-                    {profile.bio}
-                  </ThemedText>
-                ) : null}
-
-                <View style={{ flexDirection: 'row', gap: 6, marginTop: 8 }}>
-                  <ThemedText type="body-xs" style={{ color: theme[500] }}>
-                    {listings.length} {isCreator ? 'package' : 'gig'}{listings.length === 1 ? '' : 's'}
-                  </ThemedText>
-                  {joined ? (
-                    <>
-                      <ThemedText type="body-xs" style={{ color: theme[500] }}>
-                        ·
-                      </ThemedText>
-                      <ThemedText type="body-xs" style={{ color: theme[500] }}>
-                        Joined {joined}
-                      </ThemedText>
-                    </>
-                  ) : null}
-                </View>
-              </View>
-
-              {/* Listings */}
-              <View style={{ gap: 12 }}>
-                <SectionLabel label={listingsTitle} />
-
-                {listingsLoading ? (
-                  <View style={{ paddingVertical: 24, alignItems: 'center' }}>
-                    <ActivityIndicator color={theme[500]} />
-                  </View>
-                ) : listings.length === 0 ? (
-                  <View style={{ paddingTop: 8 }}>
-                    <EmptyState
-                      title={listingsEmpty.title}
-                      description={listingsEmpty.description}
-                    />
-                  </View>
-                ) : (
-                  <View style={{ gap: 14 }}>
-                    {listings.map((item) => {
-                      const isPackage = isCreator;
-                      const amount = isPackage
-                        ? (item as any).priceSol
-                        : (item as any).budgetSol;
-                      const mediaUrls = isPackage ? (item as any).mediaUrls : undefined;
-                      const coverImageUrl = isPackage ? (item as any).coverImageUrl : undefined;
-                      return (
-                        <ListingCard
-                          key={item.id}
-                          kind={isPackage ? 'package' : 'gig'}
-                          amount={amount}
-                          category={item.category}
-                          title={item.title}
-                          ownerId={profile.id}
-                          createdAt={item.createdAt}
-                          coverImageUrl={coverImageUrl}
-                          mediaUrls={mediaUrls}
-                          listingId={item.id}
-                          onPress={() => {
-                            haptic('light');
-                            router.push(
-                              isPackage ? `/package/${item.id}` : `/gig/${item.id}`,
-                            );
-                          }}
-                        />
-                      );
-                    })}
-                  </View>
-                )}
-              </View>
-            </ScrollView>
-          </>
+              )}
+            </View>
+          </ScrollView>
         )}
       </SafeAreaView>
     </ThemedView>

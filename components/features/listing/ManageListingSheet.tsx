@@ -5,23 +5,26 @@ import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
 import { ThemedText } from '@/components/base/ThemedText';
 import { useTheme } from '@/contexts/ThemeContext';
-import { updatePackageStatus } from '@/lib/services/packageService';
-import { updateGigStatus } from '@/lib/services/gigService';
-import { PACKAGE_KEYS, GIG_KEYS, FEED_KEYS } from '@/lib/constants/queryKeys';
+import { updateGig, updateService } from '@/lib/services/listingsService';
+import { qk, FEED_KEYS } from '@/lib/constants/queryKeys';
 import { toast } from '@/lib/utils/toast';
 import { haptic } from '@/lib/utils/haptic';
-import type { PackageStatus, GigStatus } from '@/types/marketplace';
+import type { GigStatus, ServiceStatus } from '@/types/marketplace';
 
 type Action =
-  | { kind: 'package'; next: PackageStatus; label: string; success: string }
+  | { kind: 'service'; next: ServiceStatus; label: string; success: string }
   | { kind: 'gig'; next: GigStatus; label: string; success: string };
 
-interface PackageProps {
+interface ServiceProps {
   visible: boolean;
   onClose: () => void;
-  kind: 'package';
+  /**
+   * Legacy prop name — `'package'` is mapped to v1 `'service'` internally.
+   * Kept so existing callers compile; step-2 UI rewrite swaps it.
+   */
+  kind: 'package' | 'service';
   id: string;
-  status: PackageStatus;
+  status: ServiceStatus;
   ownerId: string;
 }
 interface GigProps {
@@ -32,24 +35,24 @@ interface GigProps {
   status: GigStatus;
   ownerId: string;
 }
-type Props = PackageProps | GigProps;
+type Props = ServiceProps | GigProps;
 
-function packageActions(status: PackageStatus): Action[] {
+function serviceActions(status: ServiceStatus): Action[] {
   if (status === 'active') {
     return [
-      { kind: 'package', next: 'paused', label: 'Pause listing', success: 'Listing paused' },
-      { kind: 'package', next: 'sold', label: 'Mark as sold', success: 'Marked as sold' },
+      { kind: 'service', next: 'paused', label: 'Pause listing', success: 'Listing paused' },
+      { kind: 'service', next: 'sold', label: 'Mark as sold', success: 'Marked as sold' },
     ];
   }
   if (status === 'paused') {
     return [
-      { kind: 'package', next: 'active', label: 'Resume listing', success: 'Listing resumed' },
-      { kind: 'package', next: 'sold', label: 'Mark as sold', success: 'Marked as sold' },
+      { kind: 'service', next: 'active', label: 'Resume listing', success: 'Listing resumed' },
+      { kind: 'service', next: 'sold', label: 'Mark as sold', success: 'Marked as sold' },
     ];
   }
   // 'sold' is terminal — keep an unhide path in case the seller mis-clicked.
   return [
-    { kind: 'package', next: 'active', label: 'Re-list as active', success: 'Listing is active again' },
+    { kind: 'service', next: 'active', label: 'Re-list as active', success: 'Listing is active again' },
   ];
 }
 
@@ -70,21 +73,25 @@ export function ManageListingSheet(props: Props) {
   const queryClient = useQueryClient();
   const [pending, setPending] = useState<string | null>(null);
 
-  const actions: Action[] = kind === 'package' ? packageActions(status as PackageStatus) : gigActions(status as GigStatus);
+  const isService = kind === 'package' || kind === 'service';
+
+  const actions: Action[] = isService
+    ? serviceActions(status as ServiceStatus)
+    : gigActions(status as GigStatus);
 
   const onAction = useCallback(
     async (action: Action) => {
       haptic('medium');
       setPending(action.label);
       try {
-        if (action.kind === 'package') {
-          await updatePackageStatus(id, action.next);
-          queryClient.invalidateQueries({ queryKey: PACKAGE_KEYS.detail(id) });
-          queryClient.invalidateQueries({ queryKey: PACKAGE_KEYS.bySeller(ownerId) });
+        if (action.kind === 'service') {
+          await updateService(id, { status: action.next });
+          queryClient.invalidateQueries({ queryKey: qk.listings.detail('service', id) });
+          queryClient.invalidateQueries({ queryKey: qk.listings.byOwner('service', ownerId) });
         } else {
-          await updateGigStatus(id, action.next);
-          queryClient.invalidateQueries({ queryKey: GIG_KEYS.detail(id) });
-          queryClient.invalidateQueries({ queryKey: GIG_KEYS.byBrand(ownerId) });
+          await updateGig(id, { status: action.next });
+          queryClient.invalidateQueries({ queryKey: qk.listings.detail('gig', id) });
+          queryClient.invalidateQueries({ queryKey: qk.listings.byOwner('gig', ownerId) });
         }
         queryClient.invalidateQueries({ queryKey: FEED_KEYS.browse() });
         toast.success(action.success);
@@ -102,7 +109,7 @@ export function ManageListingSheet(props: Props) {
     <BottomSheet
       visible={visible}
       onClose={onClose}
-      title={kind === 'package' ? 'Manage package' : 'Manage gig'}
+      title={isService ? 'Manage service' : 'Manage gig'}
       height={actions.length === 0 ? 240 : 200 + actions.length * 60}
       dismissible={!pending}
     >

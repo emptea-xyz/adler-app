@@ -9,21 +9,20 @@ import { ListingCard } from '@/components/ui/ListingCard';
 import { AdlerHomeHeader } from '@/components/features/home/AdlerHomeHeader';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useSaves } from '@/hooks/useSaves';
-import { getPackage } from '@/lib/services/packageService';
-import { getGig } from '@/lib/services/gigService';
-import { PACKAGE_KEYS, GIG_KEYS } from '@/lib/constants/queryKeys';
+import { getListing } from '@/lib/services/listingsService';
+import { qk } from '@/lib/constants/queryKeys';
 import { TAB_BAR_HEIGHT } from '@/constants/LayoutConstants';
 import { EMPTY_SAVED } from '@/lib/utils/copy';
-import type { PackageListing, Gig, SavedKind } from '@/types/marketplace';
+import type { Gig, SavedKind, Service } from '@/types/marketplace';
 
 interface ResolvedSaveBase {
   saveId: string;
   kind: SavedKind;
   listingId: string;
 }
-type ResolvedPackage = ResolvedSaveBase & { kind: 'package'; data: PackageListing };
+type ResolvedService = ResolvedSaveBase & { kind: 'service'; data: Service };
 type ResolvedGig = ResolvedSaveBase & { kind: 'gig'; data: Gig };
-type ResolvedSave = ResolvedPackage | ResolvedGig;
+type ResolvedSave = ResolvedService | ResolvedGig;
 
 export default function SavedScreen() {
   const { theme } = useTheme();
@@ -31,22 +30,14 @@ export default function SavedScreen() {
   const { saves, isLoading: savesLoading } = useSaves();
   const queryClient = useQueryClient();
 
-  // Fan out per-listing fetches. React Query dedupes/caches so navigating to
-  // Browse → Saved doesn't refetch the same docs.
+  // Fan out per-listing fetches. React Query dedupes/caches so navigating
+  // to Browse → Saved doesn't refetch the same docs.
   const listingQueries = useQueries({
-    queries: saves.map((s) =>
-      s.kind === 'package'
-        ? {
-            queryKey: PACKAGE_KEYS.detail(s.listingId),
-            queryFn: () => getPackage(s.listingId),
-            staleTime: 60_000,
-          }
-        : {
-            queryKey: GIG_KEYS.detail(s.listingId),
-            queryFn: () => getGig(s.listingId),
-            staleTime: 60_000,
-          },
-    ),
+    queries: saves.map((s) => ({
+      queryKey: qk.listings.detail(s.kind, s.listingId),
+      queryFn: () => getListing(s.kind, s.listingId),
+      staleTime: 60_000,
+    })),
   });
 
   const items = useMemo<ResolvedSave[]>(() => {
@@ -54,19 +45,23 @@ export default function SavedScreen() {
       .map((s, i): ResolvedSave | null => {
         const data = listingQueries[i]?.data;
         if (!data) return null;
-        return s.kind === 'package'
-          ? {
-              saveId: s.id,
-              kind: 'package',
-              listingId: s.listingId,
-              data: data as PackageListing,
-            }
-          : {
-              saveId: s.id,
-              kind: 'gig',
-              listingId: s.listingId,
-              data: data as Gig,
-            };
+        if (s.kind === 'service' && data.kind === 'service') {
+          return {
+            saveId: s.id,
+            kind: 'service',
+            listingId: s.listingId,
+            data,
+          };
+        }
+        if (s.kind === 'gig' && data.kind === 'gig') {
+          return {
+            saveId: s.id,
+            kind: 'gig',
+            listingId: s.listingId,
+            data,
+          };
+        }
+        return null;
       })
       .filter((x): x is ResolvedSave => x !== null);
   }, [saves, listingQueries]);
@@ -107,12 +102,9 @@ export default function SavedScreen() {
             }
             renderItem={({ item }) => {
               const ownerId =
-                item.kind === 'package' ? item.data.sellerId : item.data.brandId;
+                item.kind === 'service' ? item.data.sellerId : item.data.brandId;
               const amount =
-                item.kind === 'package' ? item.data.priceSol : item.data.budgetSol;
-              const mediaUrls = item.kind === 'package' ? item.data.mediaUrls : undefined;
-              const coverImageUrl =
-                item.kind === 'package' ? item.data.coverImageUrl : undefined;
+                item.kind === 'service' ? item.data.priceSol : item.data.budgetSol;
               return (
                 <ListingCard
                   kind={item.kind}
@@ -121,11 +113,10 @@ export default function SavedScreen() {
                   title={item.data.title}
                   ownerId={ownerId}
                   createdAt={item.data.createdAt}
-                  coverImageUrl={coverImageUrl}
-                  mediaUrls={mediaUrls}
+                  mediaUrls={item.data.mediaUrls}
                   listingId={item.listingId}
                   onPress={() => {
-                    if (item.kind === 'package') router.push(`/package/${item.listingId}`);
+                    if (item.kind === 'service') router.push(`/service/${item.listingId}`);
                     else router.push(`/gig/${item.listingId}`);
                   }}
                 />

@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { Search } from 'lucide-react-native';
+import type { DocumentSnapshot } from 'firebase/firestore';
 import { ThemedView } from '@/components/base/ThemedView';
 import EmptyState from '@/components/ui/EmptyState';
 import { ListingCard } from '@/components/ui/ListingCard';
@@ -21,8 +22,7 @@ import {
 } from '@/components/features/browse/filterTypes';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useDebounce } from '@/hooks/useDebounce';
-import { listActivePackagesPage } from '@/lib/services/packageService';
-import { listOpenGigsPage } from '@/lib/services/gigService';
+import { listListings } from '@/lib/services/listingsService';
 import { FEED_KEYS } from '@/lib/constants/queryKeys';
 import type { FeedItem } from '@/types/marketplace';
 import { TAB_BAR_HEIGHT } from '@/constants/LayoutConstants';
@@ -31,10 +31,13 @@ import { EMPTY_BROWSE, EMPTY_BROWSE_SEARCH } from '@/lib/utils/copy';
 const PAGE_SIZE = 25;
 
 interface FeedPageParam {
-  packagesCursor: number | null;
-  gigsCursor: number | null;
+  servicesCursor: DocumentSnapshot | null;
+  gigsCursor: DocumentSnapshot | null;
 }
-const INITIAL_PAGE_PARAM: FeedPageParam = { packagesCursor: null, gigsCursor: null };
+const INITIAL_PAGE_PARAM: FeedPageParam = {
+  servicesCursor: null,
+  gigsCursor: null,
+};
 
 interface FeedPage {
   items: FeedItem[];
@@ -65,21 +68,36 @@ export default function BrowseScreen() {
     initialPageParam: INITIAL_PAGE_PARAM,
     queryFn: async ({ pageParam }): Promise<FeedPage> => {
       const cursors = pageParam ?? INITIAL_PAGE_PARAM;
-      const [packagesPage, gigsPage] = await Promise.all([
-        listActivePackagesPage({ limit: PAGE_SIZE, cursor: cursors.packagesCursor }),
-        listOpenGigsPage({ limit: PAGE_SIZE, cursor: cursors.gigsCursor }),
+      const [servicesPage, gigsPage] = await Promise.all([
+        listListings({
+          kind: 'service',
+          pageSize: PAGE_SIZE,
+          cursor: cursors.servicesCursor,
+        }),
+        listListings({
+          kind: 'gig',
+          pageSize: PAGE_SIZE,
+          cursor: cursors.gigsCursor,
+        }),
       ]);
       const items: FeedItem[] = [
-        ...packagesPage.items.map((p) => ({ kind: 'package' as const, data: p })),
-        ...gigsPage.items.map((g) => ({ kind: 'gig' as const, data: g })),
+        ...servicesPage.items
+          .filter((s) => s.kind === 'service')
+          .map((s) => ({ kind: 'service' as const, data: s as Extract<FeedItem, { kind: 'service' }>['data'] })),
+        ...gigsPage.items
+          .filter((g) => g.kind === 'gig')
+          .map((g) => ({ kind: 'gig' as const, data: g as Extract<FeedItem, { kind: 'gig' }>['data'] })),
       ];
       items.sort((a, b) => b.data.createdAt - a.data.createdAt);
-      const noMore = !packagesPage.nextCursor && !gigsPage.nextCursor;
+      const noMore = !servicesPage.nextCursor && !gigsPage.nextCursor;
       return {
         items,
         next: noMore
           ? null
-          : { packagesCursor: packagesPage.nextCursor, gigsCursor: gigsPage.nextCursor },
+          : {
+              servicesCursor: servicesPage.nextCursor,
+              gigsCursor: gigsPage.nextCursor,
+            },
       };
     },
     getNextPageParam: (last) => last.next ?? undefined,
@@ -99,7 +117,7 @@ export default function BrowseScreen() {
     const matched = flatFeed.filter((item) => {
       if (filters.category && item.data.category !== filters.category) return false;
       const amount =
-        item.kind === 'package' ? item.data.priceSol : item.data.budgetSol;
+        item.kind === 'service' ? item.data.priceSol : item.data.budgetSol;
       if (!pricePredicate(amount)) return false;
       if (debouncedQuery) {
         const haystack = `${item.data.title} ${item.data.description}`.toLowerCase();
@@ -111,8 +129,8 @@ export default function BrowseScreen() {
     if (filters.sortBy === 'priceAsc' || filters.sortBy === 'priceDesc') {
       const dir = filters.sortBy === 'priceAsc' ? 1 : -1;
       matched.sort((a, b) => {
-        const aAmount = a.kind === 'package' ? a.data.priceSol : a.data.budgetSol;
-        const bAmount = b.kind === 'package' ? b.data.priceSol : b.data.budgetSol;
+        const aAmount = a.kind === 'service' ? a.data.priceSol : a.data.budgetSol;
+        const bAmount = b.kind === 'service' ? b.data.priceSol : b.data.budgetSol;
         return (aAmount - bAmount) * dir;
       });
     }
@@ -134,7 +152,7 @@ export default function BrowseScreen() {
           <TextInput
             value={searchInput}
             onChangeText={setSearchInput}
-            placeholder="Search packages and gigs"
+            placeholder="Search services and gigs"
             autoCapitalize="none"
             autoCorrect={false}
             returnKeyType="search"
@@ -216,12 +234,9 @@ export default function BrowseScreen() {
               </View>
             }
             renderItem={({ item }) => {
-              const ownerId = item.kind === 'package' ? item.data.sellerId : item.data.brandId;
-              const amount = item.kind === 'package' ? item.data.priceSol : item.data.budgetSol;
-              const mediaUrls =
-                item.kind === 'package' ? item.data.mediaUrls : undefined;
-              const coverImageUrl =
-                item.kind === 'package' ? item.data.coverImageUrl : undefined;
+              const ownerId = item.kind === 'service' ? item.data.sellerId : item.data.brandId;
+              const amount = item.kind === 'service' ? item.data.priceSol : item.data.budgetSol;
+              const mediaUrls = item.data.mediaUrls;
               return (
                 <ListingCard
                   kind={item.kind}
@@ -230,11 +245,10 @@ export default function BrowseScreen() {
                   title={item.data.title}
                   ownerId={ownerId}
                   createdAt={item.data.createdAt}
-                  coverImageUrl={coverImageUrl}
                   mediaUrls={mediaUrls}
                   listingId={item.data.id}
                   onPress={() => {
-                    if (item.kind === 'package') router.push(`/package/${item.data.id}`);
+                    if (item.kind === 'service') router.push(`/service/${item.data.id}`);
                     else router.push(`/gig/${item.data.id}`);
                   }}
                 />

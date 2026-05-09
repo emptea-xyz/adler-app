@@ -15,15 +15,21 @@ import { CtaFooter } from '@/components/ui/CtaFooter';
 import { ReviewSheet } from '@/components/features/reviews/ReviewSheet';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { getOrder, markOrderStatus } from '@/lib/services/orderService';
-import { listReviewsForOrder } from '@/lib/services/reviewService';
+import {
+  getOrder,
+  markOrderComplete,
+  markOrderDelivered,
+} from '@/lib/services/ordersService';
+import {
+  listReviewsForOrder,
+} from '@/lib/services/reviewsService';
 import { getProfile } from '@/lib/services/profileService';
 import { formatSol } from '@/lib/utils/formatNumber';
-import { ORDER_KEYS, REVIEW_KEYS, PROFILE_KEYS } from '@/lib/constants/queryKeys';
+import { qk } from '@/lib/constants/queryKeys';
 import { explorerTxUrl } from '@/lib/solana/connection';
 import { haptic } from '@/lib/utils/haptic';
 import { toast } from '@/lib/utils/toast';
-import type { OrderStatus } from '@/types/marketplace';
+import type { OrderStatus, Review } from '@/types/marketplace';
 
 function statusToIntent(status: OrderStatus): PillIntent {
   if (status === 'paid' || status === 'complete') return 'lime';
@@ -36,6 +42,11 @@ function ucfirst(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+function meanRating(review: Review): number {
+  const { scope, communication, timeliness, quality } = review.axes;
+  return (scope + communication + timeliness + quality) / 4;
+}
+
 export default function OrderDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
@@ -45,7 +56,7 @@ export default function OrderDetailScreen() {
   const [updating, setUpdating] = useState(false);
 
   const { data: order, isLoading } = useQuery({
-    queryKey: id ? ORDER_KEYS.detail(id) : ['order', 'unknown'],
+    queryKey: id ? qk.orders.detail(id) : ['orders', 'detail', 'unknown'],
     enabled: !!id,
     queryFn: () => getOrder(id!),
   });
@@ -56,13 +67,13 @@ export default function OrderDetailScreen() {
   const canConfirmComplete = isBuyer && order?.status === 'delivered';
 
   const reviewsQuery = useQuery({
-    queryKey: order?.id ? REVIEW_KEYS.forOrder(order.id) : ['reviews', 'order', 'unknown'],
+    queryKey: order?.id ? ['reviews', 'forOrder', order.id] : ['reviews', 'forOrder', 'unknown'],
     enabled: !!order && order.status === 'complete',
     queryFn: () => listReviewsForOrder(order!.id),
   });
   const reviews = reviewsQuery.data ?? [];
-  const myReview = !!user && reviews.find((r) => r.reviewerId === user.id);
-  const theirReview = !!user && reviews.find((r) => r.reviewerId !== user.id);
+  const myReview = !!user ? reviews.find((r) => r.reviewerId === user.id) ?? null : null;
+  const theirReview = !!user ? reviews.find((r) => r.reviewerId !== user.id) ?? null : null;
   const counterpartyId =
     !!user && order
       ? order.buyerId === user.id
@@ -72,7 +83,7 @@ export default function OrderDetailScreen() {
           : null
       : null;
   const counterpartyQuery = useQuery({
-    queryKey: counterpartyId ? PROFILE_KEYS.profile(counterpartyId) : ['profile', 'unknown'],
+    queryKey: counterpartyId ? qk.profiles.detail(counterpartyId) : ['profiles', 'detail', 'unknown'],
     enabled: !!counterpartyId && order?.status === 'complete',
     queryFn: () => getProfile(counterpartyId!),
   });
@@ -84,20 +95,24 @@ export default function OrderDetailScreen() {
   const [reviewSheet, setReviewSheet] = useState(false);
 
   const transitionTo = useCallback(
-    async (next: OrderStatus, successMessage: string) => {
+    async (next: 'delivered' | 'complete', successMessage: string) => {
       if (!order) return;
       haptic('medium');
       setUpdating(true);
       try {
-        await markOrderStatus(order.id, next);
+        if (next === 'delivered') {
+          await markOrderDelivered(order.id);
+        } else {
+          await markOrderComplete(order.id);
+        }
         haptic('heavy');
         toast.success(successMessage);
-        queryClient.invalidateQueries({ queryKey: ORDER_KEYS.detail(order.id) });
+        queryClient.invalidateQueries({ queryKey: qk.orders.detail(order.id) });
         if (order.buyerId) {
-          queryClient.invalidateQueries({ queryKey: ORDER_KEYS.asBuyer(order.buyerId) });
+          queryClient.invalidateQueries({ queryKey: qk.orders.byBuyer(order.buyerId) });
         }
         if (order.sellerId) {
-          queryClient.invalidateQueries({ queryKey: ORDER_KEYS.asSeller(order.sellerId) });
+          queryClient.invalidateQueries({ queryKey: qk.orders.bySeller(order.sellerId) });
         }
       } catch (err: any) {
         toast.error(err?.message ?? 'Update failed');
@@ -138,7 +153,6 @@ export default function OrderDetailScreen() {
                 gap: 16,
               }}
             >
-              {/* Status pills + KPI */}
               <View style={{ gap: 8 }}>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                   <Pill intent={statusToIntent(order.status)} label={ucfirst(order.status)} />
@@ -147,13 +161,13 @@ export default function OrderDetailScreen() {
                 <KPI size="md" amount={formatSol(order.amountSol)} unit="SOL" />
               </View>
 
-              {/* Buyer/Seller (linkable) + Reference */}
+              {/* Buyer/Seller (linkable) + Listing */}
               <View style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12, gap: 8 }}>
                 {(
                   [
                     ['Buyer', order.buyerId, true],
                     ['Seller', order.sellerId, true],
-                    ['Reference', order.referenceId, false],
+                    ['Listing', order.listingId, false],
                   ] as const
                 ).map(([label, value, linkable]) => {
                   const display = value.length > 20 ? `${value.slice(0, 12)}…${value.slice(-4)}` : value;
@@ -203,7 +217,6 @@ export default function OrderDetailScreen() {
                 })}
               </View>
 
-              {/* Tx signature */}
               {order.txSignature ? (
                 <Pressable
                   onPress={() => {
@@ -228,7 +241,6 @@ export default function OrderDetailScreen() {
                 </View>
               )}
 
-              {/* Reviews section, only after the order is complete */}
               {order.status === 'complete' && (
                 <View style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12, gap: 12 }}>
                   <SectionLabel label="Reviews" />
@@ -242,15 +254,18 @@ export default function OrderDetailScreen() {
                             Your review
                           </ThemedText>
                           <View style={{ flexDirection: 'row', gap: 4, alignItems: 'center' }}>
-                            {[1, 2, 3, 4, 5].map((n) => (
-                              <Star
-                                key={n}
-                                size={14}
-                                color={n <= myReview.rating ? theme[950] : theme[300]}
-                                fill={n <= myReview.rating ? theme[950] : 'transparent'}
-                                strokeWidth={2}
-                              />
-                            ))}
+                            {[1, 2, 3, 4, 5].map((n) => {
+                              const filled = n <= meanRating(myReview);
+                              return (
+                                <Star
+                                  key={n}
+                                  size={14}
+                                  color={filled ? theme[950] : theme[300]}
+                                  fill={filled ? theme[950] : 'transparent'}
+                                  strokeWidth={2}
+                                />
+                              );
+                            })}
                           </View>
                           {myReview.comment ? (
                             <ThemedText type="body-sm" style={{ color: theme[700] }}>
@@ -266,15 +281,18 @@ export default function OrderDetailScreen() {
                             {counterpartyLabel}&apos;s review
                           </ThemedText>
                           <View style={{ flexDirection: 'row', gap: 4, alignItems: 'center' }}>
-                            {[1, 2, 3, 4, 5].map((n) => (
-                              <Star
-                                key={n}
-                                size={14}
-                                color={n <= theirReview.rating ? theme[950] : theme[300]}
-                                fill={n <= theirReview.rating ? theme[950] : 'transparent'}
-                                strokeWidth={2}
-                              />
-                            ))}
+                            {[1, 2, 3, 4, 5].map((n) => {
+                              const filled = n <= meanRating(theirReview);
+                              return (
+                                <Star
+                                  key={n}
+                                  size={14}
+                                  color={filled ? theme[950] : theme[300]}
+                                  fill={filled ? theme[950] : 'transparent'}
+                                  strokeWidth={2}
+                                />
+                              );
+                            })}
                           </View>
                           {theirReview.comment ? (
                             <ThemedText type="body-sm" style={{ color: theme[700] }}>

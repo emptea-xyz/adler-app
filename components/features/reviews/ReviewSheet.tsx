@@ -7,10 +7,11 @@ import { ThemedText } from '@/components/base/ThemedText';
 import { Button } from '@/components/ui/Button';
 import TextInput from '@/components/ui/TextInput';
 import { useTheme } from '@/contexts/ThemeContext';
-import { submitReview } from '@/lib/services/reviewService';
-import { REVIEW_KEYS } from '@/lib/constants/queryKeys';
+import { submitReview } from '@/lib/services/reviewsService';
+import { qk } from '@/lib/constants/queryKeys';
 import { toast } from '@/lib/utils/toast';
 import { haptic } from '@/lib/utils/haptic';
+import type { RatingAxes } from '@/lib/types/review';
 
 interface Props {
   visible: boolean;
@@ -44,9 +45,20 @@ export function ReviewSheet({ visible, onClose, orderId, revieweeId, revieweeLab
         return;
       }
       setSubmitting(true);
+      // Step-1 UI keeps the single-star control. The v1 schema is 4-axis;
+      // map the same score to every axis so the rule's `isValidAxes`
+      // check passes. Step 4's RatingDialog replaces this with explicit
+      // per-axis sliders.
+      const axes: RatingAxes = {
+        scope: rating,
+        communication: rating,
+        timeliness: rating,
+        quality: rating,
+      };
       try {
-        await submitReview({ orderId, revieweeId, rating, comment: comment.trim() });
-        queryClient.invalidateQueries({ queryKey: REVIEW_KEYS.forOrder(orderId) });
+        await submitReview({ orderId, revieweeId, axes, comment: comment.trim() });
+        queryClient.invalidateQueries({ queryKey: ['reviews', 'forOrder', orderId] });
+        queryClient.invalidateQueries({ queryKey: qk.reviews.byReviewee(revieweeId) });
         haptic('heavy');
         toast.success('Review submitted');
         closeFn();

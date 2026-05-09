@@ -12,16 +12,21 @@ import { AdlerHomeHeader } from '@/components/features/home/AdlerHomeHeader';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUser } from '@/contexts/UserContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { listOrdersByBuyer, listOrdersBySeller } from '@/lib/services/orderService';
 import {
+  listOrdersAsBuyer,
+  listOrdersAsSeller,
+} from '@/lib/services/ordersService';
+import {
+  listApplicationsByBrand,
   listApplicationsByCreator,
-  listApplicationsForGigIds,
-} from '@/lib/services/applicationService';
-import { listGigsByBrand } from '@/lib/services/gigService';
-import { ORDER_KEYS, APPLICATION_KEYS, GIG_KEYS } from '@/lib/constants/queryKeys';
+} from '@/lib/services/applicationsService';
+import { listMyListings } from '@/lib/services/listingsService';
+import { qk } from '@/lib/constants/queryKeys';
 import { formatSol } from '@/lib/utils/formatNumber';
 import { formatRelative } from '@/lib/utils/dates';
+import { viewModeFor } from '@/lib/utils/role';
 import { TAB_BAR_HEIGHT } from '@/constants/LayoutConstants';
+import type { Gig, GigApplication, Order } from '@/types/marketplace';
 import {
   EMPTY_INBOX_APPLICATIONS,
   EMPTY_INBOX_PURCHASES,
@@ -50,40 +55,40 @@ export default function InboxScreen() {
     }, [markSeen]),
   );
 
-  const isCreator = profile?.role === 'creator';
+  const isCreator = viewModeFor(profile) === 'creator';
   const tabs = isCreator ? CREATOR_TABS : BRAND_TABS;
   const [activeTab, setActiveTab] = useState<CreatorTab | BrandTab>(tabs[0]);
 
   const ordersAsBuyerQuery = useQuery({
-    queryKey: user ? ORDER_KEYS.asBuyer(user.id) : ['orders', 'buyer', 'anon'],
+    queryKey: user ? qk.orders.byBuyer(user.id) : ['orders', 'byBuyer', 'anon'],
     enabled: !!user && !isCreator,
-    queryFn: () => listOrdersByBuyer(user!.id),
+    queryFn: () => listOrdersAsBuyer(user!.id),
   });
 
   const ordersAsSellerQuery = useQuery({
-    queryKey: user ? ORDER_KEYS.asSeller(user.id) : ['orders', 'seller', 'anon'],
+    queryKey: user ? qk.orders.bySeller(user.id) : ['orders', 'bySeller', 'anon'],
     enabled: !!user && isCreator,
-    queryFn: () => listOrdersBySeller(user!.id),
+    queryFn: () => listOrdersAsSeller(user!.id),
   });
 
   const applicationsQuery = useQuery({
-    queryKey: user ? APPLICATION_KEYS.byCreator(user.id) : ['applications', 'creator', 'anon'],
+    queryKey: user ? qk.applications.byCreator(user.id) : ['applications', 'byCreator', 'anon'],
     enabled: !!user && isCreator,
     queryFn: () => listApplicationsByCreator(user!.id),
   });
 
   const postedGigsQuery = useQuery({
-    queryKey: user ? GIG_KEYS.byBrand(user.id) : ['gigs', 'brand', 'anon'],
+    queryKey: user ? qk.listings.byOwner('gig', user.id) : ['listings', 'byOwner', 'gig', 'anon'],
     enabled: !!user && !isCreator,
-    queryFn: () => listGigsByBrand(user!.id),
+    queryFn: () => listMyListings('gig', user!.id),
   });
 
-  // "Applications received" = all applications across the brand's gigs.
-  // We piggy-back on the postedGigsQuery so we don't double-fetch the gigs.
+  // Brand-side applications query goes through the denormalized `brandId`
+  // field on each application — single Firestore query, no per-gig fan-out.
   const brandApplicationsQuery = useQuery({
-    queryKey: user ? APPLICATION_KEYS.byBrand(user.id) : ['applications', 'brand', 'anon'],
-    enabled: !!user && !isCreator && !!postedGigsQuery.data,
-    queryFn: () => listApplicationsForGigIds((postedGigsQuery.data ?? []).map((g) => g.id)),
+    queryKey: user ? qk.applications.byBrand(user.id) : ['applications', 'byBrand', 'anon'],
+    enabled: !!user && !isCreator,
+    queryFn: () => listApplicationsByBrand(user!.id),
   });
 
   type Row = { id: string; title: string; subtitle: string; href: string };
@@ -99,7 +104,7 @@ export default function InboxScreen() {
     if (isCreator) {
       if (activeTab === 'Sales') {
         return {
-          items: (ordersAsSellerQuery.data ?? []).map((o) => ({
+          items: (ordersAsSellerQuery.data ?? []).map((o: Order) => ({
             id: o.id,
             title: `${o.status === 'failed' ? '[FAILED] ' : ''}Sale · ${formatSol(o.amountSol)} SOL`,
             subtitle: `${o.type} · ${o.status} · ${formatRelative(o.createdAt)}`,
@@ -113,7 +118,7 @@ export default function InboxScreen() {
         };
       }
       return {
-        items: (applicationsQuery.data ?? []).map((a) => ({
+        items: (applicationsQuery.data ?? []).map((a: GigApplication) => ({
           id: a.id,
           title: `Applied · ${a.status}`,
           subtitle: `${a.message.slice(0, 80)} · ${formatRelative(a.createdAt)}`,
@@ -130,12 +135,15 @@ export default function InboxScreen() {
     // Brand
     if (activeTab === 'Posted') {
       return {
-        items: (postedGigsQuery.data ?? []).map((g) => ({
-          id: g.id,
-          title: g.title,
-          subtitle: `Gig · ${g.status} · ${formatSol(g.budgetSol)} SOL · ${formatRelative(g.createdAt)}`,
-          href: `/gig/${g.id}`,
-        })),
+        items: (postedGigsQuery.data ?? []).map((g) => {
+          const gig = g as Gig;
+          return {
+            id: gig.id,
+            title: gig.title,
+            subtitle: `Gig · ${gig.status} · ${formatSol(gig.budgetSol)} SOL · ${formatRelative(gig.createdAt)}`,
+            href: `/gig/${gig.id}`,
+          };
+        }),
         loading: postedGigsQuery.isLoading,
         refetch: postedGigsQuery.refetch,
         refreshing: postedGigsQuery.isRefetching,
@@ -144,17 +152,14 @@ export default function InboxScreen() {
       };
     }
     if (activeTab === 'Applications') {
-      const gigsById = new Map(
-        (postedGigsQuery.data ?? []).map((g) => [g.id, g.title]),
-      );
       return {
-        items: (brandApplicationsQuery.data ?? []).map((a) => ({
+        items: (brandApplicationsQuery.data ?? []).map((a: GigApplication) => ({
           id: a.id,
           title: `Application · ${a.status}`,
-          subtitle: `${gigsById.get(a.gigId) ?? 'Gig'} · ${formatRelative(a.createdAt)}`,
+          subtitle: `${a.gigTitle ?? 'Gig'} · ${formatRelative(a.createdAt)}`,
           href: `/gig/${a.gigId}`,
         })),
-        loading: brandApplicationsQuery.isLoading || postedGigsQuery.isLoading,
+        loading: brandApplicationsQuery.isLoading,
         refetch: brandApplicationsQuery.refetch,
         refreshing: brandApplicationsQuery.isRefetching,
         emptyTitle: EMPTY_GIG_APPLICATIONS.title,
@@ -163,7 +168,7 @@ export default function InboxScreen() {
     }
     // Purchases
     return {
-      items: (ordersAsBuyerQuery.data ?? []).map((o) => ({
+      items: (ordersAsBuyerQuery.data ?? []).map((o: Order) => ({
         id: o.id,
         title: `${o.status === 'failed' ? '[FAILED] ' : ''}Purchase · ${formatSol(o.amountSol)} SOL`,
         subtitle: `${o.type} · ${o.status} · ${formatRelative(o.createdAt)}`,

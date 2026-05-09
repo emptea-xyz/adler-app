@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useUser } from '@/contexts/UserContext';
 import { LoadingScreen } from '@/components/base/LoadingScreen';
 import { STORAGE_KEYS } from '@/lib/constants/storageKeys';
+import { viewModeFor } from '@/lib/utils/role';
 
 /**
  * Root redirect. Four-state routing:
@@ -27,7 +28,11 @@ export default function IndexPage() {
   if (!isReady || isBridging || seenOnboarding === null) return <LoadingScreen />;
   if (!user) return <Redirect href="/(auth)/sign-in" />;
   if (profileLoading) return <LoadingScreen />;
-  if (!profile?.role) {
+  if (viewModeFor(profile) === null) {
+    // Step-1 routing still leans on the legacy role-select screen as a soft
+    // first-run nudge. Step 2 deletes role-select and replaces it with an
+    // inline <ProfileGate>, at which point the redirect collapses to
+    // intro → /browse and the gate handles the rest.
     if (!seenOnboarding) return <Redirect href="/(auth)/intro" />;
     return <Redirect href="/(auth)/role-select" />;
   }

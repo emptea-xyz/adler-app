@@ -1,6 +1,18 @@
+// Avatar pipeline + generic media-picker helpers. Listing / message
+// attachments live in their own modules:
+//   lib/services/listingMediaUploadService.ts
+//   lib/services/messageMediaUploadService.ts
+//
+// `pickImage` and `pickImages` are kept here because they're generic
+// (any feature picks images) and were already used by the legacy CreateSheet
+// path. The legacy `uploadMarketplaceMedia` / `deleteMarketplaceMedia`
+// functions wrote under `packages/{uid}/...`, which the v1 storage rules
+// reject. They're gone — consumers should call `uploadListingMedia` from
+// `listingMediaUploadService` instead.
+
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage, auth } from '@/lib/firebase/config';
 
 async function ensureMediaLibraryPermission(): Promise<void> {
@@ -27,9 +39,9 @@ export async function pickImage(opts?: { aspect?: [number, number]; quality?: nu
 }
 
 /**
- * Multi-image variant. Surfaces the system multi-select picker when supported.
- * Falls back to a single asset on platforms / picker versions that ignore
- * `allowsMultipleSelection`.
+ * Multi-image variant. Surfaces the system multi-select picker when
+ * supported; falls back to a single asset on platforms / picker versions
+ * that ignore `allowsMultipleSelection`.
  */
 export async function pickImages(opts?: { selectionLimit?: number; quality?: number }): Promise<string[]> {
     await ensureMediaLibraryPermission();
@@ -70,6 +82,11 @@ function requireUid(): string {
     return uid;
 }
 
+/**
+ * Upload an avatar to `profilePictures/{uid}.jpg`. Resizes to ≤ 400 px on
+ * the longest edge and re-encodes JPEG before upload to stay under the
+ * 2 MB storage-rule cap.
+ */
 export async function uploadProfilePicture(localUri: string): Promise<string> {
     const uid = requireUid();
     const compressedUri = await compressImage(localUri, 400);
@@ -80,31 +97,10 @@ export async function uploadProfilePicture(localUri: string): Promise<string> {
 }
 
 /**
- * Upload arbitrary marketplace media (package or gig assets) to Firebase Storage.
- * Returns the public download URL.
+ * Compress a local image URI (no upload) and return the new local URI.
+ * Useful for callers that want to feed the result into a different
+ * storage service (e.g. listingMediaUploadService).
  */
-export async function uploadMarketplaceMedia(
-    localUri: string,
-    folder: 'packages' | 'gigs' | 'applications',
-    fileId: string,
-): Promise<string> {
-    const uid = requireUid();
-    const compressedUri = await compressImage(localUri, 1600);
-    const blob = await uriToBlob(compressedUri);
-    const storageRef = ref(storage, `${folder}/${uid}/${fileId}.jpg`);
-    await uploadBytes(storageRef, blob, { contentType: 'image/jpeg' });
-    return getDownloadURL(storageRef);
-}
-
-export async function deleteMarketplaceMedia(
-    folder: 'packages' | 'gigs' | 'applications',
-    fileId: string,
-): Promise<void> {
-    const uid = requireUid();
-    const storageRef = ref(storage, `${folder}/${uid}/${fileId}.jpg`);
-    try {
-        await deleteObject(storageRef);
-    } catch {
-        // Best-effort cleanup — swallow not-found and permission errors.
-    }
+export async function compressImageForUpload(localUri: string, maxDim = 1600): Promise<string> {
+    return compressImage(localUri, maxDim);
 }

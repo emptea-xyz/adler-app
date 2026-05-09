@@ -16,6 +16,7 @@ import { getConnection, lamportsToSol } from '@/lib/solana/connection';
 import { formatSol } from '@/lib/utils/formatNumber';
 import { PROFILE_KEYS } from '@/lib/constants/queryKeys';
 import { haptic } from '@/lib/utils/haptic';
+import { viewModeFor } from '@/lib/utils/role';
 
 interface Props {
   listingsCount: number;
@@ -111,9 +112,9 @@ export function ProfileHeader({ listingsCount, onPressEdit }: Props) {
           </ThemedText>
         </View>
 
-        {profile?.role ? (
+        {viewModeFor(profile) ? (
           <View style={{ marginTop: 2 }}>
-            <Pill intent="dark" label={ucfirst(profile.role)} />
+            <Pill intent="dark" label={ucfirst(viewModeFor(profile))} />
           </View>
         ) : null}
 

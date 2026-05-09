@@ -9,7 +9,10 @@ import { RoleSelectCard } from '@/components/ui/RoleSelectCard';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUser } from '@/contexts/UserContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { setRole } from '@/lib/services/profileService';
+import {
+  updateBrandProfile,
+  updateCreatorProfile,
+} from '@/lib/services/profileService';
 import { toast } from '@/lib/utils/toast';
 import type { UserRole } from '@/types/marketplace';
 
@@ -28,7 +31,7 @@ const ROLES: { id: UserRole; title: string; description: string }[] = [
 
 export default function RoleSelectScreen() {
   const { user } = useAuth();
-  const { refreshProfile } = useUser();
+  const { profile, refreshProfile } = useUser();
   const { theme } = useTheme();
   const router = useRouter();
   const [selected, setSelected] = useState<UserRole | null>(null);
@@ -38,14 +41,26 @@ export default function RoleSelectScreen() {
     if (!user || !selected) return;
     setSubmitting(true);
     try {
-      await setRole(user.id, selected);
+      // v1 supports both sides on the same account; "picking" a role here
+      // just sets up that side's empty sub-profile so the user lands in a
+      // valid state. Step 2 deletes this screen entirely and uses
+      // ProfileGate to gate role-specific routes instead.
+      if (selected === 'creator') {
+        await updateCreatorProfile(user.id, {});
+      } else {
+        // BrandProfile.companyName is required by the rule; default to
+        // displayName so the create succeeds without forcing extra UI here.
+        await updateBrandProfile(user.id, {
+          companyName: profile?.displayName || profile?.username || 'Brand',
+        });
+      }
       await refreshProfile();
       router.replace('/(home)/(tabs)/browse');
     } catch (err: any) {
       toast.error(err?.message ?? 'Failed to set role');
       setSubmitting(false);
     }
-  }, [user, selected, refreshProfile, router]);
+  }, [user, selected, profile, refreshProfile, router]);
 
   return (
     <ThemedView className="flex-1">

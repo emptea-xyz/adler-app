@@ -6,6 +6,7 @@ import { ensureProfileExists, getProfile, setPushToken } from '@/lib/services/pr
 import { registerForPushAsync } from '@/lib/services/pushService';
 import { STORAGE_KEYS } from '@/lib/constants/storageKeys';
 import type { Profile } from '@/types/marketplace';
+import { viewModeFor } from '@/lib/utils/role';
 
 interface UserContextType {
     profile: Profile | null;
@@ -113,7 +114,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         () => ({
             profile,
             loading,
-            hasRole: !!profile?.role,
+            hasRole: viewModeFor(profile) !== null,
             refreshProfile: fetchProfile,
         }),
         [profile, loading, fetchProfile],

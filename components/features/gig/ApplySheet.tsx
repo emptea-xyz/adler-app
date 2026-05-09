@@ -8,13 +8,14 @@ import TextInput from '@/components/ui/TextInput';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import {
-  applyToGig,
+  createApplication,
   listApplicationsByCreator,
-} from '@/lib/services/applicationService';
-import { APPLICATION_KEYS } from '@/lib/constants/queryKeys';
+} from '@/lib/services/applicationsService';
+import { qk } from '@/lib/constants/queryKeys';
 import { toast } from '@/lib/utils/toast';
 import { haptic } from '@/lib/utils/haptic';
-import type { Gig } from '@/types/marketplace';
+import { useUser } from '@/contexts/UserContext';
+import type { Gig, GigApplication } from '@/types/marketplace';
 
 interface Props {
   visible: boolean;
@@ -26,22 +27,22 @@ const MESSAGE_MAX = 1000;
 
 export function ApplySheet({ visible, onClose, gig }: Props) {
   const { user } = useAuth();
+  const { profile } = useUser();
   const { theme } = useTheme();
   const queryClient = useQueryClient();
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  // Block re-application client-side. The user can still race a duplicate by
-  // tapping Submit twice fast — the proper fix is a deterministic doc id
-  // (`${gigId}_${creatorId}`) backed by a uniqueness rule, but that's a v2
-  // migration. Today's guard catches >99% of cases.
+  // The deterministic doc id `${gigId}_${creatorId}` makes a server-side
+  // double-apply guard — but we still surface the "already applied" state
+  // here so the UI is honest. The Firestore rule rejects the second write.
   const myApplicationsQuery = useQuery({
-    queryKey: user ? APPLICATION_KEYS.byCreator(user.id) : ['applications', 'creator', 'anon'],
+    queryKey: user ? qk.applications.byCreator(user.id) : ['applications', 'byCreator', 'anon'],
     enabled: !!user && visible,
     queryFn: () => listApplicationsByCreator(user!.id),
   });
   const alreadyApplied = !!gig && (myApplicationsQuery.data ?? []).some(
-    (a) => a.gigId === gig.id,
+    (a: GigApplication) => a.gigId === gig.id,
   );
 
   useEffect(() => {
@@ -67,10 +68,21 @@ export function ApplySheet({ visible, onClose, gig }: Props) {
       }
       setSubmitting(true);
       try {
-        await applyToGig({ gigId: gig.id, message: message.trim(), sampleUrls: [] });
-        queryClient.invalidateQueries({ queryKey: APPLICATION_KEYS.forGig(gig.id) });
+        await createApplication({
+          gigId: gig.id,
+          brandId: gig.brandId,
+          message: message.trim(),
+          sampleUrls: [],
+          gigTitle: gig.title,
+          brandHandle: gig.ownerHandle,
+          brandDisplayName: gig.ownerDisplayName,
+          creatorHandle: profile?.username ?? null,
+          creatorDisplayName: profile?.displayName ?? null,
+          creatorAvatarUrl: profile?.avatarUrl ?? null,
+        });
+        queryClient.invalidateQueries({ queryKey: ['applications', 'gig', gig.id] });
         if (user) {
-          queryClient.invalidateQueries({ queryKey: APPLICATION_KEYS.byCreator(user.id) });
+          queryClient.invalidateQueries({ queryKey: qk.applications.byCreator(user.id) });
         }
         haptic('medium');
         toast.success('Application submitted');
@@ -80,7 +92,7 @@ export function ApplySheet({ visible, onClose, gig }: Props) {
         setSubmitting(false);
       }
     },
-    [gig, message, alreadyApplied, queryClient, user],
+    [gig, message, alreadyApplied, queryClient, user, profile],
   );
 
   return (

@@ -15,13 +15,13 @@ import { CtaFooter } from '@/components/ui/CtaFooter';
 import { ManageListingSheet } from '@/components/features/listing/ManageListingSheet';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { getPackage } from '@/lib/services/packageService';
+import { getListing } from '@/lib/services/listingsService';
 import { getProfile } from '@/lib/services/profileService';
-import { PACKAGE_KEYS, PROFILE_KEYS } from '@/lib/constants/queryKeys';
+import { qk } from '@/lib/constants/queryKeys';
 import { formatSol } from '@/lib/utils/formatNumber';
-import type { PackageStatus } from '@/types/marketplace';
+import type { Service, ServiceStatus } from '@/types/marketplace';
 
-function statusToIntent(status: PackageStatus): PillIntent {
+function statusToIntent(status: ServiceStatus): PillIntent {
   if (status === 'active') return 'cyan';
   if (status === 'sold') return 'lime';
   return 'neutral';
@@ -29,7 +29,7 @@ function statusToIntent(status: PackageStatus): PillIntent {
 
 const GALLERY_HEIGHT = 280;
 
-export default function PackageDetailScreen() {
+export default function ServiceDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
   const { theme } = useTheme();
@@ -38,32 +38,31 @@ export default function PackageDetailScreen() {
   const [manageOpen, setManageOpen] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState(0);
 
-  const packageQuery = useQuery({
-    queryKey: id ? PACKAGE_KEYS.detail(id) : ['package', 'unknown'],
+  const serviceQuery = useQuery({
+    queryKey: id ? qk.listings.detail('service', id) : ['listings', 'detail', 'service', 'unknown'],
     enabled: !!id,
-    queryFn: () => getPackage(id!),
+    queryFn: () => getListing('service', id!),
   });
+
+  const service = serviceQuery.data && serviceQuery.data.kind === 'service' ? (serviceQuery.data as Service) : null;
 
   const sellerQuery = useQuery({
-    queryKey: packageQuery.data ? PROFILE_KEYS.profile(packageQuery.data.sellerId) : ['profile', 'unknown'],
-    enabled: !!packageQuery.data?.sellerId,
-    queryFn: () => getProfile(packageQuery.data!.sellerId),
+    queryKey: service ? qk.profiles.detail(service.sellerId) : ['profiles', 'detail', 'unknown'],
+    enabled: !!service?.sellerId,
+    queryFn: () => getProfile(service!.sellerId),
   });
 
-  const pkg = packageQuery.data;
-  const isOwnPackage = !!user && pkg?.sellerId === user.id;
+  const isOwnService = !!user && service?.sellerId === user.id;
   const sellerHasWallet = !!sellerQuery.data?.walletAddress;
-  const canBuy = !isOwnPackage && pkg?.status === 'active' && sellerHasWallet;
+  const canBuy = !!service && !isOwnService && service.status === 'active' && sellerHasWallet;
 
-  // Gallery slides: cover first (if set), then mediaUrls — de-duped so a cover
-  // that also lives in mediaUrls doesn't render twice.
   const slides = useMemo(() => {
-    if (!pkg) return [] as string[];
-    const ordered = [pkg.coverImageUrl, ...pkg.mediaUrls].filter(
+    if (!service) return [] as string[];
+    const ordered = service.mediaUrls.filter(
       (url): url is string => typeof url === 'string' && url.length > 0,
     );
     return Array.from(new Set(ordered));
-  }, [pkg]);
+  }, [service]);
 
   const onGalleryScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const next = Math.round(e.nativeEvent.contentOffset.x / screenWidth);
@@ -74,27 +73,27 @@ export default function PackageDetailScreen() {
     <ThemedView className="flex-1">
       <SafeAreaView edges={['top']} className="flex-1">
         <ScreenHeader
-          title="Package"
+          title="Service"
           onBack={() => router.back()}
           actionButton={
-            isOwnPackage && pkg
+            isOwnService && service
               ? {
                   icon: MoreHorizontal,
                   onPress: () => setManageOpen(true),
-                  accessibilityLabel: 'Manage package',
+                  accessibilityLabel: 'Manage service',
                 }
               : undefined
           }
         />
 
-        {packageQuery.isLoading ? (
+        {serviceQuery.isLoading ? (
           <View className="flex-1 items-center justify-center">
             <ActivityIndicator color={theme[950]} />
           </View>
-        ) : !pkg ? (
+        ) : !service ? (
           <View className="flex-1 items-center justify-center px-4">
             <ThemedText type="body-md" style={{ color: theme[500] }}>
-              Package not found.
+              Service not found.
             </ThemedText>
           </View>
         ) : (
@@ -107,7 +106,6 @@ export default function PackageDetailScreen() {
               }}
               showsVerticalScrollIndicator={false}
             >
-              {/* Gallery (full-bleed, page-snapping) — cover first, then media. */}
               {slides.length > 0 ? (
                 <View style={{ gap: 10 }}>
                   <FlatList
@@ -150,104 +148,82 @@ export default function PackageDetailScreen() {
               ) : null}
 
               <View style={{ paddingHorizontal: 16, gap: 16 }}>
-              {/* KPI block */}
-              <View style={{ gap: 12 }}>
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'flex-end',
-                    justifyContent: 'space-between',
-                  }}
-                >
-                  <KPI size="md" amount={formatSol(pkg.priceSol)} unit="SOL" />
-                  <View style={{ flexDirection: 'row', gap: 8 }}>
-                    <Pill intent={statusToIntent(pkg.status)} label={pkg.status} />
-                    <Pill intent="pink" label="Package" />
+                <View style={{ gap: 12 }}>
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'flex-end',
+                      justifyContent: 'space-between',
+                    }}
+                  >
+                    <KPI size="md" amount={formatSol(service.priceSol)} unit="SOL" />
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <Pill intent={statusToIntent(service.status)} label={service.status} />
+                      <Pill intent="pink" label="Service" />
+                    </View>
                   </View>
+                  <ThemedText type="h4" style={{ color: theme[950] }} numberOfLines={3}>
+                    {service.title}
+                  </ThemedText>
                 </View>
-                <ThemedText type="h4" style={{ color: theme[950] }} numberOfLines={3}>
-                  {pkg.title}
-                </ThemedText>
-              </View>
 
-              {/* About */}
-              <View style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12, gap: 8 }}>
-                <SectionLabel label="About" />
-                <ThemedText type="body-md" style={{ color: theme[950] }}>
-                  {pkg.description}
-                </ThemedText>
-              </View>
-
-              {/* Deliverables */}
-              {pkg.deliverables.length > 0 && (
                 <View style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12, gap: 8 }}>
-                  <SectionLabel label="Deliverables" />
-                  <View style={{ gap: 6 }}>
-                    {pkg.deliverables.map((d, i) => (
-                      <View key={i} style={{ flexDirection: 'row', gap: 8 }}>
-                        <ThemedText type="body-md" style={{ color: theme[500] }}>
-                          ·
-                        </ThemedText>
-                        <ThemedText type="body-md" style={{ color: theme[950], flex: 1 }}>
-                          {d}
-                        </ThemedText>
-                      </View>
-                    ))}
-                  </View>
+                  <SectionLabel label="About" />
+                  <ThemedText type="body-md" style={{ color: theme[950] }}>
+                    {service.description}
+                  </ThemedText>
                 </View>
-              )}
 
-              {/* Seller — tap to open public profile */}
-              <Pressable
-                onPress={() => {
-                  if (!pkg.sellerId) return;
-                  router.push(`/profile/${pkg.sellerId}`);
-                }}
-                style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12, gap: 4 }}
-              >
-                <SectionLabel label="Seller" />
-                <ThemedText type="body-md-semibold" style={{ color: theme[950] }}>
-                  {sellerQuery.data?.displayName ?? '—'}
-                </ThemedText>
-                <ThemedText type="body-sm" style={{ color: theme[500] }}>
-                  @{sellerQuery.data?.username ?? '—'}
-                </ThemedText>
-              </Pressable>
+                <Pressable
+                  onPress={() => {
+                    if (!service.sellerId) return;
+                    router.push(`/profile/${service.sellerId}`);
+                  }}
+                  style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12, gap: 4 }}
+                >
+                  <SectionLabel label="Seller" />
+                  <ThemedText type="body-md-semibold" style={{ color: theme[950] }}>
+                    {sellerQuery.data?.displayName ?? '—'}
+                  </ThemedText>
+                  <ThemedText type="body-sm" style={{ color: theme[500] }}>
+                    @{sellerQuery.data?.username ?? '—'}
+                  </ThemedText>
+                </Pressable>
 
-              {isOwnPackage && (
-                <ThemedText
-                  type="body-sm"
-                  align="center"
-                  style={{ color: theme[500], marginTop: 8 }}
-                >
-                  You are the seller of this package.
-                </ThemedText>
-              )}
-              {!isOwnPackage && pkg.status === 'active' && !sellerHasWallet && (
-                <ThemedText
-                  type="body-sm"
-                  align="center"
-                  style={{ color: theme[500], marginTop: 8 }}
-                >
-                  This seller hasn&apos;t set up a wallet yet, so payment is unavailable.
-                </ThemedText>
-              )}
+                {isOwnService && (
+                  <ThemedText
+                    type="body-sm"
+                    align="center"
+                    style={{ color: theme[500], marginTop: 8 }}
+                  >
+                    You are the seller of this service.
+                  </ThemedText>
+                )}
+                {!isOwnService && service.status === 'active' && !sellerHasWallet && (
+                  <ThemedText
+                    type="body-sm"
+                    align="center"
+                    style={{ color: theme[500], marginTop: 8 }}
+                  >
+                    This seller hasn&apos;t set up a wallet yet, so payment is unavailable.
+                  </ThemedText>
+                )}
               </View>
             </ScrollView>
 
             {canBuy && (
               <CtaFooter>
                 <Button
-                  title={`Buy for ${formatSol(pkg.priceSol)} SOL`}
+                  title={`Buy for ${formatSol(service.priceSol)} SOL`}
                   onPress={() =>
                     router.push({
                       pathname: '/checkout',
                       params: {
-                        type: 'package',
-                        referenceId: pkg.id,
-                        sellerId: pkg.sellerId,
-                        amountSol: String(pkg.priceSol),
-                        title: pkg.title,
+                        type: 'service',
+                        listingId: service.id,
+                        sellerId: service.sellerId,
+                        amountSol: String(service.priceSol),
+                        title: service.title,
                       },
                     })
                   }
@@ -261,14 +237,14 @@ export default function PackageDetailScreen() {
         )}
       </SafeAreaView>
 
-      {pkg && isOwnPackage ? (
+      {service && isOwnService ? (
         <ManageListingSheet
           visible={manageOpen}
           onClose={() => setManageOpen(false)}
-          kind="package"
-          id={pkg.id}
-          status={pkg.status}
-          ownerId={pkg.sellerId}
+          kind="service"
+          id={service.id}
+          status={service.status}
+          ownerId={service.sellerId}
         />
       ) : null}
     </ThemedView>

@@ -14,15 +14,16 @@ import { EditProfileSheet } from '@/components/features/profile/EditProfileSheet
 import { useUser } from '@/contexts/UserContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useOverlaySheets } from '@/contexts/OverlaySheetsContext';
-import { listPackagesBySeller } from '@/lib/services/packageService';
-import { listGigsByBrand } from '@/lib/services/gigService';
-import { PACKAGE_KEYS, GIG_KEYS } from '@/lib/constants/queryKeys';
+import { listMyListings } from '@/lib/services/listingsService';
+import { qk } from '@/lib/constants/queryKeys';
 import { haptic } from '@/lib/utils/haptic';
+import { viewModeFor } from '@/lib/utils/role';
 import { TAB_BAR_HEIGHT } from '@/constants/LayoutConstants';
 import {
   EMPTY_PACKAGES_BY_SELLER,
   EMPTY_GIGS_BY_BRAND,
 } from '@/lib/utils/copy';
+import type { Gig, Service } from '@/types/marketplace';
 
 const LISTINGS_PREVIEW_LIMIT = 6;
 
@@ -33,23 +34,23 @@ export default function ProfileScreen() {
   const { openCreate } = useOverlaySheets();
   const [editOpen, setEditOpen] = useState(false);
 
-  const isCreator = profile?.role === 'creator';
+  const isCreator = viewModeFor(profile) === 'creator';
 
-  const packagesQuery = useQuery({
-    queryKey: profile?.id ? PACKAGE_KEYS.bySeller(profile.id) : ['packages', 'seller', 'anon'],
+  const servicesQuery = useQuery({
+    queryKey: profile?.id ? qk.listings.byOwner('service', profile.id) : ['listings', 'byOwner', 'service', 'anon'],
     enabled: !!profile?.id && isCreator,
-    queryFn: () => listPackagesBySeller(profile!.id),
+    queryFn: () => listMyListings('service', profile!.id),
   });
 
   const gigsQuery = useQuery({
-    queryKey: profile?.id ? GIG_KEYS.byBrand(profile.id) : ['gigs', 'brand', 'anon'],
+    queryKey: profile?.id ? qk.listings.byOwner('gig', profile.id) : ['listings', 'byOwner', 'gig', 'anon'],
     enabled: !!profile?.id && !isCreator,
-    queryFn: () => listGigsByBrand(profile!.id),
+    queryFn: () => listMyListings('gig', profile!.id),
   });
 
-  const listings = isCreator ? packagesQuery.data ?? [] : gigsQuery.data ?? [];
-  const listingsLoading = isCreator ? packagesQuery.isLoading : gigsQuery.isLoading;
-  const listingsTitle = isCreator ? 'Your packages' : 'Your gigs';
+  const listings = isCreator ? servicesQuery.data ?? [] : gigsQuery.data ?? [];
+  const listingsLoading = isCreator ? servicesQuery.isLoading : gigsQuery.isLoading;
+  const listingsTitle = isCreator ? 'Your services' : 'Your gigs';
   const listingsEmpty = isCreator ? EMPTY_PACKAGES_BY_SELLER : EMPTY_GIGS_BY_BRAND;
 
   return (
@@ -68,7 +69,6 @@ export default function ProfileScreen() {
             onPressEdit={() => setEditOpen(true)}
           />
 
-          {/* Platform integration — your listings */}
           <View style={{ gap: 12 }}>
             <View
               style={{
@@ -96,7 +96,7 @@ export default function ProfileScreen() {
                   description={listingsEmpty.description}
                 />
                 <Button
-                  title={isCreator ? 'List a package' : 'Post a gig'}
+                  title={isCreator ? 'List a service' : 'Post a gig'}
                   onPress={() => {
                     haptic('light');
                     openCreate();
@@ -108,27 +108,23 @@ export default function ProfileScreen() {
             ) : (
               <View style={{ gap: 14 }}>
                 {listings.slice(0, LISTINGS_PREVIEW_LIMIT).map((item) => {
-                  const isPackage = isCreator;
-                  const amount = isPackage
-                    ? (item as any).priceSol
-                    : (item as any).budgetSol;
-                  const mediaUrls = isPackage ? (item as any).mediaUrls : undefined;
-                  const coverImageUrl = isPackage ? (item as any).coverImageUrl : undefined;
+                  const amount = isCreator
+                    ? (item as Service).priceSol
+                    : (item as Gig).budgetSol;
                   return (
                     <ListingCard
                       key={item.id}
-                      kind={isPackage ? 'package' : 'gig'}
+                      kind={isCreator ? 'service' : 'gig'}
                       amount={amount}
                       category={item.category}
                       title={item.title}
                       ownerId={profile?.id ?? ''}
                       createdAt={item.createdAt}
-                      coverImageUrl={coverImageUrl}
-                      mediaUrls={mediaUrls}
+                      mediaUrls={item.mediaUrls}
                       onPress={() => {
                         haptic('light');
                         router.push(
-                          isPackage ? `/package/${item.id}` : `/gig/${item.id}`,
+                          isCreator ? `/service/${item.id}` : `/gig/${item.id}`,
                         );
                       }}
                     />

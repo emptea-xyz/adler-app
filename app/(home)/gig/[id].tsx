@@ -19,17 +19,18 @@ import { ManageListingSheet } from '@/components/features/listing/ManageListingS
 import { useAuth } from '@/contexts/AuthContext';
 import { useUser } from '@/contexts/UserContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { getGig, updateGigStatus } from '@/lib/services/gigService';
+import { getListing, updateGig } from '@/lib/services/listingsService';
 import { formatSol } from '@/lib/utils/formatNumber';
 import { getProfile } from '@/lib/services/profileService';
 import {
   listApplicationsForGig,
-  updateApplicationStatus,
-} from '@/lib/services/applicationService';
+  setApplicationStatus,
+} from '@/lib/services/applicationsService';
 import { useSolanaPayment } from '@/hooks/useSolanaPayment';
-import { GIG_KEYS, APPLICATION_KEYS, PROFILE_KEYS } from '@/lib/constants/queryKeys';
+import { qk } from '@/lib/constants/queryKeys';
 import { toast } from '@/lib/utils/toast';
 import { haptic } from '@/lib/utils/haptic';
+import { viewModeFor } from '@/lib/utils/role';
 import { EMPTY_GIG_APPLICATIONS } from '@/lib/utils/copy';
 import type { GigApplication, Gig, GigStatus, ApplicationStatus } from '@/types/marketplace';
 
@@ -66,7 +67,7 @@ function ApplicationCard({
 }) {
   const { theme } = useTheme();
   const profileQuery = useQuery({
-    queryKey: PROFILE_KEYS.profile(application.creatorId),
+    queryKey: qk.profiles.detail(application.creatorId),
     queryFn: () => getProfile(application.creatorId),
   });
 
@@ -124,23 +125,24 @@ export default function GigDetailScreen() {
   const [manageOpen, setManageOpen] = useState(false);
 
   const gigQuery = useQuery({
-    queryKey: id ? GIG_KEYS.detail(id) : ['gig', 'unknown'],
+    queryKey: id ? qk.listings.detail('gig', id) : ['listings', 'detail', 'gig', 'unknown'],
     enabled: !!id,
-    queryFn: () => getGig(id!),
+    queryFn: () => getListing('gig', id!),
   });
+
+  const gig = gigQuery.data && gigQuery.data.kind === 'gig' ? (gigQuery.data as Gig) : null;
 
   const brandQuery = useQuery({
-    queryKey: gigQuery.data ? PROFILE_KEYS.profile(gigQuery.data.brandId) : ['profile', 'unknown'],
-    enabled: !!gigQuery.data?.brandId,
-    queryFn: () => getProfile(gigQuery.data!.brandId),
+    queryKey: gig ? qk.profiles.detail(gig.brandId) : ['profiles', 'detail', 'unknown'],
+    enabled: !!gig?.brandId,
+    queryFn: () => getProfile(gig!.brandId),
   });
 
-  const gig = gigQuery.data;
-  const isCreator = profile?.role === 'creator';
+  const isCreator = viewModeFor(profile) === 'creator';
   const isOwnGig = !!user && gig?.brandId === user.id;
 
   const applicationsQuery = useQuery({
-    queryKey: id ? APPLICATION_KEYS.forGig(id) : ['applications', 'gig', 'unknown'],
+    queryKey: id ? ['applications', 'gig', id] : ['applications', 'gig', 'unknown'],
     enabled: !!id && !!user && !!gig && gig.brandId === user.id,
     queryFn: () => listApplicationsForGig(id!),
   });
@@ -152,14 +154,15 @@ export default function GigDetailScreen() {
     try {
       const { signature } = await pay({
         type: 'gig',
-        referenceId: gig.id,
+        listingId: gig.id,
         sellerId: awardTarget.creatorId,
         amountSol: gig.budgetSol,
+        listingTitle: gig.title,
       });
-      await updateApplicationStatus(awardTarget.applicationId, 'awarded');
-      await updateGigStatus(gig.id, 'awarded');
-      queryClient.invalidateQueries({ queryKey: GIG_KEYS.detail(gig.id) });
-      queryClient.invalidateQueries({ queryKey: APPLICATION_KEYS.forGig(gig.id) });
+      await setApplicationStatus(awardTarget.applicationId, 'awarded');
+      await updateGig(gig.id, { status: 'awarded' });
+      queryClient.invalidateQueries({ queryKey: qk.listings.detail('gig', gig.id) });
+      queryClient.invalidateQueries({ queryKey: ['applications', 'gig', gig.id] });
       haptic('heavy');
       toast.success(`Awarded · tx ${signature.slice(0, 8)}…`);
       setAwardTarget(null);
@@ -212,7 +215,6 @@ export default function GigDetailScreen() {
               }}
               keyboardShouldPersistTaps="handled"
             >
-              {/* KPI block */}
               <View style={{ gap: 12 }}>
                 <View
                   style={{
@@ -232,7 +234,6 @@ export default function GigDetailScreen() {
                 </ThemedText>
               </View>
 
-              {/* Brief */}
               <View style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12, gap: 8 }}>
                 <SectionLabel label="Brief" />
                 <ThemedText type="body-md" style={{ color: theme[950] }}>
@@ -240,7 +241,6 @@ export default function GigDetailScreen() {
                 </ThemedText>
               </View>
 
-              {/* Requirements */}
               {!!gig.requirements && (
                 <View style={{ backgroundColor: theme[100], padding: 20, borderRadius: 12, gap: 8 }}>
                   <SectionLabel label="Requirements" />
@@ -250,7 +250,6 @@ export default function GigDetailScreen() {
                 </View>
               )}
 
-              {/* Brand — tap to open public profile */}
               <Pressable
                 onPress={() => {
                   if (!gig.brandId) return;
@@ -273,7 +272,6 @@ export default function GigDetailScreen() {
                 </ThemedText>
               )}
 
-              {/* Applications (brand viewing own gig) */}
               {showApplications && (
                 <View style={{ gap: 12 }}>
                   <SectionLabel label={`Applications · ${applications.length}`} />
@@ -287,7 +285,7 @@ export default function GigDetailScreen() {
                       />
                     </View>
                   ) : (
-                    applications.map((app) => (
+                    applications.map((app: GigApplication) => (
                       <ApplicationCard
                         key={app.id}
                         application={app}
