@@ -9,6 +9,7 @@ import {
     Wallet,
     UserCog,
     Sun,
+    Bell,
     FileText,
     Shield,
     LifeBuoy,
@@ -131,6 +132,11 @@ export default function SettingsIndexScreen() {
                         icon={<Sun color={theme[700]} size={18} />}
                         title="Appearance"
                         onPress={() => router.push('/settings/appearance')}
+                    />
+                    <Row
+                        icon={<Bell color={theme[700]} size={18} />}
+                        title="Notifications"
+                        onPress={() => router.push('/settings/notifications')}
                     />
 
                     <View style={{ paddingHorizontal: 16, marginTop: 24, marginBottom: 8 }}>

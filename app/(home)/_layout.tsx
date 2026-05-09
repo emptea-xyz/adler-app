@@ -29,6 +29,7 @@ export default function HomeLayout() {
           <Stack.Screen name="studio/camera" options={{ presentation: 'card' }} />
           <Stack.Screen name="studio/edit" options={{ presentation: 'card' }} />
           <Stack.Screen name="inbox/[threadId]" options={{ presentation: 'card' }} />
+          <Stack.Screen name="notifications" options={{ presentation: 'card' }} />
           <Stack.Screen name="applications" options={{ presentation: 'card' }} />
           <Stack.Screen name="applicants" options={{ presentation: 'card' }} />
           <Stack.Screen name="checkout" options={{ presentation: 'modal' }} />
