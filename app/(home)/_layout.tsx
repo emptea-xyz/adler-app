@@ -26,6 +26,7 @@ export default function HomeLayout() {
           <Stack.Screen name="gigs/index" options={{ presentation: 'card' }} />
           <Stack.Screen name="gigs/[id]/edit" options={{ presentation: 'card' }} />
           <Stack.Screen name="gigs/new" options={{ presentation: 'card' }} />
+          <Stack.Screen name="inbox/[threadId]" options={{ presentation: 'card' }} />
           <Stack.Screen name="applications" options={{ presentation: 'card' }} />
           <Stack.Screen name="applicants" options={{ presentation: 'card' }} />
           <Stack.Screen name="checkout" options={{ presentation: 'modal' }} />
