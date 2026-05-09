@@ -3,7 +3,7 @@ import { Pressable, View } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { cn } from "@/components/utils/cn";
 import { ThemedText } from "@/components/base/ThemedText";
-import { TailwindColors } from "@/constants/TailwindColors";
+import { Accent } from "@/constants/AccentColors";
 import { useTheme } from "@/contexts/ThemeContext";
 
 type ToastVariant = "success" | "error" | "info" | "warn";
@@ -29,10 +29,10 @@ function ToastCard({
     ToastVariant,
     { icon: keyof typeof Feather.glyphMap; accent: string }
   > = {
-    success: { icon: "check-circle", accent: TailwindColors.emerald[500] },
-    error: { icon: "x-circle", accent: TailwindColors.rose[500] },
-    info: { icon: "info", accent: TailwindColors.sky[500] },
-    warn: { icon: "alert-triangle", accent: TailwindColors.orange[500] },
+    success: { icon: "check-circle", accent: Accent.lime },
+    error: { icon: "x-circle", accent: Accent.pink },
+    info: { icon: "info", accent: Accent.cyan },
+    warn: { icon: "alert-triangle", accent: Accent.orange },
   };
 
   const meta = variantStyles[variant];

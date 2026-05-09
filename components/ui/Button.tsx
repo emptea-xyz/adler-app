@@ -6,7 +6,6 @@ import React from "react";
 import { ThemedText } from "@/components/base/ThemedText";
 import { haptic } from "@/lib/utils/haptic";
 import { useTheme } from "@/contexts/ThemeContext";
-import { TailwindColors } from "@/constants/TailwindColors";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -77,7 +76,7 @@ export const Button = React.memo(({
     secondary: { bg: { backgroundColor: theme[100] }, text: theme[950] },
     tertiary: { bg: { backgroundColor: theme[200] }, text: theme[950] },
     inline: { bg: { backgroundColor: 'transparent' }, text: theme[950] },
-    destructive: { bg: { backgroundColor: TailwindColors.red[500] }, text: TailwindColors.red[50] },
+    destructive: { bg: { backgroundColor: '#DC143C' }, text: theme[50] },
   };
 
   const sizes: Record<ButtonSize, string> = {

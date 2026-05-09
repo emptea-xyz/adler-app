@@ -6,6 +6,9 @@ The design philosophy is **industrial precision** — clean structural hierarchy
 
 ## Rules
 
-@.claude/rules/ux-principles.md
-@.claude/rules/architecture.md
-@.claude/rules/design-code-migration.md
+@.claude/rules/hackathon.md
+
+> Sprint mode active until hackathon submission. The full reference rules
+> (`ux-principles.md`, `architecture.md`, `design-code-migration.md`) are
+> still on disk under `.claude/rules/` — read them on-demand if a question
+> can't be answered from the slim file.

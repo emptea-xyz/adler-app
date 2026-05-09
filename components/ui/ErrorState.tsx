@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Pressable } from 'react-native';
 import { ThemedText } from '@/components/base/ThemedText';
 import { AlertCircle, RefreshCw, Copy, Check } from 'lucide-react-native';
-import { TailwindColors } from '@/constants/TailwindColors';
+import { Accent } from '@/constants/AccentColors';
 import { useTheme } from '@/contexts/ThemeContext';
 import * as Clipboard from 'expo-clipboard';
 
@@ -30,7 +30,7 @@ export function ErrorState({
         <View className="flex-1 items-center justify-center p-8">
             <AlertCircle
                 size={48}
-                color={TailwindColors.rose[500]}
+                color={Accent.pink}
                 strokeWidth={1.5}
             />
             <ThemedText type="body-md" align="center" className="mt-4" style={{ color: theme[500] }}>

@@ -2,7 +2,7 @@ import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { Check, X } from 'lucide-react-native';
 import { ThemedText } from '@/components/base/ThemedText';
-import { TailwindColors } from '@/constants/TailwindColors';
+import { Accent } from '@/constants/AccentColors';
 import { useTheme } from '@/contexts/ThemeContext';
 
 export type PublishTaskStatus = 'pending' | 'running' | 'done' | 'failed';
@@ -36,7 +36,7 @@ function StatusIcon({ status }: { status: PublishTaskStatus }) {
           width: ICON_BOX,
           height: ICON_BOX,
           borderRadius: ICON_BOX / 2,
-          backgroundColor: TailwindColors.emerald[500],
+          backgroundColor: Accent.lime,
           alignItems: 'center',
           justifyContent: 'center',
         }}
@@ -52,7 +52,7 @@ function StatusIcon({ status }: { status: PublishTaskStatus }) {
           width: ICON_BOX,
           height: ICON_BOX,
           borderRadius: ICON_BOX / 2,
-          backgroundColor: TailwindColors.rose[500],
+          backgroundColor: Accent.pink,
           alignItems: 'center',
           justifyContent: 'center',
         }}
