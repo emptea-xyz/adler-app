@@ -14,7 +14,6 @@ import { ProfileHeader } from '@/components/features/profile/ProfileHeader';
 import { EditProfileSheet } from '@/components/features/profile/EditProfileSheet';
 import { useUser } from '@/contexts/UserContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useOverlaySheets } from '@/contexts/OverlaySheetsContext';
 import { listMyListings } from '@/lib/services/listingsService';
 import { qk } from '@/lib/constants/queryKeys';
 import { haptic } from '@/lib/utils/haptic';
@@ -32,7 +31,6 @@ export default function ProfileScreen() {
   const { profile } = useUser();
   const { theme } = useTheme();
   const router = useRouter();
-  const { openCreate } = useOverlaySheets();
   const [editOpen, setEditOpen] = useState(false);
 
   const isCreator = viewModeFor(profile) === 'creator';
@@ -109,7 +107,7 @@ export default function ProfileScreen() {
                   onPress={() => {
                     haptic('light');
                     if (isCreator) {
-                      openCreate();
+                      router.push('/services/new');
                       return;
                     }
                     router.push('/gigs/new');

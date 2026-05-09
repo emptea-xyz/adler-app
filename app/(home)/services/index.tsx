@@ -13,7 +13,6 @@ import { ManageListingSheet } from '@/components/features/listing/ManageListingS
 import { Button } from '@/components/ui/Button';
 import EmptyState from '@/components/ui/EmptyState';
 import { Pill, type PillIntent } from '@/components/ui/Pill';
-import { useOverlaySheets } from '@/contexts/OverlaySheetsContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useUser } from '@/contexts/UserContext';
 import { qk } from '@/lib/constants/queryKeys';
@@ -31,7 +30,6 @@ export default function ServicesIndexScreen() {
     const { theme } = useTheme();
     const { profile } = useUser();
     const router = useRouter();
-    const { openCreate } = useOverlaySheets();
     const [manageService, setManageService] = useState<Service | null>(null);
 
     const servicesQuery = useQuery({
@@ -66,7 +64,7 @@ export default function ServicesIndexScreen() {
                         >
                             <Button
                                 title="List service"
-                                onPress={openCreate}
+                                onPress={() => router.push('/services/new')}
                                 leftIcon={<Plus size={16} color={theme[50]} />}
                             />
 
@@ -147,4 +145,3 @@ export default function ServicesIndexScreen() {
         </ProfileGate>
     );
 }
-
