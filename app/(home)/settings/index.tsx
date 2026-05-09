@@ -124,6 +124,16 @@ export default function SettingsIndexScreen() {
                         title="Profile"
                         onPress={() => router.push('/settings/profile')}
                     />
+                    <Row
+                        icon={<FileText color={theme[700]} size={18} />}
+                        title="Billing"
+                        onPress={() => router.push('/settings/billing')}
+                    />
+                    <Row
+                        icon={<LogOut color={theme[700]} size={18} />}
+                        title="Account"
+                        onPress={() => router.push('/settings/account')}
+                    />
 
                     <View style={{ paddingHorizontal: 16, marginTop: 24, marginBottom: 8 }}>
                         <SectionLabel label="Preferences" />
