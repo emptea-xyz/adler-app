@@ -3,6 +3,7 @@ import { View, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
+import { BriefcaseBusiness } from 'lucide-react-native';
 import { ThemedText } from '@/components/base/ThemedText';
 import { ThemedView } from '@/components/base/ThemedView';
 import { SectionLabel } from '@/components/base/SectionLabel';
@@ -147,6 +148,27 @@ export default function ProfileScreen() {
           </View>
         </ScrollView>
       </SafeAreaView>
+
+      {!isCreator ? (
+        <View
+          style={{
+            position: 'absolute',
+            right: 16,
+            bottom: TAB_BAR_HEIGHT + 24,
+          }}
+          pointerEvents="box-none"
+        >
+          <Button
+            title="My gigs"
+            size="sm"
+            onPress={() => {
+              haptic('light');
+              router.push('/gigs');
+            }}
+            leftIcon={<BriefcaseBusiness size={14} color={theme[50]} />}
+          />
+        </View>
+      ) : null}
 
       <EditProfileSheet visible={editOpen} onClose={() => setEditOpen(false)} />
     </ThemedView>
