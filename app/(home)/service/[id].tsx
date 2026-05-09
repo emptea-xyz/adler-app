@@ -271,11 +271,21 @@ export default function ServiceDetailScreen() {
             </ScrollView>
 
             {showBuyCta && (
-              <CtaFooter helperText="Checkout lands with escrow in Step 4.">
+              <CtaFooter helperText="Funds are held in escrow until delivery approval.">
                 <Button
-                  title="Coming soon"
-                  onPress={() => {}}
-                  disabled
+                  title={`Buy for ${formatSol(service.priceSol)} SOL`}
+                  onPress={() => {
+                    router.push({
+                      pathname: '/checkout',
+                      params: {
+                        type: 'service',
+                        listingId: service.id,
+                        sellerId: service.sellerId,
+                        amountSol: String(service.priceSol),
+                        title: service.title,
+                      },
+                    });
+                  }}
                   variant="primary"
                   size="lg"
                   className="w-full"

@@ -3,6 +3,7 @@ import { View, ActivityIndicator, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
+import { useEmbeddedSolanaWallet } from '@privy-io/expo';
 import { ThemedText } from '@/components/base/ThemedText';
 import { ThemedView } from '@/components/base/ThemedView';
 import { ScreenHeader } from '@/components/base/ScreenHeader';
@@ -12,7 +13,7 @@ import { KPI } from '@/components/ui/KPI';
 import { CtaFooter } from '@/components/ui/CtaFooter';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useSolanaPayment } from '@/hooks/useSolanaPayment';
+import { runBuyAction } from '@/components/features/marketplace/BuyAction';
 import { formatSol, parseSolAmount } from '@/lib/utils/formatNumber';
 import { qk } from '@/lib/constants/queryKeys';
 import { toast } from '@/lib/utils/toast';
@@ -35,15 +36,22 @@ export default function CheckoutScreen() {
     title: string;
   }>();
   const { user } = useAuth();
+  const solana = useEmbeddedSolanaWallet();
+  const wallet = solana.wallets?.[0];
   const { theme } = useTheme();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { pay, walletAddress, ready } = useSolanaPayment();
+  const walletAddress = wallet?.address ?? null;
+  const ready = !!wallet;
 
   const [submitting, setSubmitting] = useState(false);
   const amountSol = parseSolAmount(params.amountSol ?? '') ?? 0;
 
   const onConfirm = useCallback(async () => {
+    if (!user || !walletAddress || !wallet) {
+      toast.error('Wallet not ready yet');
+      return;
+    }
     if (!ready) {
       toast.error('Wallet not ready yet');
       return;
@@ -51,12 +59,17 @@ export default function CheckoutScreen() {
     haptic('medium');
     setSubmitting(true);
     try {
-      const { signature } = await pay({
-        type: params.type,
-        listingId: params.listingId,
-        listingTitle: params.title,
+      const provider = await wallet.getProvider();
+      const { signature } = await runBuyAction({
+        buyerId: user.id,
+        buyerWalletAddress: walletAddress,
+        provider,
         sellerId: params.sellerId,
+        listingId: params.listingId,
+        listingTitle: params.title ?? null,
         amountSol,
+        type: params.type,
+        queryClient,
       });
       if (user) {
         queryClient.invalidateQueries({ queryKey: qk.orders.byBuyer(user.id) });
@@ -68,7 +81,7 @@ export default function CheckoutScreen() {
       toast.error(err?.message ?? 'Payment failed');
       setSubmitting(false);
     }
-  }, [pay, params, amountSol, ready, queryClient, router, user]);
+  }, [amountSol, params, queryClient, ready, router, user, wallet, walletAddress]);
 
   const isDevnet = SOLANA_NETWORK === 'devnet';
   const networkCaption = isDevnet

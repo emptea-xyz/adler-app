@@ -1,5 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Reanimated from 'react-native-reanimated';
+import type { SharedValue } from 'react-native-reanimated';
 import { STORAGE_KEYS } from '@/lib/constants/storageKeys';
 import type { ViewMode } from '@/lib/types/profile';
 import { useUser } from '@/contexts/UserContext';
@@ -8,6 +10,7 @@ interface ViewModeContextType {
     viewMode: ViewMode;
     availableModes: ViewMode[];
     setViewMode: (mode: ViewMode) => Promise<void>;
+    isTransitioning: SharedValue<boolean>;
 }
 
 const ViewModeContext = createContext<ViewModeContextType | null>(null);
@@ -26,6 +29,7 @@ export function ViewModeProvider({ children }: { children: React.ReactNode }) {
         [profile?.isCreator, profile?.isBrand],
     );
     const [viewMode, setViewModeState] = useState<ViewMode>('creator');
+    const isTransitioning = Reanimated.useSharedValue(false);
 
     useEffect(() => {
         let cancelled = false;
@@ -53,15 +57,19 @@ export function ViewModeProvider({ children }: { children: React.ReactNode }) {
     const setViewMode = useCallback(
         async (mode: ViewMode) => {
             if (!availableModes.includes(mode)) return;
+            isTransitioning.value = true;
             setViewModeState(mode);
             await AsyncStorage.setItem(STORAGE_KEYS.VIEW_MODE, mode).catch(() => {});
+            setTimeout(() => {
+                isTransitioning.value = false;
+            }, 300);
         },
-        [availableModes],
+        [availableModes, isTransitioning],
     );
 
     const value = useMemo(
-        () => ({ viewMode, availableModes, setViewMode }),
-        [viewMode, availableModes, setViewMode],
+        () => ({ viewMode, availableModes, setViewMode, isTransitioning }),
+        [viewMode, availableModes, setViewMode, isTransitioning],
     );
 
     return (

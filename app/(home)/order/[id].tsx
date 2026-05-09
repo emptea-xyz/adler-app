@@ -1,8 +1,8 @@
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import { View, ScrollView, ActivityIndicator, Linking, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Star } from 'lucide-react-native';
 import { ThemedText } from '@/components/base/ThemedText';
 import { ThemedView } from '@/components/base/ThemedView';
@@ -17,8 +17,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import {
   getOrder,
-  markOrderComplete,
-  markOrderDelivered,
 } from '@/lib/services/ordersService';
 import {
   listReviewsForOrder,
@@ -28,7 +26,6 @@ import { formatSol } from '@/lib/utils/formatNumber';
 import { qk } from '@/lib/constants/queryKeys';
 import { explorerTxUrl } from '@/lib/solana/connection';
 import { haptic } from '@/lib/utils/haptic';
-import { toast } from '@/lib/utils/toast';
 import type { OrderStatus, Review } from '@/types/marketplace';
 
 function statusToIntent(status: OrderStatus): PillIntent {
@@ -52,8 +49,6 @@ export default function OrderDetailScreen() {
   const { user } = useAuth();
   const { theme } = useTheme();
   const router = useRouter();
-  const queryClient = useQueryClient();
-  const [updating, setUpdating] = useState(false);
 
   const { data: order, isLoading } = useQuery({
     queryKey: id ? qk.orders.detail(id) : ['orders', 'detail', 'unknown'],
@@ -63,8 +58,6 @@ export default function OrderDetailScreen() {
 
   const isSeller = !!user && order?.sellerId === user.id;
   const isBuyer = !!user && order?.buyerId === user.id;
-  const canMarkDelivered = isSeller && order?.status === 'paid';
-  const canConfirmComplete = isBuyer && order?.status === 'delivered';
 
   const reviewsQuery = useQuery({
     queryKey: order?.id ? ['reviews', 'forOrder', order.id] : ['reviews', 'forOrder', 'unknown'],
@@ -94,35 +87,6 @@ export default function OrderDetailScreen() {
     !!user && !!order && order.status === 'complete' && !myReview && !!counterpartyId;
   const [reviewSheet, setReviewSheet] = useState(false);
 
-  const transitionTo = useCallback(
-    async (next: 'delivered' | 'complete', successMessage: string) => {
-      if (!order) return;
-      haptic('medium');
-      setUpdating(true);
-      try {
-        if (next === 'delivered') {
-          await markOrderDelivered(order.id);
-        } else {
-          await markOrderComplete(order.id);
-        }
-        haptic('heavy');
-        toast.success(successMessage);
-        queryClient.invalidateQueries({ queryKey: qk.orders.detail(order.id) });
-        if (order.buyerId) {
-          queryClient.invalidateQueries({ queryKey: qk.orders.byBuyer(order.buyerId) });
-        }
-        if (order.sellerId) {
-          queryClient.invalidateQueries({ queryKey: qk.orders.bySeller(order.sellerId) });
-        }
-      } catch (err: any) {
-        toast.error(err?.message ?? 'Update failed');
-      } finally {
-        setUpdating(false);
-      }
-    },
-    [order, queryClient],
-  );
-
   return (
     <ThemedView className="flex-1">
       <SafeAreaView edges={['top']} className="flex-1">
@@ -145,7 +109,7 @@ export default function OrderDetailScreen() {
                 paddingHorizontal: 16,
                 paddingTop: 8,
                 paddingBottom:
-                  canMarkDelivered || canConfirmComplete
+                  canLeaveReview || isBuyer || isSeller
                     ? 200
                     : order.txSignature
                       ? 134
@@ -313,31 +277,9 @@ export default function OrderDetailScreen() {
               )}
             </ScrollView>
 
-            {(canMarkDelivered || canConfirmComplete || canLeaveReview) ? (
+            {(canLeaveReview || isBuyer || isSeller) ? (
               <CtaFooter>
                 <View style={{ gap: 8 }}>
-                  {canMarkDelivered && (
-                    <Button
-                      title="Mark as delivered"
-                      variant="primary"
-                      size="lg"
-                      className="w-full"
-                      loading={updating}
-                      disabled={updating}
-                      onPress={() => transitionTo('delivered', 'Marked as delivered')}
-                    />
-                  )}
-                  {canConfirmComplete && (
-                    <Button
-                      title="Confirm receipt"
-                      variant="primary"
-                      size="lg"
-                      className="w-full"
-                      loading={updating}
-                      disabled={updating}
-                      onPress={() => transitionTo('complete', 'Order complete')}
-                    />
-                  )}
                   {canLeaveReview && (
                     <Button
                       title="Leave a review"
@@ -350,6 +292,15 @@ export default function OrderDetailScreen() {
                       }}
                     />
                   )}
+                  {(isBuyer || isSeller) ? (
+                    <Button
+                      title="Open thread"
+                      variant="secondary"
+                      size="default"
+                      className="w-full"
+                      onPress={() => router.push(`/inbox/order_${order.id}`)}
+                    />
+                  ) : null}
                   {order.txSignature && (
                     <Button
                       title="View on Solana Explorer"

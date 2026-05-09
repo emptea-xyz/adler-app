@@ -5,6 +5,8 @@ import { useUser } from '@/contexts/UserContext';
 import { LoadingScreen } from '@/components/base/LoadingScreen';
 import { OverlaySheetsProvider } from '@/contexts/OverlaySheetsContext';
 import { ProfileGate } from '@/components/base/ProfileGate';
+import { RoleSwitchOverlay } from '@/components/features/role/RoleSwitchOverlay';
+import { RecoverPendingOrders } from '@/components/features/marketplace/RecoverPendingOrders';
 
 export default function HomeLayout() {
   const { user, isReady, isBridging } = useAuth();
@@ -16,6 +18,8 @@ export default function HomeLayout() {
   return (
     <ProfileGate require="both">
       <OverlaySheetsProvider>
+        <RoleSwitchOverlay />
+        <RecoverPendingOrders />
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="service/[id]" options={{ presentation: 'card' }} />

@@ -503,7 +503,7 @@ export default function ThreadScreen() {
                                     ) : null}
                                     {canRequestRevision ? (
                                         <Button
-                                            title={revisionsExhausted ? 'Open dispute' : `Request revision (${revisionsUsed}/${REVISION_CAP})`}
+                                            title={revisionsExhausted ? 'Open dispute' : `Request revision (${Math.min(revisionsUsed + 1, REVISION_CAP)} of ${REVISION_CAP})`}
                                             size="sm"
                                             variant="secondary"
                                             onPress={() => runSend(revisionsExhausted ? 'dispute' : 'revision')}
