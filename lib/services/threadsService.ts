@@ -1,11 +1,104 @@
-// Stub. Implemented in step 3 (Authoring + applications + threads). Until
-// then any consumer that imports a thread function will throw at runtime
-// — but the type signatures resolve so the typecheck stays clean.
+import {
+    addDoc,
+    collection,
+    doc,
+    getDoc,
+    getDocs,
+    orderBy,
+    query,
+    serverTimestamp,
+    setDoc,
+    updateDoc,
+    where,
+} from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase/config';
+import {
+    MESSAGE_ATTACHMENTS_MAX,
+    MESSAGE_BODY_MAX,
+    MESSAGE_PREVIEW_MAX,
+    type Message,
+    type MessageKind,
+    type ParticipantSnapshot,
+    type Thread,
+    type ThreadKind,
+} from '@/lib/types/thread';
+import { tsMs } from '@/lib/utils/firestoreTimestamp';
 
-import type { Message, Thread, ThreadKind } from '@/lib/types/thread';
+const THREADS = 'threads';
 
-const NOT_IMPLEMENTED = (fn: string) =>
-    new Error(`threadsService.${fn} is not implemented yet (step 3).`);
+function truncatePreview(body: string): string {
+    const trimmed = body.trim();
+    if (!trimmed) return '';
+    return trimmed.length <= MESSAGE_PREVIEW_MAX
+        ? trimmed
+        : `${trimmed.slice(0, MESSAGE_PREVIEW_MAX - 1)}…`;
+}
+
+function readParticipantSnapshot(value: unknown): ParticipantSnapshot {
+    const map = (value as Record<string, unknown> | undefined) ?? {};
+    return {
+        handle: typeof map.handle === 'string' ? map.handle : null,
+        displayName: typeof map.displayName === 'string' ? map.displayName : null,
+        avatarUrl: typeof map.avatarUrl === 'string' ? map.avatarUrl : null,
+    };
+}
+
+function readUnread(value: unknown): Record<string, number> {
+    if (!value || typeof value !== 'object') return {};
+    const map = value as Record<string, unknown>;
+    const out: Record<string, number> = {};
+    Object.entries(map).forEach(([key, raw]) => {
+        out[key] = typeof raw === 'number' ? raw : 0;
+    });
+    return out;
+}
+
+function readSnapshots(value: unknown): Record<string, ParticipantSnapshot> {
+    if (!value || typeof value !== 'object') return {};
+    const map = value as Record<string, unknown>;
+    const out: Record<string, ParticipantSnapshot> = {};
+    Object.entries(map).forEach(([uid, raw]) => {
+        out[uid] = readParticipantSnapshot(raw);
+    });
+    return out;
+}
+
+function rowToThread(id: string, data: Record<string, unknown>): Thread {
+    const participants = Array.isArray(data.participants)
+        ? data.participants.filter((v): v is string => typeof v === 'string')
+        : [];
+    return {
+        id,
+        kind: ((data.kind as ThreadKind | undefined) ?? 'application') as ThreadKind,
+        parentId: (data.parentId as string) ?? '',
+        parentTitle: (data.parentTitle as string | undefined) ?? null,
+        participants,
+        participantSnapshots: readSnapshots(data.participantSnapshots),
+        lastMessageAt: tsMs(data.lastMessageAt),
+        lastMessagePreview: (data.lastMessagePreview as string) ?? '',
+        lastMessageSenderId: (data.lastMessageSenderId as string | undefined) ?? null,
+        unreadCount: readUnread(data.unreadCount),
+        createdAt: tsMs(data.createdAt),
+        updatedAt: tsMs(data.updatedAt),
+    };
+}
+
+function rowToMessage(threadId: string, id: string, data: Record<string, unknown>): Message {
+    const attachments = Array.isArray(data.attachments)
+        ? data.attachments.filter((v): v is string => typeof v === 'string')
+        : [];
+    return {
+        id,
+        threadId,
+        senderId: (data.senderId as string) ?? '',
+        kind: ((data.kind as MessageKind | undefined) ?? 'text') as MessageKind,
+        body: (data.body as string) ?? '',
+        attachments,
+        createdAt: tsMs(data.createdAt),
+        escrowTxSignature: (data.escrowTxSignature as string | undefined) ?? null,
+        escrowTxConfirmedAt: data.escrowTxConfirmedAt == null ? null : tsMs(data.escrowTxConfirmedAt),
+    };
+}
 
 export function threadIdFor(kind: ThreadKind, parentId: string): string {
     return `${kind}_${parentId}`;
@@ -19,10 +112,82 @@ export interface CreateApplicationThreadInput {
     pitchBody?: string;
 }
 
-export async function createApplicationThread(
-    _input: CreateApplicationThreadInput,
-): Promise<string> {
-    throw NOT_IMPLEMENTED('createApplicationThread');
+async function ensureThread(input: {
+    id: string;
+    kind: ThreadKind;
+    parentId: string;
+    parentTitle: string | null;
+    participants: [string, string];
+    participantSnapshots: Record<string, ParticipantSnapshot>;
+    seedPreview?: string;
+    seedSenderId?: string | null;
+}): Promise<{ id: string; created: boolean }> {
+    const ref = doc(db, THREADS, input.id);
+    const existing = await getDoc(ref);
+    if (existing.exists()) return { id: input.id, created: false };
+
+    const seedPreview = truncatePreview(input.seedPreview ?? '');
+    await setDoc(ref, {
+        kind: input.kind,
+        parentId: input.parentId,
+        parentTitle: input.parentTitle ?? null,
+        participants: input.participants,
+        participantSnapshots: input.participantSnapshots,
+        lastMessageAt: serverTimestamp(),
+        lastMessagePreview: seedPreview,
+        lastMessageSenderId: input.seedSenderId ?? null,
+        unreadCount: {
+            [input.participants[0]]: 0,
+            [input.participants[1]]: 0,
+        },
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+    });
+    return { id: input.id, created: true };
+}
+
+export async function createApplicationThread(input: CreateApplicationThreadInput): Promise<string> {
+    const id = threadIdFor('application', input.applicationId);
+    const participants: [string, string] = [input.creator.uid, input.brand.uid];
+    const snapshots: Record<string, ParticipantSnapshot> = {
+        [input.creator.uid]: {
+            handle: input.creator.handle,
+            displayName: input.creator.displayName,
+            avatarUrl: input.creator.avatarUrl,
+        },
+        [input.brand.uid]: {
+            handle: input.brand.handle,
+            displayName: input.brand.displayName,
+            avatarUrl: input.brand.avatarUrl,
+        },
+    };
+
+    const seeded = await ensureThread({
+        id,
+        kind: 'application',
+        parentId: input.applicationId,
+        parentTitle: input.gigTitle ?? null,
+        participants,
+        participantSnapshots: snapshots,
+        seedPreview: input.pitchBody ?? '',
+        seedSenderId: input.pitchBody?.trim() ? input.creator.uid : null,
+    });
+
+    if (seeded.created && input.pitchBody?.trim()) {
+        const messageRef = collection(db, THREADS, id, 'messages');
+        await addDoc(messageRef, {
+            threadId: id,
+            senderId: input.creator.uid,
+            kind: 'text' as MessageKind,
+            body: input.pitchBody.trim(),
+            attachments: [],
+            escrowTxSignature: null,
+            escrowTxConfirmedAt: null,
+            createdAt: serverTimestamp(),
+        });
+    }
+
+    return id;
 }
 
 export interface CreateOrderThreadInput {
@@ -32,22 +197,54 @@ export interface CreateOrderThreadInput {
     seller: { uid: string; handle: string | null; displayName: string | null; avatarUrl: string | null };
 }
 
-export async function createOrderThread(
-    _input: CreateOrderThreadInput,
-): Promise<string> {
-    throw NOT_IMPLEMENTED('createOrderThread');
+export async function createOrderThread(input: CreateOrderThreadInput): Promise<string> {
+    const id = threadIdFor('order', input.orderId);
+    const participants: [string, string] = [input.buyer.uid, input.seller.uid];
+    const snapshots: Record<string, ParticipantSnapshot> = {
+        [input.buyer.uid]: {
+            handle: input.buyer.handle,
+            displayName: input.buyer.displayName,
+            avatarUrl: input.buyer.avatarUrl,
+        },
+        [input.seller.uid]: {
+            handle: input.seller.handle,
+            displayName: input.seller.displayName,
+            avatarUrl: input.seller.avatarUrl,
+        },
+    };
+    await ensureThread({
+        id,
+        kind: 'order',
+        parentId: input.orderId,
+        parentTitle: input.parentTitle,
+        participants,
+        participantSnapshots: snapshots,
+    });
+    return id;
 }
 
-export async function listMyThreads(_uid: string): Promise<Thread[]> {
-    throw NOT_IMPLEMENTED('listMyThreads');
+export async function listMyThreads(uid: string): Promise<Thread[]> {
+    const snap = await getDocs(
+        query(
+            collection(db, THREADS),
+            where('participants', 'array-contains', uid),
+            orderBy('lastMessageAt', 'desc'),
+        ),
+    );
+    return snap.docs.map((row) => rowToThread(row.id, row.data() as Record<string, unknown>));
 }
 
-export async function getThread(_threadId: string): Promise<Thread | null> {
-    throw NOT_IMPLEMENTED('getThread');
+export async function getThread(threadId: string): Promise<Thread | null> {
+    const snap = await getDoc(doc(db, THREADS, threadId));
+    if (!snap.exists()) return null;
+    return rowToThread(snap.id, snap.data() as Record<string, unknown>);
 }
 
-export async function listMessages(_threadId: string): Promise<Message[]> {
-    throw NOT_IMPLEMENTED('listMessages');
+export async function listMessages(threadId: string): Promise<Message[]> {
+    const snap = await getDocs(
+        query(collection(db, THREADS, threadId, 'messages'), orderBy('createdAt', 'asc')),
+    );
+    return snap.docs.map((row) => rowToMessage(threadId, row.id, row.data() as Record<string, unknown>));
 }
 
 export interface SendMessageInput {
@@ -55,14 +252,43 @@ export interface SendMessageInput {
     kind?: 'text' | 'deliverable' | 'revision_request' | 'approval' | 'system';
     body: string;
     attachments?: string[];
+    escrowTxSignature?: string | null;
+    escrowTxConfirmedAt?: number | null;
 }
 
-export async function sendMessage(_input: SendMessageInput): Promise<string> {
-    throw NOT_IMPLEMENTED('sendMessage');
+export async function sendMessage(input: SendMessageInput): Promise<string> {
+    const uid = auth.currentUser?.uid;
+    if (!uid) throw new Error('Not signed in');
+
+    const body = input.body.trim();
+    if (!body) throw new Error('Message body is required');
+    if (body.length > MESSAGE_BODY_MAX) throw new Error(`Message must be ${MESSAGE_BODY_MAX} characters or less`);
+
+    const attachments = (input.attachments ?? []).filter((value) => value.trim().length > 0);
+    if (attachments.length > MESSAGE_ATTACHMENTS_MAX) {
+        throw new Error(`Add up to ${MESSAGE_ATTACHMENTS_MAX} attachments`);
+    }
+
+    const ref = await addDoc(collection(db, THREADS, input.threadId, 'messages'), {
+        threadId: input.threadId,
+        senderId: uid,
+        kind: (input.kind ?? 'text') as MessageKind,
+        body,
+        attachments,
+        escrowTxSignature: input.escrowTxSignature ?? null,
+        escrowTxConfirmedAt: input.escrowTxConfirmedAt ?? null,
+        createdAt: serverTimestamp(),
+    });
+    return ref.id;
 }
 
-export async function markThreadRead(_threadId: string): Promise<void> {
-    throw NOT_IMPLEMENTED('markThreadRead');
+export async function markThreadRead(threadId: string): Promise<void> {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
+    await updateDoc(doc(db, THREADS, threadId), {
+        [`unreadCount.${uid}`]: 0,
+        updatedAt: serverTimestamp(),
+    });
 }
 
 export interface SubmitDeliverableInput {
@@ -74,10 +300,14 @@ export interface SubmitDeliverableInput {
     escrowTxSignature?: string;
 }
 
-export async function submitDeliverable(
-    _input: SubmitDeliverableInput,
-): Promise<void> {
-    throw NOT_IMPLEMENTED('submitDeliverable');
+export async function submitDeliverable(input: SubmitDeliverableInput): Promise<void> {
+    await sendMessage({
+        threadId: input.threadId,
+        kind: 'deliverable',
+        body: input.body,
+        attachments: input.attachments,
+        escrowTxSignature: input.escrowTxSignature ?? null,
+    });
 }
 
 export interface RequestRevisionInput {
@@ -85,10 +315,12 @@ export interface RequestRevisionInput {
     body: string;
 }
 
-export async function requestRevision(
-    _input: RequestRevisionInput,
-): Promise<void> {
-    throw NOT_IMPLEMENTED('requestRevision');
+export async function requestRevision(input: RequestRevisionInput): Promise<void> {
+    await sendMessage({
+        threadId: input.threadId,
+        kind: 'revision_request',
+        body: input.body,
+    });
 }
 
 export interface ApproveDeliverableInput {
@@ -99,10 +331,13 @@ export interface ApproveDeliverableInput {
     escrowTxSignature?: string;
 }
 
-export async function approveDeliverable(
-    _input: ApproveDeliverableInput,
-): Promise<void> {
-    throw NOT_IMPLEMENTED('approveDeliverable');
+export async function approveDeliverable(input: ApproveDeliverableInput): Promise<void> {
+    await sendMessage({
+        threadId: input.threadId,
+        kind: 'approval',
+        body: input.body?.trim() ? input.body : 'Approved.',
+        escrowTxSignature: input.escrowTxSignature ?? null,
+    });
 }
 
 export function countRevisionRequests(messages: Message[]): number {

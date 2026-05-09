@@ -11,6 +11,7 @@ import {
   createApplication,
   listApplicationsByCreator,
 } from '@/lib/services/applicationsService';
+import { createApplicationThread } from '@/lib/services/threadsService';
 import { qk } from '@/lib/constants/queryKeys';
 import { toast } from '@/lib/utils/toast';
 import { haptic } from '@/lib/utils/haptic';
@@ -99,6 +100,10 @@ export function ApplySheet({ visible, onClose, gig }: Props) {
         toast.error('Write a short message about why you fit this gig');
         return;
       }
+      if (!user?.id) {
+        toast.error('Sign-in required');
+        return;
+      }
       if (alreadyApplied) {
         toast.error('You have already applied to this gig');
         return;
@@ -114,7 +119,7 @@ export function ApplySheet({ visible, onClose, gig }: Props) {
       }
       setSubmitting(true);
       try {
-        await createApplication({
+        const applicationId = await createApplication({
           gigId: gig.id,
           brandId: gig.brandId,
           message: message.trim(),
@@ -126,9 +131,27 @@ export function ApplySheet({ visible, onClose, gig }: Props) {
           creatorAvatarUrl: profile?.avatarUrl ?? null,
           sampleUrls: normalizedSamples.urls,
         });
+        await createApplicationThread({
+          applicationId,
+          gigTitle: gig.title,
+          pitchBody: message.trim(),
+          creator: {
+            uid: user.id,
+            handle: profile?.username ?? null,
+            displayName: profile?.displayName ?? null,
+            avatarUrl: profile?.avatarUrl ?? null,
+          },
+          brand: {
+            uid: gig.brandId,
+            handle: gig.ownerHandle,
+            displayName: gig.ownerDisplayName,
+            avatarUrl: gig.ownerAvatarUrl,
+          },
+        }).catch(() => null);
         queryClient.invalidateQueries({ queryKey: ['applications', 'gig', gig.id] });
         if (user) {
           queryClient.invalidateQueries({ queryKey: qk.applications.byCreator(user.id) });
+          queryClient.invalidateQueries({ queryKey: qk.threads.byParticipant(user.id) });
         }
         haptic('medium');
         toast.success('Application submitted');
