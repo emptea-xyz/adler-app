@@ -79,9 +79,19 @@ export default function ProfileScreen() {
             >
               <SectionLabel label={listingsTitle} />
               {listings.length > 0 ? (
-                <ThemedText type="caption-semibold" style={{ color: theme[500] }}>
-                  {listings.length}
-                </ThemedText>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  {!isCreator ? (
+                    <Button
+                      title="Manage"
+                      size="sm"
+                      variant="secondary"
+                      onPress={() => router.push('/gigs')}
+                    />
+                  ) : null}
+                  <ThemedText type="caption-semibold" style={{ color: theme[500] }}>
+                    {listings.length}
+                  </ThemedText>
+                </View>
               ) : null}
             </View>
 
