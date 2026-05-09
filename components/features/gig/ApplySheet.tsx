@@ -59,6 +59,13 @@ function normalizeSampleUrls(values: string[]): { urls: string[]; error: string 
   return { urls, error: null };
 }
 
+function applyErrorMessage(err: unknown): string {
+  const message = err instanceof Error ? err.message : '';
+  if (/already applied/i.test(message)) return 'You have already applied to this gig';
+  if (/permission|insufficient/i.test(message)) return 'Could not apply. Check your creator profile and try again.';
+  return message || 'Failed to apply';
+}
+
 export function ApplySheet({ visible, onClose, gig }: Props) {
   const { user } = useAuth();
   const { profile } = useUser();
@@ -102,6 +109,10 @@ export function ApplySheet({ visible, onClose, gig }: Props) {
       }
       if (!user?.id) {
         toast.error('Sign-in required');
+        return;
+      }
+      if (!profile?.isCreator) {
+        toast.error('Finish your creator profile before applying');
         return;
       }
       if (alreadyApplied) {
@@ -157,7 +168,7 @@ export function ApplySheet({ visible, onClose, gig }: Props) {
         toast.success('Application submitted');
         closeFn();
       } catch (err: any) {
-        toast.error(err?.message ?? 'Failed to apply');
+        toast.error(applyErrorMessage(err));
         setSubmitting(false);
       }
     },

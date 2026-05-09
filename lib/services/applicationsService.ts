@@ -146,6 +146,10 @@ export async function createApplication(
     const uid = auth.currentUser?.uid;
     if (!uid) throw new Error('Not signed in');
     const id = applicationIdFor(input.gigId, uid);
+    const existing = await getDoc(doc(db, COLLECTION, id));
+    if (existing.exists()) {
+        throw new Error('You have already applied to this gig');
+    }
     // setDoc against a deterministic id. If a doc already exists it falls
     // under update rules (brand-only) and the rule rejects it — that's the
     // anti-double-apply guarantee.

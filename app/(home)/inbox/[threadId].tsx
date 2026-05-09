@@ -51,6 +51,7 @@ import {
     MESSAGE_BODY_MAX,
     REVISION_CAP,
     type Message,
+    type Thread,
 } from '@/lib/types/thread';
 import {
     DISPUTE_OUTCOME_LABEL,
@@ -127,7 +128,19 @@ export default function ThreadScreen() {
         if (!threadId || !user?.id || !threadQuery.data) return;
         if ((threadQuery.data.unreadCount[user.id] ?? 0) < 1) return;
         markThreadRead(threadId)
-            .then(() => queryClient.invalidateQueries({ queryKey: qk.threads.byParticipant(user.id) }))
+            .then(() => {
+                queryClient.setQueryData<Thread | null>(qk.threads.detail(threadId), (current) => {
+                    if (!current) return current;
+                    return {
+                        ...current,
+                        unreadCount: {
+                            ...current.unreadCount,
+                            [user.id]: 0,
+                        },
+                    };
+                });
+                return queryClient.invalidateQueries({ queryKey: qk.threads.byParticipant(user.id) });
+            })
             .catch(() => null);
     }, [threadId, threadQuery.data, user?.id, queryClient]);
 

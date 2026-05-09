@@ -80,9 +80,13 @@ export default function ApplicantsScreen() {
             }
             await Promise.all([
                 queryClient.invalidateQueries({ queryKey: APPLICATION_KEYS.forGig(gigId) }),
+                queryClient.invalidateQueries({ queryKey: qk.applications.byCreator(application.creatorId) }),
                 queryClient.invalidateQueries({ queryKey: qk.applications.byBrand(user.id) }),
+                queryClient.invalidateQueries({ queryKey: qk.threads.byParticipant(application.creatorId) }),
+                queryClient.invalidateQueries({ queryKey: qk.threads.byParticipant(user.id) }),
                 queryClient.invalidateQueries({ queryKey: qk.listings.detail('gig', gigId) }),
                 queryClient.invalidateQueries({ queryKey: qk.listings.byOwner('gig', user.id) }),
+                queryClient.invalidateQueries({ queryKey: qk.listings.list('gig', null) }),
             ]);
         } catch (err: any) {
             toast.error(err?.message ?? 'Could not update application');
@@ -172,9 +176,19 @@ export default function ApplicantsScreen() {
                                             <ThemedText type="body-sm" style={{ color: theme[950] }}>
                                                 {application.message}
                                             </ThemedText>
-                                            <ThemedText type="caption" style={{ color: theme[500] }}>
-                                                {application.sampleUrls.length} sample links
-                                            </ThemedText>
+                                            {application.sampleUrls.length > 0 ? (
+                                                <View style={{ gap: 4 }}>
+                                                    {application.sampleUrls.map((url) => (
+                                                        <ThemedText key={url} type="caption" style={{ color: theme[500] }} numberOfLines={1}>
+                                                            {url}
+                                                        </ThemedText>
+                                                    ))}
+                                                </View>
+                                            ) : (
+                                                <ThemedText type="caption" style={{ color: theme[500] }}>
+                                                    No sample links
+                                                </ThemedText>
+                                            )}
 
                                             {closed ? (
                                                 <ThemedText type="caption" style={{ color: theme[500] }}>
