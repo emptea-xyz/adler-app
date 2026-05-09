@@ -33,6 +33,7 @@ export default function HomeLayout() {
           <Stack.Screen name="applications" options={{ presentation: 'card' }} />
           <Stack.Screen name="applicants" options={{ presentation: 'card' }} />
           <Stack.Screen name="checkout" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="wallet" options={{ presentation: 'card' }} />
           <Stack.Screen name="order/[id]" options={{ presentation: 'card' }} />
           <Stack.Screen name="profile/[id]" options={{ presentation: 'card' }} />
           <Stack.Screen name="settings" />

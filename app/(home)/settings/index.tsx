@@ -117,7 +117,7 @@ export default function SettingsIndexScreen() {
                     <Row
                         icon={<Wallet color={theme[700]} size={18} />}
                         title="Wallet"
-                        onPress={() => router.push('/settings/wallet')}
+                        onPress={() => router.push('/wallet')}
                     />
                     <Row
                         icon={<UserCog color={theme[700]} size={18} />}
