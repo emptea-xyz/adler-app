@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { MoreHorizontal } from 'lucide-react-native';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import { ThemedText } from '@/components/base/ThemedText';
 import { ThemedView } from '@/components/base/ThemedView';
 import { ScreenHeader } from '@/components/base/ScreenHeader';
@@ -32,6 +33,61 @@ const GALLERY_HEIGHT = 280;
 function isVideoUrl(url: string): boolean {
   const value = url.toLowerCase();
   return value.includes('.mp4') || value.includes('.mov') || value.includes('.webm');
+}
+
+function ServiceVideoSlide({
+  uri,
+  width,
+  overlay,
+}: {
+  uri: string;
+  width: number;
+  overlay: Service['overlay'] | null | undefined;
+}) {
+  const { theme } = useTheme();
+  const player = useVideoPlayer({ uri }, (p) => {
+    p.loop = true;
+    p.play();
+  });
+
+  return (
+    <View
+      style={{
+        width,
+        height: GALLERY_HEIGHT,
+        backgroundColor: theme[950],
+      }}
+    >
+      <VideoView
+        player={player}
+        nativeControls={false}
+        contentFit="cover"
+        style={{ width: '100%', height: '100%' }}
+      />
+      {overlay?.text ? (
+        <View
+          style={{
+            position: 'absolute',
+            left: 24,
+            right: 24,
+            top: 24,
+            alignItems: 'center',
+          }}
+        >
+          <ThemedText
+            type="body-lg-semibold"
+            style={{
+              color: overlay.color || theme[50],
+              transform: [{ scale: overlay.scale ?? 1 }],
+              textAlign: 'center',
+            }}
+          >
+            {overlay.text}
+          </ThemedText>
+        </View>
+      ) : null}
+    </View>
+  );
 }
 
 export default function ServiceDetailScreen() {
@@ -120,36 +176,11 @@ export default function ServiceDetailScreen() {
                     keyExtractor={(uri, i) => `${uri}-${i}`}
                     renderItem={({ item }) => (
                       isVideoUrl(item) ? (
-                        <View
-                          style={{
-                            width: screenWidth,
-                            height: GALLERY_HEIGHT,
-                            backgroundColor: theme[950],
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            paddingHorizontal: 24,
-                            gap: 6,
-                          }}
-                        >
-                          <ThemedText type="body-md-semibold" style={{ color: theme[50] }}>
-                            Studio clip attached
-                          </ThemedText>
-                          {service.overlay?.text ? (
-                            <ThemedText
-                              type="body-md-semibold"
-                              style={{
-                                color: service.overlay.color || theme[50],
-                                transform: [{ scale: service.overlay.scale ?? 1 }],
-                              }}
-                            >
-                              {service.overlay.text}
-                            </ThemedText>
-                          ) : (
-                            <ThemedText type="caption" style={{ color: theme[200] }}>
-                              Playback preview lands in the next studio slice.
-                            </ThemedText>
-                          )}
-                        </View>
+                        <ServiceVideoSlide
+                          uri={item}
+                          width={screenWidth}
+                          overlay={service.overlay}
+                        />
                       ) : (
                         <Image
                           source={{ uri: item }}

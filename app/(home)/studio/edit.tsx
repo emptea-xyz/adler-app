@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import { ProfileGate } from '@/components/base/ProfileGate';
 import { ScreenHeader } from '@/components/base/ScreenHeader';
 import { SectionLabel } from '@/components/base/SectionLabel';
@@ -44,6 +45,10 @@ export default function StudioEditScreen() {
     const [overlayText, setOverlayText] = useState('');
     const [overlayColor, setOverlayColor] = useState<string>(Neutral.white);
     const [overlayScale, setOverlayScale] = useState(1);
+    const player = useVideoPlayer(uri ? { uri } : null, (p) => {
+        p.loop = true;
+        p.play();
+    });
 
     const durationLabel = useMemo(() => `${(durationMs / 1000).toFixed(1)}s`, [durationMs]);
     const sizeLabel = useMemo(() => `${(fileSizeBytes / (1024 * 1024)).toFixed(1)} MB`, [fileSizeBytes]);
@@ -71,6 +76,45 @@ export default function StudioEditScreen() {
                                 {uri}
                             </ThemedText>
                         </View>
+
+                        {uri ? (
+                            <View
+                                style={{
+                                    borderRadius: 12,
+                                    overflow: 'hidden',
+                                    backgroundColor: theme[950],
+                                    height: 300,
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
+                                }}
+                            >
+                                <VideoView
+                                    player={player}
+                                    nativeControls={false}
+                                    contentFit="cover"
+                                    style={{ width: '100%', height: '100%' }}
+                                />
+                                {overlayText.trim() ? (
+                                    <View
+                                        style={{
+                                            position: 'absolute',
+                                            paddingHorizontal: 12,
+                                            paddingVertical: 8,
+                                        }}
+                                    >
+                                        <ThemedText
+                                            type="body-lg-semibold"
+                                            style={{
+                                                color: overlayColor,
+                                                transform: [{ scale: overlayScale }],
+                                            }}
+                                        >
+                                            {overlayText.trim()}
+                                        </ThemedText>
+                                    </View>
+                                ) : null}
+                            </View>
+                        ) : null}
 
                         <View style={{ gap: 8 }}>
                             <SectionLabel label="Overlay text" />
