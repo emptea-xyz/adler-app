@@ -1,10 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { View, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
+import { Pressable, View, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { Search } from 'lucide-react-native';
+import { Plus, Search } from 'lucide-react-native';
 import type { DocumentSnapshot } from 'firebase/firestore';
+import { ThemedText } from '@/components/base/ThemedText';
 import { ThemedView } from '@/components/base/ThemedView';
 import EmptyState from '@/components/ui/EmptyState';
 import { ListingCard } from '@/components/ui/ListingCard';
@@ -21,23 +22,19 @@ import {
   SORT_BY_CHIP_LABEL,
 } from '@/components/features/browse/filterTypes';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useViewMode } from '@/contexts/ViewModeContext';
 import { useDebounce } from '@/hooks/useDebounce';
 import { listListings } from '@/lib/services/listingsService';
 import { FEED_KEYS } from '@/lib/constants/queryKeys';
 import type { FeedItem } from '@/types/marketplace';
+import type { ListingKind } from '@/lib/types/listing';
 import { TAB_BAR_HEIGHT } from '@/constants/LayoutConstants';
 import { EMPTY_BROWSE, EMPTY_BROWSE_SEARCH } from '@/lib/utils/copy';
 
 const PAGE_SIZE = 25;
 
-interface FeedPageParam {
-  servicesCursor: DocumentSnapshot | null;
-  gigsCursor: DocumentSnapshot | null;
-}
-const INITIAL_PAGE_PARAM: FeedPageParam = {
-  servicesCursor: null,
-  gigsCursor: null,
-};
+type FeedPageParam = DocumentSnapshot | null;
+const INITIAL_PAGE_PARAM: FeedPageParam = null;
 
 interface FeedPage {
   items: FeedItem[];
@@ -47,6 +44,8 @@ interface FeedPage {
 export default function BrowseScreen() {
   const { theme } = useTheme();
   const router = useRouter();
+  const { viewMode } = useViewMode();
+  const feedKind: ListingKind = viewMode === 'creator' ? 'gig' : 'service';
 
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [searchInput, setSearchInput] = useState('');
@@ -64,40 +63,22 @@ export default function BrowseScreen() {
     hasNextPage,
     isFetchingNextPage,
   } = useInfiniteQuery<FeedPage, Error, FeedPage[], readonly unknown[], FeedPageParam>({
-    queryKey: FEED_KEYS.browse(),
+    queryKey: FEED_KEYS.browse({ kind: feedKind }),
     initialPageParam: INITIAL_PAGE_PARAM,
     queryFn: async ({ pageParam }): Promise<FeedPage> => {
-      const cursors = pageParam ?? INITIAL_PAGE_PARAM;
-      const [servicesPage, gigsPage] = await Promise.all([
-        listListings({
-          kind: 'service',
-          pageSize: PAGE_SIZE,
-          cursor: cursors.servicesCursor,
-        }),
-        listListings({
-          kind: 'gig',
-          pageSize: PAGE_SIZE,
-          cursor: cursors.gigsCursor,
-        }),
-      ]);
-      const items: FeedItem[] = [
-        ...servicesPage.items
-          .filter((s) => s.kind === 'service')
-          .map((s) => ({ kind: 'service' as const, data: s as Extract<FeedItem, { kind: 'service' }>['data'] })),
-        ...gigsPage.items
-          .filter((g) => g.kind === 'gig')
-          .map((g) => ({ kind: 'gig' as const, data: g as Extract<FeedItem, { kind: 'gig' }>['data'] })),
-      ];
-      items.sort((a, b) => b.data.createdAt - a.data.createdAt);
-      const noMore = !servicesPage.nextCursor && !gigsPage.nextCursor;
+      const page = await listListings({
+        kind: feedKind,
+        pageSize: PAGE_SIZE,
+        cursor: pageParam ?? INITIAL_PAGE_PARAM,
+      });
+      const items: FeedItem[] = page.items.map((listing) => (
+        listing.kind === 'service'
+          ? { kind: 'service' as const, data: listing as Extract<FeedItem, { kind: 'service' }>['data'] }
+          : { kind: 'gig' as const, data: listing as Extract<FeedItem, { kind: 'gig' }>['data'] }
+      ));
       return {
         items,
-        next: noMore
-          ? null
-          : {
-              servicesCursor: servicesPage.nextCursor,
-              gigsCursor: gigsPage.nextCursor,
-            },
+        next: page.nextCursor,
       };
     },
     getNextPageParam: (last) => last.next ?? undefined,
@@ -146,13 +127,13 @@ export default function BrowseScreen() {
   return (
     <ThemedView className="flex-1">
       <SafeAreaView edges={['top']} className="flex-1">
-        <AdlerHomeHeader title="Marketplace" />
+        <AdlerHomeHeader title={viewMode === 'creator' ? 'Gigs' : 'Services'} />
 
         <View style={{ paddingHorizontal: 16, marginTop: 8 }}>
           <TextInput
             value={searchInput}
             onChangeText={setSearchInput}
-            placeholder="Search services and gigs"
+            placeholder={viewMode === 'creator' ? 'Search gigs' : 'Search services'}
             autoCapitalize="none"
             autoCorrect={false}
             returnKeyType="search"
@@ -168,6 +149,26 @@ export default function BrowseScreen() {
             marginTop: 8,
           }}
         >
+          {viewMode === 'brand' ? (
+            <Pressable
+              onPress={() => router.push('/gigs/new')}
+              accessibilityRole="button"
+              style={{
+                minHeight: 36,
+                borderRadius: 999,
+                paddingHorizontal: 12,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+                backgroundColor: theme[950],
+              }}
+            >
+              <Plus size={14} color={theme[50]} />
+              <ThemedText type="body-sm-semibold" style={{ color: theme[50] }}>
+                Post gig
+              </ThemedText>
+            </Pressable>
+          ) : null}
           <FilterChip
             label={SORT_BY_CHIP_LABEL[filters.sortBy]}
             active={filters.sortBy !== 'date'}
@@ -228,7 +229,14 @@ export default function BrowseScreen() {
                     filters.category !== null ||
                     filters.priceRange !== 'all';
                   const haveAnyData = (flatFeed?.length ?? 0) > 0;
-                  const empty = hasFilter && haveAnyData ? EMPTY_BROWSE_SEARCH : EMPTY_BROWSE;
+                  const empty = hasFilter && haveAnyData
+                    ? EMPTY_BROWSE_SEARCH
+                    : viewMode === 'creator'
+                      ? {
+                          title: 'No gigs yet',
+                          description: 'Brand briefs will appear here when the market opens.',
+                        }
+                      : EMPTY_BROWSE;
                   return <EmptyState title={empty.title} description={empty.description} />;
                 })()}
               </View>

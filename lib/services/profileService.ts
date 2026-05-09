@@ -5,6 +5,7 @@ import {
     serverTimestamp,
     setDoc,
     updateDoc,
+    writeBatch,
 } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase/config';
 import type {
@@ -308,6 +309,40 @@ export async function setCountry(
         country,
         updatedAt: serverTimestamp(),
     });
+}
+
+export interface CompleteOnboardingInput {
+    displayName: string;
+    bio: string;
+    country: string | null;
+    creatorProfile: CreatorProfile;
+    brandProfile: BrandProfile;
+}
+
+export async function completeDualProfileOnboarding(
+    userId: string,
+    input: CompleteOnboardingInput,
+): Promise<void> {
+    assertCurrentUser(userId);
+    const ref = doc(db, COLLECTION, userId);
+    const batch = writeBatch(db);
+    batch.update(ref, {
+        displayName: input.displayName,
+        bio: input.bio,
+        country: input.country,
+        creatorProfile: {
+            ...input.creatorProfile,
+            dmContact: normalizeDmContact(input.creatorProfile.dmContact),
+        },
+        brandProfile: {
+            ...input.brandProfile,
+            dmContact: normalizeDmContact(input.brandProfile.dmContact),
+        },
+        isCreator: true,
+        isBrand: true,
+        updatedAt: serverTimestamp(),
+    });
+    await batch.commit();
 }
 
 export async function setAvatarUrl(

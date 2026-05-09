@@ -129,5 +129,5 @@ export const SAVE_KEYS = {
 };
 
 export const FEED_KEYS = {
-    browse: (filter?: { category?: string }) => ['feed', 'browse', filter ?? {}] as const,
+    browse: (filter?: { category?: string; kind?: ListingKind }) => ['feed', 'browse', filter ?? {}] as const,
 };

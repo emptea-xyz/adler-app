@@ -17,6 +17,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { UserProvider } from "@/contexts/UserContext";
 import { QueryProvider } from "@/contexts/QueryProvider";
 import { ThemeProvider, useTheme } from "@/contexts/ThemeContext";
+import { ViewModeProvider } from "@/contexts/ViewModeContext";
 import { MONO_PALETTE } from "@/constants/ThemePalettes";
 import { OfflineBanner } from "@/components/base/OfflineBanner";
 import { setupForegroundHandler } from "@/lib/services/pushService";
@@ -73,10 +74,12 @@ function RootLayoutContent() {
             <AuthProvider>
               <OfflineBanner />
               <UserProvider>
-                <Slot />
-                <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, pointerEvents: 'box-none', zIndex: 9999, elevation: 9999 }}>
-                  <ToastManager config={toastConfig} position="top" topOffset={60} animationInTiming={50} />
-                </View>
+                <ViewModeProvider>
+                  <Slot />
+                  <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, pointerEvents: 'box-none', zIndex: 9999, elevation: 9999 }}>
+                    <ToastManager config={toastConfig} position="top" topOffset={60} animationInTiming={50} />
+                  </View>
+                </ViewModeProvider>
               </UserProvider>
             </AuthProvider>
           </ThemeProvider>

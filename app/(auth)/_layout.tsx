@@ -1,27 +1,40 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Stack, Redirect, useSegments } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUser } from '@/contexts/UserContext';
-import { viewModeFor } from '@/lib/utils/role';
+import { LoadingScreen } from '@/components/base/LoadingScreen';
+import { STORAGE_KEYS } from '@/lib/constants/storageKeys';
 
 /**
  * Routing rules for the (auth) group:
  * - No user yet → stay on sign-in (default)
- * - User authed but no role yet → bounce to role-select (unless already there)
- * - User authed with a role → bounce out of (auth) entirely to /(home)
+ * - User authed but missing either side → stay in onboarding
+ * - User authed with both sides → bounce out of (auth) entirely to /(home)
  */
 export default function AuthLayout() {
   const { user, isReady, isBridging } = useAuth();
   const { profile, loading } = useUser();
   const segments = useSegments() as string[];
+  const [seenOnboarding, setSeenOnboarding] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    AsyncStorage.getItem(STORAGE_KEYS.ONBOARDING_SEEN)
+      .then((value) => setSeenOnboarding(value === 'true'))
+      .catch(() => setSeenOnboarding(true));
+  }, []);
 
   if (isReady && !isBridging && user && !loading) {
-    if (viewModeFor(profile) !== null) {
+    if (profile?.isCreator && profile?.isBrand) {
       return <Redirect href="/(home)/(tabs)/browse" />;
     }
-    // segments[1] is the screen name within the (auth) group
-    if (segments[1] !== 'role-select') {
-      return <Redirect href="/(auth)/role-select" />;
+    if (segments[1] !== 'onboarding') {
+      if (seenOnboarding === null) return <LoadingScreen />;
+      return (
+        <Redirect
+          href={seenOnboarding ? '/(auth)/onboarding/basics' : '/(auth)/onboarding/intro'}
+        />
+      );
     }
   }
 
@@ -34,7 +47,10 @@ export default function AuthLayout() {
       }}
     >
       <Stack.Screen name="sign-in" />
-      <Stack.Screen name="role-select" />
+      <Stack.Screen name="onboarding/intro" />
+      <Stack.Screen name="onboarding/basics" />
+      <Stack.Screen name="onboarding/creator" />
+      <Stack.Screen name="onboarding/brand" />
     </Stack>
   );
 }

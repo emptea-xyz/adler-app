@@ -14,13 +14,13 @@ import { getProfile } from '@/lib/services/profileService';
 import { PROFILE_KEYS } from '@/lib/constants/queryKeys';
 import { useSaves } from '@/hooks/useSaves';
 import { KPI } from './KPI';
+import { Pill, type PillIntent } from './Pill';
 
 // Placeholder gradient when a listing has no hero image. Decorative
 // peach → blush tints — intentional one-off, not part of the brand
 // palette. Local constants so they don't leak into the design system.
 const PLACEHOLDER_GRADIENT_TOP = '#ffd6a8';
 const PLACEHOLDER_GRADIENT_BOTTOM = '#ffccd4';
-import { Pill, type PillIntent } from './Pill';
 
 // Figma node 127:124 — feed card on Browse. Peach gradient hero + KPI + status
 // pills + title + meta.

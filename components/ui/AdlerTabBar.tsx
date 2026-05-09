@@ -2,7 +2,7 @@ import React, { useCallback } from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { Compass, Bookmark, Inbox, User } from 'lucide-react-native';
+import { Compass, Inbox, User } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { haptic } from '@/lib/utils/haptic';
 import { TAB_BAR_HEIGHT } from '@/constants/LayoutConstants';
@@ -10,6 +10,7 @@ import { SolanaUploadArrow } from '@/components/ui/SolanaUploadArrow';
 import { useOverlaySheets } from '@/contexts/OverlaySheetsContext';
 import { useInboxUnread } from '@/hooks/useInboxUnread';
 import { Status } from '@/constants/StatusColors';
+import { useViewMode } from '@/contexts/ViewModeContext';
 
 // Figma node 132:204 — 5 visual slots in the order browse, saved, create,
 // inbox, profile. Icons only (no labels). The center "create" slot is a
@@ -18,26 +19,26 @@ import { Status } from '@/constants/StatusColors';
 
 const ICONS: Record<string, React.ComponentType<{ size: number; color: string; strokeWidth?: number }>> = {
     browse: Compass,
-    saved: Bookmark,
     inbox: Inbox,
     profile: User,
 };
 
 const LABELS: Record<string, string> = {
     browse: 'Browse',
-    saved: 'Saved',
     inbox: 'Inbox',
     create: 'Create',
     profile: 'Profile',
 };
-
-const TAB_ORDER = ['browse', 'saved', 'create', 'inbox', 'profile'] as const;
 
 export function AdlerTabBar({ state, navigation }: BottomTabBarProps) {
     const { theme } = useTheme();
     const insets = useSafeAreaInsets();
     const { openCreate } = useOverlaySheets();
     const { unread: inboxUnread } = useInboxUnread();
+    const { viewMode } = useViewMode();
+    const tabOrder = viewMode === 'creator'
+        ? (['browse', 'inbox', 'create', 'profile'] as const)
+        : (['browse', 'inbox', 'profile'] as const);
 
     const onPress = useCallback(
         (routeName: string) => {
@@ -75,7 +76,7 @@ export function AdlerTabBar({ state, navigation }: BottomTabBarProps) {
                 },
             ]}
         >
-            {TAB_ORDER.map((name) => {
+            {tabOrder.map((name) => {
                 const isCenter = name === 'create';
                 const isFocused = focusedRouteName === name;
 
