@@ -16,6 +16,7 @@ import { transferSol } from '@/lib/solana/transferSol';
 import { getConnection, lamportsToSol, solToLamports } from '@/lib/solana/connection';
 import { markOrderPaid, markOrderFailed } from '@/lib/services/ordersService';
 import { getProfile } from '@/lib/services/profileService';
+import { createOrderThread } from '@/lib/services/threadsService';
 import { formatSol } from '@/lib/utils/formatNumber';
 import type { OrderType } from '@/types/marketplace';
 
@@ -108,6 +109,23 @@ export async function payForListing(input: PayInput): Promise<PayResult> {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
     });
+    const buyerProfile = await getProfile(uid).catch(() => null);
+    await createOrderThread({
+        orderId,
+        parentTitle: input.listingTitle ?? null,
+        buyer: {
+            uid,
+            handle: buyerProfile?.username ?? null,
+            displayName: buyerProfile?.displayName ?? null,
+            avatarUrl: buyerProfile?.avatarUrl ?? null,
+        },
+        seller: {
+            uid: input.sellerId,
+            handle: sellerProfile.username ?? null,
+            displayName: sellerProfile.displayName ?? null,
+            avatarUrl: sellerProfile.avatarUrl ?? null,
+        },
+    }).catch(() => null);
 
     let signature: string;
     try {
