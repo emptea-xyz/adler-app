@@ -147,6 +147,14 @@ export default function GigDetailScreen() {
                 </ThemedText>
               </Pressable>
 
+              {isOwnGig ? (
+                <Button
+                  title="View applicants"
+                  variant="secondary"
+                  onPress={() => router.push(`/applicants?gigId=${gig.id}`)}
+                />
+              ) : null}
+
               {isCreator && !isOwnGig && gig.status !== 'open' && (
                 <ThemedText type="body-sm" align="center" style={{ color: theme[500] }}>
                   This gig is no longer open for applications.

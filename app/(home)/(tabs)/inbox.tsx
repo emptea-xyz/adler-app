@@ -157,7 +157,7 @@ export default function InboxScreen() {
           id: a.id,
           title: `Application · ${a.status}`,
           subtitle: `${a.gigTitle ?? 'Gig'} · ${formatRelative(a.createdAt)}`,
-          href: `/gig/${a.gigId}`,
+          href: `/applicants?gigId=${a.gigId}`,
         })),
         loading: brandApplicationsQuery.isLoading,
         refetch: brandApplicationsQuery.refetch,

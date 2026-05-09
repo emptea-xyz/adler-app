@@ -79,6 +79,14 @@ export default function ProfileScreen() {
               <SectionLabel label={listingsTitle} />
               {listings.length > 0 ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  {isCreator ? (
+                    <Button
+                      title="Applications"
+                      size="sm"
+                      variant="secondary"
+                      onPress={() => router.push('/applications')}
+                    />
+                  ) : null}
                   <Button
                     title="Manage"
                     size="sm"

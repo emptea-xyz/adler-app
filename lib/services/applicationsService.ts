@@ -8,6 +8,7 @@ import {
     serverTimestamp,
     setDoc,
     updateDoc,
+    writeBatch,
     where,
 } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase/config';
@@ -178,4 +179,45 @@ export async function setApplicationStatus(
         status,
         updatedAt: serverTimestamp(),
     });
+}
+
+interface AwardApplicationInput {
+    gigId: string;
+    applicationId: string;
+}
+
+export async function awardApplicationAndCloseGig({
+    gigId,
+    applicationId,
+}: AwardApplicationInput): Promise<void> {
+    const snap = await getDocs(
+        query(collection(db, COLLECTION), where('gigId', '==', gigId)),
+    );
+    if (snap.empty) throw new Error('No applications found for this gig');
+
+    const winner = snap.docs.find((row) => row.id === applicationId);
+    if (!winner) throw new Error('Application not found');
+
+    const batch = writeBatch(db);
+
+    snap.docs.forEach((row) => {
+        const data = row.data() as Record<string, unknown>;
+        const current = ((data.status as ApplicationStatus | undefined) ??
+            'pending') as ApplicationStatus;
+        const next: ApplicationStatus = row.id === applicationId ? 'awarded' : 'rejected';
+
+        if (current !== next) {
+            batch.update(doc(db, COLLECTION, row.id), {
+                status: next,
+                updatedAt: serverTimestamp(),
+            });
+        }
+    });
+
+    batch.update(doc(db, 'gigs', gigId), {
+        status: 'awarded',
+        updatedAt: serverTimestamp(),
+    });
+
+    await batch.commit();
 }
