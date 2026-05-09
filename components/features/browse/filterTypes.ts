@@ -2,7 +2,7 @@
 
 import { CATEGORIES, type Category } from '@/lib/constants/categories';
 
-export type SortBy = 'date' | 'priceAsc' | 'priceDesc';
+export type SortBy = 'newest' | 'oldest' | 'priceAsc' | 'priceDesc';
 export type PriceRange = 'all' | 'under0_1' | '0_1to1' | 'over1';
 
 const CATEGORY_LABELS: Record<Category, string> = {
@@ -22,19 +22,21 @@ export interface BrowseFilters {
 }
 
 export const DEFAULT_FILTERS: BrowseFilters = {
-  sortBy: 'date',
+  sortBy: 'newest',
   category: null,
   priceRange: 'all',
 };
 
 export const SORT_BY_OPTIONS: { id: SortBy; label: string }[] = [
-  { id: 'date', label: 'Most recent' },
+  { id: 'newest', label: 'Newest' },
+  { id: 'oldest', label: 'Oldest' },
   { id: 'priceAsc', label: 'Price (low to high)' },
   { id: 'priceDesc', label: 'Price (high to low)' },
 ];
 
 export const SORT_BY_CHIP_LABEL: Record<SortBy, string> = {
-  date: 'Sort by: Date',
+  newest: 'Sort: Newest',
+  oldest: 'Sort: Oldest',
   priceAsc: 'Sort by: Price ↑',
   priceDesc: 'Sort by: Price ↓',
 };

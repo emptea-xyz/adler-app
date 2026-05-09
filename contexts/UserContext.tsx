@@ -3,10 +3,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Sentry from '@sentry/react-native';
 import { useAuth } from './AuthContext';
 import { ensureProfileExists, getProfile, setPushToken } from '@/lib/services/profileService';
-import { registerForPushAsync } from '@/lib/services/pushService';
+import {
+    addPushTokenRotationListener,
+    getPushPermissionState,
+    registerForPushAsync,
+} from '@/lib/services/pushService';
 import { STORAGE_KEYS } from '@/lib/constants/storageKeys';
 import type { Profile } from '@/types/marketplace';
 import { viewModeFor } from '@/lib/utils/role';
+import { PushPermissionPrompt } from '@/components/features/notifications/PushPermissionPrompt';
+import { toast } from '@/lib/utils/toast';
 
 interface UserContextType {
     profile: Profile | null;
@@ -21,6 +27,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     const { user, walletAddress, isBridging } = useAuth();
     const [profile, setProfile] = useState<Profile | null>(null);
     const [loading, setLoading] = useState(true);
+    const [pushPromptVisible, setPushPromptVisible] = useState(false);
+    const [pushPromptLoading, setPushPromptLoading] = useState(false);
     const isMounted = useRef(true);
     // Per-app-launch latch so we register for push at most once per user even
     // if profile fetches re-fire (wallet arrives, refresh on focus, etc.).
@@ -74,19 +82,24 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
                 Sentry.setUser({ id: ensured.id, username: ensured.username });
             } catch { /* no-op when Sentry isn't initialized */ }
 
-            // Register for push (idempotent, latch keeps it once-per-user-per-launch).
-            // Done after profile is in place so the token write piggy-backs on the
-            // existing user session and the rule's owner check passes.
+            // Register silently when the user already granted iOS permission.
+            // If permission is still undetermined, show Adler's pre-prompt first.
             if (pushSyncedFor.current !== user.id) {
                 pushSyncedFor.current = user.id;
-                registerForPushAsync()
-                    .then((token) => {
-                        if (!token) return;
-                        if (token === ensured.pushToken) return;
-                        return setPushToken(user.id, token);
+                getPushPermissionState()
+                    .then(async (permission) => {
+                        if (permission === 'granted') {
+                            const token = await registerForPushAsync({ requestPermission: false });
+                            if (!token || token === ensured.pushToken) return;
+                            await setPushToken(user.id, token);
+                            return;
+                        }
+                        if (permission !== 'undetermined') return;
+                        const seen = await AsyncStorage.getItem(STORAGE_KEYS.PUSH_PREPROMPT_SEEN);
+                        if (!seen && isMounted.current) setPushPromptVisible(true);
                     })
                     .catch((err) => {
-                        if (__DEV__) console.warn('Push token sync failed', err);
+                        if (__DEV__) console.warn('Push permission check failed', err);
                     });
             }
         } catch (err) {
@@ -110,6 +123,42 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         fetchProfile();
     }, [user, walletAddress, isBridging, fetchProfile]);
 
+    useEffect(() => {
+        if (!user) return;
+        const sub = addPushTokenRotationListener((token) => {
+            setPushToken(user.id, token).catch((err) => {
+                if (__DEV__) console.warn('Push token rotation sync failed', err);
+            });
+        });
+        return () => sub.remove();
+    }, [user]);
+
+    const dismissPushPrompt = useCallback(async () => {
+        await AsyncStorage.setItem(STORAGE_KEYS.PUSH_PREPROMPT_SEEN, 'true').catch(() => {});
+        if (isMounted.current) setPushPromptVisible(false);
+    }, []);
+
+    const enablePush = useCallback(async () => {
+        if (!user) return;
+        setPushPromptLoading(true);
+        try {
+            const token = await registerForPushAsync({ requestPermission: true });
+            await AsyncStorage.setItem(STORAGE_KEYS.PUSH_PREPROMPT_SEEN, 'true').catch(() => {});
+            if (token) {
+                await setPushToken(user.id, token);
+                await fetchProfile();
+            } else {
+                toast.info('Notifications can be enabled later in Settings.');
+            }
+            if (isMounted.current) setPushPromptVisible(false);
+        } catch (err) {
+            if (__DEV__) console.warn('Push opt-in failed', err);
+            toast.error('Notification setup failed.');
+        } finally {
+            if (isMounted.current) setPushPromptLoading(false);
+        }
+    }, [fetchProfile, user]);
+
     const value = useMemo<UserContextType>(
         () => ({
             profile,
@@ -120,7 +169,17 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         [profile, loading, fetchProfile],
     );
 
-    return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
+    return (
+        <UserContext.Provider value={value}>
+            {children}
+            <PushPermissionPrompt
+                visible={pushPromptVisible}
+                loading={pushPromptLoading}
+                onEnable={enablePush}
+                onSkip={dismissPushPrompt}
+            />
+        </UserContext.Provider>
+    );
 }
 
 export function useUser(): UserContextType {

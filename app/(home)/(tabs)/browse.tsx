@@ -107,6 +107,9 @@ export default function BrowseScreen() {
       return true;
     });
 
+    if (filters.sortBy === 'oldest') {
+      matched.sort((a, b) => a.data.createdAt - b.data.createdAt);
+    }
     if (filters.sortBy === 'priceAsc' || filters.sortBy === 'priceDesc') {
       const dir = filters.sortBy === 'priceAsc' ? 1 : -1;
       matched.sort((a, b) => {
@@ -115,7 +118,7 @@ export default function BrowseScreen() {
         return (aAmount - bAmount) * dir;
       });
     }
-    // 'date' is the server-default order, leave as is.
+    // 'newest' is the server-default order, leave as is.
     return matched;
   }, [flatFeed, filters, debouncedQuery]);
 
@@ -171,7 +174,7 @@ export default function BrowseScreen() {
           ) : null}
           <FilterChip
             label={SORT_BY_CHIP_LABEL[filters.sortBy]}
-            active={filters.sortBy !== 'date'}
+            active={filters.sortBy !== 'newest'}
             onPress={() => setSortSheet(true)}
           />
           <FilterChip

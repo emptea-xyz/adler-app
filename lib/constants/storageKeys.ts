@@ -5,6 +5,7 @@ export const STORAGE_KEYS = {
     CACHED_PROFILE: 'cached_profile',
     COLOR_SCHEME: 'user_color_scheme',
     ONBOARDING_SEEN: 'onboarding_seen',
+    PUSH_PREPROMPT_SEEN: 'push_preprompt_seen',
     LAST_SEEN_INBOX_AT: 'last_seen_inbox_at',
     /** Persisted creator/brand mode choice for ViewModeContext (step 2). */
     VIEW_MODE: 'view_mode',
