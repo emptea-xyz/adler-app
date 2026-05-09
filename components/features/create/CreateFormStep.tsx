@@ -4,7 +4,7 @@ import { ChevronDown } from 'lucide-react-native';
 import { ThemedText } from '@/components/base/ThemedText';
 import { Button } from '@/components/ui/Button';
 import TextInput from '@/components/ui/TextInput';
-import { Accent } from '@/constants/AccentColors';
+import { Status } from '@/constants/StatusColors';
 import { useTheme } from '@/contexts/ThemeContext';
 import { CATEGORY_OPTIONS } from '@/components/features/browse/filterTypes';
 import { haptic } from '@/lib/utils/haptic';
@@ -97,7 +97,7 @@ function Field({
       </View>
       {children}
       {error ? (
-        <ThemedText type="caption-semibold" style={{ color: Accent.pink }}>
+        <ThemedText type="caption-semibold" style={{ color: Status.error }}>
           {error}
         </ThemedText>
       ) : null}
@@ -243,7 +243,7 @@ export function CreateFormStep({
       ) : null}
 
       {visibleErrors.wallet ? (
-        <ThemedText type="caption-semibold" style={{ color: Accent.pink }}>
+        <ThemedText type="caption-semibold" style={{ color: Status.error }}>
           {visibleErrors.wallet}
         </ThemedText>
       ) : null}

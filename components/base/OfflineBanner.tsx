@@ -10,7 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/base/ThemedText';
 import { Check } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
-import { Accent } from '@/constants/AccentColors';
+import { Status } from '@/constants/StatusColors';
 
 const BANNER_CONTENT_HEIGHT = 28;
 
@@ -52,7 +52,7 @@ export function OfflineBanner() {
             style={[
                 bannerStyle,
                 {
-                    backgroundColor: !isConnected ? Accent.pink : Accent.lime,
+                    backgroundColor: !isConnected ? Status.error : Status.success,
                     overflow: 'hidden',
                     paddingTop: insets.top,
                 }

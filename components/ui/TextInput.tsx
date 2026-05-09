@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { TextInput as RNTextInput, TextInputProps as RNTextInputProps, View } from 'react-native';
 import { cn } from '@/components/utils/cn';
-import { Accent } from '@/constants/AccentColors';
+import { Status } from '@/constants/StatusColors';
 import { useTheme } from '@/contexts/ThemeContext';
 
 /**
@@ -73,7 +73,7 @@ function TextInput({
             borderColor: 'transparent',
           },
           isFocused && !error && { borderColor: theme[200] },
-          error && { borderColor: Accent.pink, backgroundColor: `${Accent.pink}1a` },
+          error && { borderColor: Status.error, backgroundColor: `${Status.error}1a` },
           style,
         ]}
         placeholderTextColor={placeholderTextColor || theme[400]}

@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import { AlertTriangle, Check } from 'lucide-react-native';
 import { ThemedText } from '@/components/base/ThemedText';
 import { Button } from '@/components/ui/Button';
-import { Accent } from '@/constants/AccentColors';
+import { Status } from '@/constants/StatusColors';
 import { useTheme } from '@/contexts/ThemeContext';
 
 const HERO = 56;
@@ -36,7 +36,7 @@ export function CreateResultStep(props: Props) {
             width: HERO,
             height: HERO,
             borderRadius: HERO / 2,
-            backgroundColor: Accent.lime,
+            backgroundColor: Status.success,
             alignItems: 'center',
             justifyContent: 'center',
           }}
@@ -66,7 +66,7 @@ export function CreateResultStep(props: Props) {
           width: HERO,
           height: HERO,
           borderRadius: HERO / 2,
-          backgroundColor: Accent.pink,
+          backgroundColor: Status.error,
           alignItems: 'center',
           justifyContent: 'center',
         }}

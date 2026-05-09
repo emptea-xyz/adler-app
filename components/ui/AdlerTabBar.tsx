@@ -9,7 +9,7 @@ import { TAB_BAR_HEIGHT } from '@/constants/LayoutConstants';
 import { SolanaUploadArrow } from '@/components/ui/SolanaUploadArrow';
 import { useOverlaySheets } from '@/contexts/OverlaySheetsContext';
 import { useInboxUnread } from '@/hooks/useInboxUnread';
-import { Accent } from '@/constants/AccentColors';
+import { Status } from '@/constants/StatusColors';
 
 // Figma node 132:204 — 5 visual slots in the order browse, saved, create,
 // inbox, profile. Icons only (no labels). The center "create" slot is a
@@ -122,7 +122,7 @@ export function AdlerTabBar({ state, navigation }: BottomTabBarProps) {
                                         width: 8,
                                         height: 8,
                                         borderRadius: 4,
-                                        backgroundColor: Accent.pink,
+                                        backgroundColor: Status.error,
                                         borderWidth: 1,
                                         borderColor: theme[50],
                                     }}

@@ -16,10 +16,15 @@ Compressed ruleset for the submission push. Long reference docs (`ux-principles.
 Never reintroduce Android: no `Platform.OS === 'android'` branches, no Android deps, no `npm run android`, no `android/` folder. `app.json` is `["ios", "web"]`.
 
 ## Theme + tokens (no exceptions)
+Each role has exactly one source of truth. Do not cross the streams.
+
 - **Neutral / surface colors:** `theme[N]` from `useTheme()`.
-- **Brand accents (canonical, from Figma):** `Accent` from `constants/AccentColors.ts` — `Accent.pink` `#ff0088`, `Accent.cyan` `#00d4ff` (blue), `Accent.lime` `#4cd900` (green), `Accent.orange` `#ff5900`, `Accent.sable` `#f1c917` (yellow). These are the **only** brand accents — don't reach into `TailwindColors` when one of these fits.
-- **Other utility colors** (status, illustrative shades not in `Accent`): `TailwindColors.<name>[500]`.
-- **Hex literals are forbidden** except destructive `#DC143C`.
+- **Brand accents** (category chips, illustrative highlights, decorative pops): `Accent` from `constants/AccentColors.ts` — `Accent.pink` `#ff0088`, `Accent.cyan` `#00d4ff` (blue), `Accent.lime` `#4cd900` (green), `Accent.orange` `#ff5900`, `Accent.sable` `#f1c917` (yellow). Pulled 1:1 from Figma's `accent/*` collection.
+- **Semantic status** (success, error, warning, info): `Status` from `constants/StatusColors.ts` — `Status.success` `#10b981`, `Status.error` `#f43f5e`, `Status.warning` `#f97316`, `Status.info` `#0ea5e9`.
+- **Destructive** (irreversible actions like delete account, sign out): the literal `#DC143C`. Distinct from `Status.error` — error means "something went wrong," destructive means "you are about to lose data."
+- **Never swap roles.** A green checkmark is `Status.success`, not `Accent.lime`. A category chip is `Accent.pink`, not `Status.error`. The hues may rhyme; the semantics don't.
+- **Other utility shades** that don't fit any of the above (rare): `TailwindColors.<name>[500]`. Default answer is "use `Accent` or `Status`," not this.
+- **Hex literals are forbidden** except `#DC143C`.
 - Layout numbers: `LayoutConstants` (`TAB_BAR_HEIGHT`, `BottomInset`, `AnimationDuration`). Add to constants if missing — never inline a magic number.
 - Safe areas: `useSafeAreaInsets()`. Never hardcode `59` or `34`.
 
