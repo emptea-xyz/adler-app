@@ -4,7 +4,6 @@ import {
     FlatList,
     KeyboardAvoidingView,
     Linking,
-    Platform,
     Pressable,
     ScrollView,
     View,
@@ -12,6 +11,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEmbeddedSolanaWallet } from '@privy-io/expo';
 import * as Crypto from 'expo-crypto';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
@@ -34,9 +34,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { qk } from '@/lib/constants/queryKeys';
 import { getDisputeByOrder, fileDispute } from '@/lib/services/disputesService';
+import { approveRelease } from '@/lib/escrow/approveRelease';
 import { uploadMessageMedia } from '@/lib/services/messageMediaUploadService';
 import { getOrder } from '@/lib/services/ordersService';
+import { getProfile } from '@/lib/services/profileService';
 import { getReviewByReviewer } from '@/lib/services/reviewsService';
+import { submitDelivery } from '@/lib/escrow/submitDelivery';
 import {
     approveDeliverable,
     countRevisionRequests,
@@ -84,6 +87,8 @@ function threadKindIntent(kind: 'order' | 'application'): PillIntent {
 export default function ThreadScreen() {
     const { threadId } = useLocalSearchParams<{ threadId: string }>();
     const { user } = useAuth();
+    const solana = useEmbeddedSolanaWallet();
+    const wallet = solana.wallets?.[0];
     const { theme } = useTheme();
     const router = useRouter();
     const queryClient = useQueryClient();
@@ -299,21 +304,45 @@ export default function ThreadScreen() {
                     messageId,
                 });
             } else if (mode === 'deliverable') {
+                if (!wallet?.address) throw new Error('Creator wallet missing');
+                if (!order!.contractId32) throw new Error('Escrow contract missing');
+                const buyerProfile = await getProfile(order!.buyerId);
+                if (!buyerProfile?.walletAddress) throw new Error('Buyer wallet missing');
+                const provider = await wallet.getProvider();
+                const { signature } = await submitDelivery({
+                    contractIdHex: order!.contractId32,
+                    brandWalletAddress: buyerProfile.walletAddress,
+                    creatorWalletAddress: wallet.address,
+                    provider,
+                });
                 await submitDeliverable({
                     threadId,
                     orderId: order!.id,
                     body: text,
                     attachments: uploadedUrls,
                     messageId,
+                    escrowTxSignature: signature,
                 });
             } else if (mode === 'revision') {
                 await requestRevision({ threadId, body: text });
             } else if (mode === 'approval') {
+                if (!wallet?.address) throw new Error('Buyer wallet missing');
+                if (!order!.contractId32) throw new Error('Escrow contract missing');
+                const sellerProfile = await getProfile(order!.sellerId);
+                if (!sellerProfile?.walletAddress) throw new Error('Creator wallet missing');
+                const provider = await wallet.getProvider();
+                const { signature } = await approveRelease({
+                    contractIdHex: order!.contractId32,
+                    brandWalletAddress: wallet.address,
+                    creatorPubkey: sellerProfile.walletAddress,
+                    provider,
+                });
                 await approveDeliverable({
                     threadId,
                     orderId: order!.id,
                     body: text || undefined,
                     messageId,
+                    escrowTxSignature: signature ?? undefined,
                 });
             } else {
                 await fileDispute({ orderId: order!.id, reason: text });
@@ -330,6 +359,7 @@ export default function ThreadScreen() {
                 user?.id ? queryClient.invalidateQueries({ queryKey: qk.threads.byParticipant(user.id) }) : Promise.resolve(),
                 user?.id && order ? queryClient.invalidateQueries({ queryKey: qk.orders.byBuyer(order.buyerId) }) : Promise.resolve(),
                 user?.id && order ? queryClient.invalidateQueries({ queryKey: qk.orders.bySeller(order.sellerId) }) : Promise.resolve(),
+                order?.id ? queryClient.invalidateQueries({ queryKey: qk.escrow.contractEscrow(order.id) }) : Promise.resolve(),
             ]);
         } catch (err: any) {
             toast.error(err?.message ?? 'Action failed');
@@ -401,7 +431,7 @@ export default function ThreadScreen() {
                 ) : (
                     <KeyboardAvoidingView
                         style={{ flex: 1 }}
-                        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                        behavior="padding"
                     >
                         <View
                             style={{

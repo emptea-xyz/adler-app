@@ -29,15 +29,14 @@ export async function runBuyAction(input: BuyActionInput): Promise<{ orderId: st
     const sellerProfile = await getProfile(input.sellerId);
     if (!sellerProfile?.walletAddress) throw new Error('Seller wallet missing');
     const buyerProfile = await getProfile(input.buyerId);
+    const feeSol = computeFeeSol(input.amountSol);
     const balanceLamports = await getConnection().getBalance(new PublicKey(input.buyerWalletAddress));
-    const amountLamports = solToLamports(input.amountSol);
+    const amountLamports = solToLamports(input.amountSol + feeSol);
     if (balanceLamports < amountLamports) throw new Error('Insufficient SOL');
 
     const orderId = Crypto.randomUUID();
     const contractId = await deriveContractId(orderId);
     const escrowPda = deriveContractEscrowPda(input.buyerWalletAddress, contractId.bytes).toBase58();
-    const feeSol = computeFeeSol(input.amountSol);
-
     await createOrder({
         orderId,
         contractId32: contractId.hex,
@@ -62,6 +61,7 @@ export async function runBuyAction(input: BuyActionInput): Promise<{ orderId: st
     let signature = '';
     try {
         const funded = await fundService({
+            orderId,
             provider: input.provider,
             fromAddress: input.buyerWalletAddress,
             creatorPubkey: sellerProfile.walletAddress,
@@ -95,14 +95,19 @@ export async function runBuyAction(input: BuyActionInput): Promise<{ orderId: st
         },
     }).catch(() => null);
 
-    await retryWithBackoff(
-        () => markOrderPaid(orderId, signature),
-        { tries: 3, baseMs: 500 },
-    );
+    try {
+        await retryWithBackoff(
+            () => markOrderPaid(orderId, signature),
+            { tries: 3, baseMs: 500 },
+        );
+    } catch {
+        return { orderId, signature };
+    }
     await clearPendingOrder(orderId);
 
     await Promise.all([
         input.queryClient.invalidateQueries({ queryKey: qk.wallet.balance(input.buyerWalletAddress) }),
+        input.queryClient.invalidateQueries({ queryKey: qk.wallet.activity(input.buyerWalletAddress) }),
         input.queryClient.invalidateQueries({ queryKey: qk.orders.byBuyer(input.buyerId) }),
         input.queryClient.invalidateQueries({ queryKey: qk.orders.bySeller(input.sellerId) }),
         input.queryClient.invalidateQueries({ queryKey: qk.threads.byParticipant(input.buyerId) }),

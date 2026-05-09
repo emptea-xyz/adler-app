@@ -22,8 +22,26 @@ export function deriveContractEscrowPda(
     contractId: Uint8Array,
 ): PublicKey {
     const [pda] = PublicKey.findProgramAddressSync(
-        [Buffer.from('escrow'), new PublicKey(buyerWalletAddress).toBuffer(), Buffer.from(contractId)],
+        [Buffer.from('contract'), new PublicKey(buyerWalletAddress).toBuffer(), Buffer.from(contractId)],
         V1_PROGRAM_ID,
     );
     return pda;
+}
+
+export function deriveProtocolConfigPda(programId: PublicKey): PublicKey {
+    return PublicKey.findProgramAddressSync([Buffer.from('config')], programId)[0];
+}
+
+export function deriveContractRecordPda(
+    brandWalletAddress: string,
+    contractId: Uint8Array,
+): PublicKey {
+    return PublicKey.findProgramAddressSync(
+        [Buffer.from('record'), new PublicKey(brandWalletAddress).toBuffer(), Buffer.from(contractId)],
+        V1_PROGRAM_ID,
+    )[0];
+}
+
+export function contractIdFromHex(hex: string): Uint8Array {
+    return hexToBytes(hex);
 }
