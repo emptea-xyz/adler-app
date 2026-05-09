@@ -11,7 +11,7 @@ import { submitReview } from '@/lib/services/reviewsService';
 import { qk } from '@/lib/constants/queryKeys';
 import { toast } from '@/lib/utils/toast';
 import { haptic } from '@/lib/utils/haptic';
-import type { RatingAxes } from '@/lib/types/review';
+import { RATING_AXES, type RatingAxes, type RatingAxis } from '@/lib/types/review';
 
 interface Props {
   visible: boolean;
@@ -26,35 +26,35 @@ const COMMENT_MAX = 500;
 export function ReviewSheet({ visible, onClose, orderId, revieweeId, revieweeLabel }: Props) {
   const { theme } = useTheme();
   const queryClient = useQueryClient();
-  const [rating, setRating] = useState(0);
+  const [axes, setAxes] = useState<RatingAxes>({
+    scope: 0,
+    communication: 0,
+    timeliness: 0,
+    quality: 0,
+  });
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const allRated = RATING_AXES.every((axis) => axes[axis] >= 1);
 
   useEffect(() => {
     if (!visible) {
-      setRating(0);
+      setAxes({ scope: 0, communication: 0, timeliness: 0, quality: 0 });
       setComment('');
       setSubmitting(false);
     }
   }, [visible]);
 
+  const setAxis = (axis: RatingAxis, value: number) => {
+    setAxes((prev) => ({ ...prev, [axis]: value }));
+  };
+
   const submit = useCallback(
     async (closeFn: () => void) => {
-      if (rating < 1) {
-        toast.error('Pick at least one star');
+      if (!allRated) {
+        toast.error('Rate all four categories');
         return;
       }
       setSubmitting(true);
-      // Step-1 UI keeps the single-star control. The v1 schema is 4-axis;
-      // map the same score to every axis so the rule's `isValidAxes`
-      // check passes. Step 4's RatingDialog replaces this with explicit
-      // per-axis sliders.
-      const axes: RatingAxes = {
-        scope: rating,
-        communication: rating,
-        timeliness: rating,
-        quality: rating,
-      };
       try {
         await submitReview({ orderId, revieweeId, axes, comment: comment.trim() });
         queryClient.invalidateQueries({ queryKey: ['reviews', 'forOrder', orderId] });
@@ -67,7 +67,7 @@ export function ReviewSheet({ visible, onClose, orderId, revieweeId, revieweeLab
         setSubmitting(false);
       }
     },
-    [orderId, revieweeId, rating, comment, queryClient],
+    [allRated, axes, comment, orderId, queryClient, revieweeId],
   );
 
   return (
@@ -85,25 +85,34 @@ export function ReviewSheet({ visible, onClose, orderId, revieweeId, revieweeLab
             Rate your experience with {revieweeLabel}.
           </ThemedText>
 
-          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 12 }}>
-            {[1, 2, 3, 4, 5].map((n) => (
-              <Pressable
-                key={n}
-                onPress={() => {
-                  haptic('light');
-                  setRating(n);
-                }}
-                accessibilityRole="button"
-                accessibilityLabel={`${n} star${n === 1 ? '' : 's'}`}
-                hitSlop={6}
-              >
-                <Star
-                  size={36}
-                  color={n <= rating ? theme[950] : theme[300]}
-                  fill={n <= rating ? theme[950] : 'transparent'}
-                  strokeWidth={2}
-                />
-              </Pressable>
+          <View style={{ gap: 12 }}>
+            {RATING_AXES.map((axis) => (
+              <View key={axis} style={{ gap: 6 }}>
+                <ThemedText type="caption-semibold" style={{ color: theme[500] }}>
+                  {axis.charAt(0).toUpperCase() + axis.slice(1)}
+                </ThemedText>
+                <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 12 }}>
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <Pressable
+                      key={`${axis}-${n}`}
+                      onPress={() => {
+                        haptic('light');
+                        setAxis(axis, n);
+                      }}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${axis} ${n} star${n === 1 ? '' : 's'}`}
+                      hitSlop={6}
+                    >
+                      <Star
+                        size={28}
+                        color={n <= axes[axis] ? theme[950] : theme[300]}
+                        fill={n <= axes[axis] ? theme[950] : 'transparent'}
+                        strokeWidth={2}
+                      />
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
             ))}
           </View>
 
@@ -120,7 +129,7 @@ export function ReviewSheet({ visible, onClose, orderId, revieweeId, revieweeLab
             title={submitting ? 'Submitting…' : 'Submit review'}
             onPress={() => submit(close)}
             loading={submitting}
-            disabled={submitting || rating < 1}
+            disabled={submitting || !allRated}
             variant="primary"
             size="lg"
             className="w-full"
