@@ -13,12 +13,16 @@ import { ManageListingSheet } from '@/components/features/listing/ManageListingS
 import { Button } from '@/components/ui/Button';
 import EmptyState from '@/components/ui/EmptyState';
 import { Pill, type PillIntent } from '@/components/ui/Pill';
+import { SegmentedToggle } from '@/components/ui/SegmentedToggle';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useUser } from '@/contexts/UserContext';
 import { qk } from '@/lib/constants/queryKeys';
 import { listMyListings } from '@/lib/services/listingsService';
 import { formatSol } from '@/lib/utils/formatNumber';
 import type { Service } from '@/types/marketplace';
+
+const SERVICE_FILTERS = ['all', 'active', 'paused', 'sold'] as const;
+type ServiceFilter = (typeof SERVICE_FILTERS)[number];
 
 function serviceIntent(status: Service['status']): PillIntent {
     if (status === 'active') return 'cyan';
@@ -31,6 +35,7 @@ export default function ServicesIndexScreen() {
     const { profile } = useUser();
     const router = useRouter();
     const [manageService, setManageService] = useState<Service | null>(null);
+    const [filter, setFilter] = useState<ServiceFilter>('all');
 
     const servicesQuery = useQuery({
         queryKey: profile?.id ? qk.listings.byOwner('service', profile.id) : ['listings', 'byOwner', 'service', 'anon'],
@@ -42,6 +47,10 @@ export default function ServicesIndexScreen() {
     });
 
     const services = useMemo(() => servicesQuery.data ?? [], [servicesQuery.data]);
+    const filteredServices = useMemo(
+        () => (filter === 'all' ? services : services.filter((service) => service.status === filter)),
+        [filter, services],
+    );
 
     return (
         <ProfileGate require="creator">
@@ -67,14 +76,20 @@ export default function ServicesIndexScreen() {
                                 onPress={() => router.push('/services/new')}
                                 leftIcon={<Plus size={16} color={theme[50]} />}
                             />
+                            <SegmentedToggle tabs={SERVICE_FILTERS} activeTab={filter} onTabChange={setFilter} size="sm" />
 
                             {services.length === 0 ? (
                                 <EmptyState
                                     title="No services yet"
                                     description="List your first service to appear in brand browse."
                                 />
+                            ) : filteredServices.length === 0 ? (
+                                <EmptyState
+                                    title="No matches for this status"
+                                    description="Switch filter or update status from Manage to find listings."
+                                />
                             ) : (
-                                services.map((service) => (
+                                filteredServices.map((service) => (
                                     <Pressable
                                         key={service.id}
                                         onPress={() => router.push(`/service/${service.id}`)}
