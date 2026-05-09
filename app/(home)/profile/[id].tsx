@@ -41,8 +41,15 @@ function ucfirst(s: string | null | undefined): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-function normalizeProfileId(value: string | undefined): string {
-  return decodeURIComponent(value ?? '').trim().replace(/^@/, '').toLowerCase();
+function parseProfileParam(value: string | undefined): {
+  raw: string;
+  handle: string;
+  explicitHandle: boolean;
+} {
+  const raw = decodeURIComponent(value ?? '').trim();
+  const explicitHandle = raw.startsWith('@');
+  const handle = raw.replace(/^@/, '').toLowerCase();
+  return { raw, handle, explicitHandle };
 }
 
 export default function PublicProfileScreen() {
@@ -51,15 +58,18 @@ export default function PublicProfileScreen() {
   const { theme } = useTheme();
   const router = useRouter();
   const [editOpen, setEditOpen] = useState(false);
-  const profileId = normalizeProfileId(id);
+  const parsed = parseProfileParam(id);
 
   const profileQuery = useQuery({
-    queryKey: profileId ? ['profiles', 'public', profileId] : ['profiles', 'public', 'unknown'],
-    enabled: !!profileId,
+    queryKey: parsed.raw ? ['profiles', 'public', parsed.raw] : ['profiles', 'public', 'unknown'],
+    enabled: !!parsed.raw,
     queryFn: async () => {
-      const direct = await getProfile(profileId);
+      if (parsed.explicitHandle) {
+        return getProfileByHandle(parsed.handle);
+      }
+      const direct = await getProfile(parsed.raw);
       if (direct) return direct;
-      return getProfileByHandle(profileId);
+      return getProfileByHandle(parsed.handle);
     },
   });
 
