@@ -24,7 +24,6 @@ import { SignOutSheet } from '@/components/features/account/SignOutSheet';
 import { DeleteAccountSheet } from '@/components/features/account/DeleteAccountSheet';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useOverlaySheets } from '@/contexts/OverlaySheetsContext';
 import { deleteAccount } from '@/lib/services/privyAuthService';
 import { toast } from '@/lib/utils/toast';
 
@@ -73,7 +72,6 @@ export default function SettingsIndexScreen() {
     const { signOut } = useAuth();
     const { theme } = useTheme();
     const router = useRouter();
-    const { openRoleSwitch } = useOverlaySheets();
     const [signOutSheet, setSignOutSheet] = useState(false);
     const [signingOut, setSigningOut] = useState(false);
     const [deleteSheet, setDeleteSheet] = useState(false);
@@ -122,11 +120,8 @@ export default function SettingsIndexScreen() {
                     />
                     <Row
                         icon={<UserCog color={theme[700]} size={18} />}
-                        title="Switch role"
-                        onPress={() => {
-                            openRoleSwitch();
-                        }}
-                        trailing="none"
+                        title="Profile"
+                        onPress={() => router.push('/settings/profile')}
                     />
 
                     <View style={{ paddingHorizontal: 16, marginTop: 24, marginBottom: 8 }}>
