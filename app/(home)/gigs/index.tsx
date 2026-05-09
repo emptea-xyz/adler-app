@@ -13,12 +13,16 @@ import { ManageListingSheet } from '@/components/features/listing/ManageListingS
 import { Button } from '@/components/ui/Button';
 import EmptyState from '@/components/ui/EmptyState';
 import { Pill, type PillIntent } from '@/components/ui/Pill';
+import { SegmentedToggle } from '@/components/ui/SegmentedToggle';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useUser } from '@/contexts/UserContext';
 import { qk } from '@/lib/constants/queryKeys';
 import { listMyListings } from '@/lib/services/listingsService';
 import { formatSol } from '@/lib/utils/formatNumber';
 import type { Gig } from '@/types/marketplace';
+
+const GIG_FILTERS = ['all', 'open', 'closed', 'awarded'] as const;
+type GigFilter = (typeof GIG_FILTERS)[number];
 
 function gigIntent(status: Gig['status']): PillIntent {
     if (status === 'open') return 'cyan';
@@ -31,6 +35,7 @@ export default function GigsIndexScreen() {
     const { profile } = useUser();
     const router = useRouter();
     const [manageGig, setManageGig] = useState<Gig | null>(null);
+    const [filter, setFilter] = useState<GigFilter>('all');
 
     const gigsQuery = useQuery({
         queryKey: profile?.id ? qk.listings.byOwner('gig', profile.id) : ['listings', 'byOwner', 'gig', 'anon'],
@@ -42,6 +47,10 @@ export default function GigsIndexScreen() {
     });
 
     const gigs = useMemo(() => gigsQuery.data ?? [], [gigsQuery.data]);
+    const filteredGigs = useMemo(
+        () => (filter === 'all' ? gigs : gigs.filter((gig) => gig.status === filter)),
+        [filter, gigs],
+    );
 
     return (
         <ProfileGate require="brand">
@@ -67,14 +76,20 @@ export default function GigsIndexScreen() {
                                 onPress={() => router.push('/gigs/new')}
                                 leftIcon={<Plus size={16} color={theme[50]} />}
                             />
+                            <SegmentedToggle tabs={GIG_FILTERS} activeTab={filter} onTabChange={setFilter} size="sm" />
 
                             {gigs.length === 0 ? (
                                 <EmptyState
                                     title="No gigs yet"
                                     description="Post your first brief to start receiving applications."
                                 />
+                            ) : filteredGigs.length === 0 ? (
+                                <EmptyState
+                                    title="No matches for this status"
+                                    description="Switch filter or update status from Manage to find gigs."
+                                />
                             ) : (
-                                gigs.map((gig) => (
+                                filteredGigs.map((gig) => (
                                     <Pressable
                                         key={gig.id}
                                         onPress={() => router.push(`/gig/${gig.id}`)}
@@ -145,4 +160,3 @@ export default function GigsIndexScreen() {
         </ProfileGate>
     );
 }
-
