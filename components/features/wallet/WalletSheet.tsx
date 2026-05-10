@@ -5,13 +5,13 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { PublicKey } from '@solana/web3.js';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { ThemedText } from '@/components/base/ThemedText';
-import { KPI } from '@/components/ui/KPI';
+// KPI was deleted in the bounty pivot; we render the balance inline below.
 import { ReceiveSheet } from './ReceiveSheet';
 import { SendSheet } from './SendSheet';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { getConnection, lamportsToSol } from '@/lib/solana/connection';
-import { PROFILE_KEYS } from '@/lib/constants/queryKeys';
+import { qk } from '@/lib/constants/queryKeys';
 import { SOLANA_NETWORK } from '@/lib/constants/featureGates';
 import { haptic } from '@/lib/utils/haptic';
 import { formatSol } from '@/lib/utils/formatNumber';
@@ -62,7 +62,7 @@ export function WalletSheet({ visible, onClose }: Props) {
   const [receiveOpen, setReceiveOpen] = useState(false);
 
   const balanceQuery = useQuery({
-    queryKey: walletAddress ? PROFILE_KEYS.walletBalance(walletAddress) : ['wallet', 'balance', 'none'],
+    queryKey: walletAddress ? qk.wallet.balance(walletAddress) : ['wallet', 'balance', 'none'],
     enabled: !!walletAddress && visible,
     queryFn: async () => {
       if (!walletAddress) return 0;
@@ -76,7 +76,7 @@ export function WalletSheet({ visible, onClose }: Props) {
   const refresh = () => {
     if (!walletAddress) return;
     haptic('light');
-    queryClient.invalidateQueries({ queryKey: PROFILE_KEYS.walletBalance(walletAddress) });
+    queryClient.invalidateQueries({ queryKey: qk.wallet.balance(walletAddress) });
   };
 
   return (
@@ -93,11 +93,14 @@ export function WalletSheet({ visible, onClose }: Props) {
               {balanceQuery.isLoading || balanceQuery.data === undefined ? (
                 <ActivityIndicator color={theme[500]} />
               ) : (
-                <KPI
-                  size="lg"
-                  amount={formatSol(balanceQuery.data)}
-                  unit="SOL"
-                />
+                <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
+                  <ThemedText type="h1" style={{ color: theme[950] }}>
+                    {formatSol(balanceQuery.data)}
+                  </ThemedText>
+                  <ThemedText type="body-md-semibold" style={{ color: theme[500] }}>
+                    SOL
+                  </ThemedText>
+                </View>
               )}
               <Pressable
                 onPress={refresh}

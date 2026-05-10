@@ -161,7 +161,7 @@ export default function SettingsProfileScreen() {
                     </View>
 
                     <ThemedText type="caption" style={{ color: theme[500] }}>
-                        Username @{profile.username} can't be changed.
+                        Username @{profile.username} can&apos;t be changed.
                     </ThemedText>
                 </ScrollView>
 

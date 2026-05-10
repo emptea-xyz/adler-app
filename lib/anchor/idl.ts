@@ -2,7 +2,11 @@
 
 import type { AdlerEscrow } from "./idl-types";
 
-const idl: AdlerEscrow =
+// Anchor 0.31's IDL JSON keeps Rust snake_case names while the generated
+// idl-types.ts uses camelCase — the discrepancy is intentional in the
+// upstream codegen. Cast through unknown so the typed client surface
+// (program.methods.createBounty(...) etc.) remains correct.
+const idlRaw =
 {
   "address": "BArnn6qEM45LMxntW2eBKc5icsZGGqaLiDFCSTFx1uZr",
   "metadata": {
@@ -836,4 +840,5 @@ const idl: AdlerEscrow =
   ]
 };
 
+const idl = idlRaw as unknown as AdlerEscrow;
 export default idl;

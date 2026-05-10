@@ -24,7 +24,7 @@ export async function createBounty(input: CreateBountyInput): Promise<string> {
 
     const ix = await program.methods
         .createBounty(Array.from(bountyIdBytes), new BN(input.amountLamports), modeByte)
-        .accounts({
+        .accountsPartial({
             config: configPda,
             escrow: escrowPda,
             poster: posterPubkey,

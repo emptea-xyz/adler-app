@@ -23,7 +23,7 @@ export async function settleManualBounty(input: SettleManualBountyInput): Promis
 
     const ix = await program.methods
         .settleManualBounty(Array.from(bountyIdBytes))
-        .accounts({
+        .accountsPartial({
             config: configPda,
             escrow: escrowPda,
             poster: posterPubkey,

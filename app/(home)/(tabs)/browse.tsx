@@ -86,7 +86,7 @@ export default function BrowseScreen() {
             {isLoading ? (
                 <View style={{ paddingHorizontal: 16, gap: 12, paddingTop: 8 }}>
                     {[0, 1, 2, 3].map((k) => (
-                        <Skeleton key={k} height={84} radius={12} />
+                        <Skeleton key={k} height={84} />
                     ))}
                 </View>
             ) : (

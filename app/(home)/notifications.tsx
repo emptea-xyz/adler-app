@@ -27,9 +27,6 @@ import { toast } from '@/lib/utils/toast';
 
 function destinationForNotification(n: AdlerNotification): string {
     const href = n.href?.trim();
-    if (href?.startsWith('/admin/disputes')) {
-        return n.refs.threadId ? `/inbox/${n.refs.threadId}` : '/(home)/(tabs)/inbox';
-    }
     if (!href) return '/(home)/(tabs)/inbox';
     return href.startsWith('/') ? href : `/${href}`;
 }

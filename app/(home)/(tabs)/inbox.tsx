@@ -65,7 +65,6 @@ function SubmissionRow({ submission }: { submission: Submission }) {
 }
 
 export default function InboxScreen() {
-    const { theme } = useTheme();
     const insets = useSafeAreaInsets();
     const { user } = useAuth();
     const [tab, setTab] = useState<InboxTab>('posted');
@@ -103,7 +102,7 @@ export default function InboxScreen() {
             {loading ? (
                 <View style={{ paddingHorizontal: 16, gap: 12, paddingTop: 8 }}>
                     {[0, 1, 2].map((k) => (
-                        <Skeleton key={k} height={84} radius={12} />
+                        <Skeleton key={k} height={84} />
                     ))}
                 </View>
             ) : tab === 'posted' ? (

@@ -44,7 +44,7 @@ export function useBountyEscrow(): UseBountyEscrowReturn {
     const [error, setError] = useState<string | null>(null);
 
     const provider = useCallback(async () => {
-        if (!wallet?.wallets || wallet.wallets.length === 0) {
+        if (!wallet?.wallets || wallet.wallets.length === 0 || !wallet.getProvider) {
             throw new Error('Embedded wallet is not ready yet.');
         }
         return wallet.getProvider();

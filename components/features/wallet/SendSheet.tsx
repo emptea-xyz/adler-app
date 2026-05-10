@@ -10,7 +10,7 @@ import TextInput from '@/components/ui/TextInput';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { transferSol } from '@/lib/solana/transferSol';
-import { PROFILE_KEYS } from '@/lib/constants/queryKeys';
+import { qk } from '@/lib/constants/queryKeys';
 import { SOLANA_NETWORK } from '@/lib/constants/featureGates';
 import { ACCENT_COLORS } from '@/constants/ThemePalettes';
 import { toast } from '@/lib/utils/toast';
@@ -96,7 +96,7 @@ export function SendSheet({ visible, onClose }: Props) {
           toAddress: recipient.trim(),
           amountSol: parsedAmount,
         });
-        queryClient.invalidateQueries({ queryKey: PROFILE_KEYS.walletBalance(walletAddress) });
+        queryClient.invalidateQueries({ queryKey: qk.wallet.balance(walletAddress) });
         haptic('heavy');
         toast.success(`Sent · tx ${signature.slice(0, 8)}…`);
         closeFn();

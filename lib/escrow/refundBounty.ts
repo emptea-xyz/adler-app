@@ -21,7 +21,7 @@ export async function refundBounty(input: RefundBountyInput): Promise<string> {
 
     const ix = await program.methods
         .refundBounty(Array.from(bountyIdBytes))
-        .accounts({
+        .accountsPartial({
             config: configPda,
             escrow: escrowPda,
             poster: posterPubkey,
