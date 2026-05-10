@@ -50,3 +50,6 @@ firebase-debug.*.log
 .firebase/
 extensions/*.secret.local
 extensions/*.env.local
+
+# Claude Code worktrees
+.claude/worktrees/
