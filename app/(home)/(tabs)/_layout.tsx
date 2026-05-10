@@ -9,7 +9,6 @@ export default function TabsLayout() {
       tabBar={(props) => <AdlerTabBar {...props} />}
     >
       <Tabs.Screen name="browse" />
-      <Tabs.Screen name="saved" />
       <Tabs.Screen name="inbox" />
       <Tabs.Screen name="profile" />
     </Tabs>

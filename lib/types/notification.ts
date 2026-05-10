@@ -1,27 +1,20 @@
-// Mirror of adler-website/lib/types/notification.ts. Source of truth:
-// the `match /notifications/{notificationId}` block in
-// adler-app/firestore.rules.
-//
-// Server-only writer: clients can read their own (recipientId == auth.uid)
-// and flip the `read` flag to true. Cloud Functions own creation; the
-// emitNotification helper in adler-app/functions/index.js is the single
-// upstream call site.
+// Mirror of `notifications/{id}` Firestore doc shape. Server-only writes
+// (Cloud Functions); clients read own + flip `read` flag.
 
 export type NotificationKind =
-  | "application_received"
-  | "application_decided"
-  | "order_state"
-  | "thread_message"
-  | "dispute_filed"
-  | "dispute_resolved"
-  | "system";
+  | 'bounty_submission_received'
+  | 'bounty_won'
+  | 'bounty_lost'
+  | 'bounty_expired_refund'
+  | 'bounty_hidden_by_reports'
+  | 'group_join_approved'
+  | 'group_join_rejected'
+  | 'system';
 
 export interface NotificationRefs {
-  orderId?: string;
-  threadId?: string;
-  applicationId?: string;
-  listingId?: string;
-  disputeId?: string;
+  bountyId?: string;
+  submissionId?: string;
+  groupId?: string;
 }
 
 export interface AdlerNotification {

@@ -8,15 +8,13 @@ import {
     registerForPushAsync,
 } from '@/lib/services/pushService';
 import { STORAGE_KEYS } from '@/lib/constants/storageKeys';
-import type { Profile } from '@/types/marketplace';
-import { viewModeFor } from '@/lib/utils/role';
+import type { Profile } from '@/lib/types/profile';
 import { PushPermissionPrompt } from '@/components/features/notifications/PushPermissionPrompt';
 import { toast } from '@/lib/utils/toast';
 
 interface UserContextType {
     profile: Profile | null;
     loading: boolean;
-    hasRole: boolean;
     refreshProfile: () => Promise<void>;
 }
 
@@ -29,8 +27,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     const [pushPromptVisible, setPushPromptVisible] = useState(false);
     const [pushPromptLoading, setPushPromptLoading] = useState(false);
     const isMounted = useRef(true);
-    // Per-app-launch latch so we register for push at most once per user even
-    // if profile fetches re-fire (wallet arrives, refresh on focus, etc.).
     const pushSyncedFor = useRef<string | null>(null);
 
     useEffect(() => {
@@ -40,7 +36,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         };
     }, []);
 
-    // SWR: serve cached profile immediately, then revalidate.
     useEffect(() => {
         if (!user) {
             setProfile(null);
@@ -70,15 +65,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     const fetchProfile = useCallback(async () => {
         if (!user) return;
         try {
-            // First-login bootstrap: ensure a profile doc exists. Wallet address may
-            // arrive a moment after the Firebase user (Privy creates it lazily).
             const ensured = await ensureProfileExists(user.id, walletAddress);
             if (!isMounted.current) return;
             setProfile(ensured);
             AsyncStorage.setItem(STORAGE_KEYS.CACHED_PROFILE, JSON.stringify(ensured)).catch(() => {});
 
-            // Register silently when the user already granted iOS permission.
-            // If permission is still undetermined, show Adler's pre-prompt first.
             if (pushSyncedFor.current !== user.id) {
                 pushSyncedFor.current = user.id;
                 getPushPermissionState()
@@ -99,7 +90,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
             }
         } catch (err) {
             console.error('Failed to fetch profile:', err);
-            // Soft fallback to whatever is on disk.
             try {
                 const fresh = await getProfile(user.id);
                 if (fresh && isMounted.current) {
@@ -112,7 +102,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         }
     }, [user, walletAddress]);
 
-    // Revalidate whenever auth state settles or wallet address arrives.
     useEffect(() => {
         if (!user || isBridging) return;
         fetchProfile();
@@ -158,7 +147,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         () => ({
             profile,
             loading,
-            hasRole: viewModeFor(profile) !== null,
             refreshProfile: fetchProfile,
         }),
         [profile, loading, fetchProfile],

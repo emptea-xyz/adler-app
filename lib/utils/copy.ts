@@ -1,54 +1,45 @@
 /**
- * Centralized copy strings for empty states, errors, and other reusable
- * microcopy. Keep tone consistent: confident, action-oriented, no jargon.
+ * Centralized copy strings for empty states and reusable microcopy.
+ * Tone: confident, action-oriented, no jargon. Brand "Adler" preserved
+ * verbatim wherever it appears.
  */
 
-export const EMPTY_BROWSE = {
-    title: 'Quiet on the wire',
-    description: 'When creators ship packages and brands post gigs, they land here.',
+export const EMPTY_BROWSE_PUBLIC = {
+  title: 'Quiet on the wire',
+  description: 'No public bounties open right now. Be the first to post one.',
 } as const;
 
-export const EMPTY_INBOX_PURCHASES = {
-    title: 'No purchases yet',
-    description: 'Buy your first package and it shows up here with the on-chain receipt.',
+export const EMPTY_BROWSE_GROUPS = {
+  title: 'No group bounties',
+  description: 'Join a group to see private bounties here.',
 } as const;
 
-export const EMPTY_INBOX_SALES = {
-    title: 'No sales yet',
-    description: 'Once a brand buys one of your packages, the order appears here.',
+export const EMPTY_INBOX_POSTED = {
+  title: 'No bounties posted',
+  description: 'Hit the Create tab to post your first one.',
 } as const;
 
-export const EMPTY_INBOX_APPLICATIONS = {
-    title: 'No applications yet',
-    description: 'Pitch a gig from the Browse tab and your applications track here.',
+export const EMPTY_INBOX_SUBMITTED = {
+  title: 'No submissions yet',
+  description: 'Find a bounty in Browse and submit a photo.',
 } as const;
 
-export const EMPTY_PACKAGES_BY_SELLER = {
-    title: 'No packages yet',
-    description: 'Hit the Create tab to publish your first one.',
+export const EMPTY_NOTIFICATIONS = {
+  title: 'Quiet on the wire',
+  description: 'When something happens on a bounty you posted or solved, it lands here.',
 } as const;
 
-export const EMPTY_GIGS_BY_BRAND = {
-    title: 'No gigs yet',
-    description: 'Hit the Create tab to post your first brief.',
+export const EMPTY_BOUNTY_SUBMISSIONS = {
+  title: 'No submissions yet',
+  description: 'Be the first to submit a photo.',
 } as const;
 
-export const EMPTY_GIG_APPLICATIONS = {
-    title: 'No applications yet',
-    description: 'When creators apply, their pitches show up here.',
-} as const;
-
-export const EMPTY_SAVED = {
-    title: 'Nothing saved yet',
-    description: 'Bookmark a package or gig from Browse and it lands here.',
-} as const;
-
-export const EMPTY_BROWSE_SEARCH = {
-    title: 'No matches',
-    description: 'Try a broader term, clear a filter, or pull to refresh.',
+export const EMPTY_GROUPS = {
+  title: 'No groups yet',
+  description: 'Groups gate private bounties to a curated audience.',
 } as const;
 
 export const EMPTY_WALLET_BALANCE = {
-    title: 'Wallet is empty',
-    description: 'On devnet, fund yourself with the Solana CLI to start buying or sending.',
+  title: 'Wallet is empty',
+  description: 'On devnet, fund yourself with the Solana CLI to start posting bounties.',
 } as const;
