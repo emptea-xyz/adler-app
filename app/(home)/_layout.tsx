@@ -16,7 +16,6 @@ export default function HomeLayout() {
     <OverlaySheetsProvider>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="post-bounty" options={{ presentation: 'card' }} />
         <Stack.Screen name="bounty/[id]" options={{ presentation: 'card' }} />
         <Stack.Screen name="bounty/[id]/submit" options={{ presentation: 'card' }} />
         <Stack.Screen name="notifications" options={{ presentation: 'card' }} />

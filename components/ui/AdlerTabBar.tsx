@@ -1,10 +1,10 @@
 import React, { useCallback } from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
-import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Compass, Inbox, User } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useOverlaySheets } from '@/contexts/OverlaySheetsContext';
 import { haptic } from '@/lib/utils/haptic';
 import { TAB_BAR_HEIGHT } from '@/constants/LayoutConstants';
 import { SolanaUploadArrow } from '@/components/ui/SolanaUploadArrow';
@@ -27,6 +27,7 @@ const TAB_ORDER = ['browse', 'create', 'inbox', 'profile'] as const;
 export function AdlerTabBar({ state, navigation }: BottomTabBarProps) {
     const { theme } = useTheme();
     const insets = useSafeAreaInsets();
+    const { openPostBounty } = useOverlaySheets();
 
     const onPress = useCallback(
         (routeName: string) => {
@@ -48,8 +49,8 @@ export function AdlerTabBar({ state, navigation }: BottomTabBarProps) {
 
     const onCreatePress = useCallback(() => {
         haptic('medium');
-        router.push('/post-bounty');
-    }, []);
+        openPostBounty();
+    }, [openPostBounty]);
 
     const focusedRouteName = state.routes[state.index]?.name ?? '';
 
