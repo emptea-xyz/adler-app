@@ -78,19 +78,28 @@ service cloud.firestore {
                     && bountyValidShape(request.resource.data)
                     && request.resource.data.status == 'open'
                     && request.resource.data.reportCount == 0
-                    && request.resource.data.escrowFunded == false
                     && (request.resource.data.scope == 'public'
                         || (request.resource.data.scope == 'group'
                             && request.resource.data.groupId is string));
-      // Owner can flip escrowFunded flag once (after on-chain create_bounty).
-      // All other status / winner / settlement fields are Cloud-Function-only.
+      // Owner update paths:
+      //   (a) status preserved: e.g. flipping `escrowFunded` from false to true.
+      //   (b) open → settled via manual mode: poster signed `settle_manual_bounty`
+      //       on-chain and writes the on-chain tx signature + winner refs.
+      // Auto-mode settle, refund, hidden flips are Cloud-Function-only.
       allow update: if isOwner(resource.data.posterId)
-                    && resource.data.status == 'open'
                     && request.resource.data.posterId == resource.data.posterId
                     && request.resource.data.bountyLamports == resource.data.bountyLamports
                     && request.resource.data.contractIdHex == resource.data.contractIdHex
-                    && request.resource.data.status == resource.data.status
-                    && request.resource.data.reportCount == resource.data.reportCount;
+                    && request.resource.data.reportCount == resource.data.reportCount
+                    && (
+                      (resource.data.status == 'open' && request.resource.data.status == 'open')
+                      || (resource.data.status == 'open'
+                          && request.resource.data.status == 'settled'
+                          && resource.data.mode == 'manual'
+                          && request.resource.data.winnerId is string
+                          && request.resource.data.winningSubmissionId is string
+                          && request.resource.data.txSignature is string)
+                    );
       allow delete: if false;
     }
 
