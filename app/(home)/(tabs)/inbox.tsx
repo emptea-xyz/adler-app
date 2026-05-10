@@ -1,101 +1,132 @@
-import React, { useCallback } from 'react';
-import { View, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useState } from 'react';
+import { FlatList, View, Pressable } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
-import { useInboxUnread } from '@/hooks/useInboxUnread';
-import { ThemedView } from '@/components/base/ThemedView';
-import EmptyState from '@/components/ui/EmptyState';
-import { InboxRow } from '@/components/ui/InboxRow';
-import { AdlerHomeHeader } from '@/components/features/home/AdlerHomeHeader';
+import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { ThemedView } from '@/components/base/ThemedView';
+import { ThemedText } from '@/components/base/ThemedText';
+import { AdlerHomeHeader } from '@/components/features/home/AdlerHomeHeader';
+import { SegmentedToggle } from '@/components/ui/SegmentedToggle';
+import EmptyState from '@/components/ui/EmptyState';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { BountyRow } from '@/components/features/bounty/BountyRow';
+import Card from '@/components/ui/Card';
+import { Pill } from '@/components/ui/Pill';
+import { listMyPostedBounties } from '@/lib/services/bountyService';
+import { listMySubmissions } from '@/lib/services/submissionService';
 import { qk } from '@/lib/constants/queryKeys';
-import { listMyThreads } from '@/lib/services/threadsService';
+import { EMPTY_INBOX_POSTED, EMPTY_INBOX_SUBMITTED } from '@/lib/utils/copy';
 import { formatRelative } from '@/lib/utils/dates';
+import { haptic } from '@/lib/utils/haptic';
 import { TAB_BAR_HEIGHT } from '@/constants/LayoutConstants';
-import type { Thread } from '@/lib/types/thread';
+import type { Submission } from '@/lib/types/submission';
 
-function rowForThread(thread: Thread, uid: string): { id: string; title: string; subtitle: string; href: string } {
-    const counterpartyId = thread.participants.find((id) => id !== uid) ?? thread.participants[0] ?? uid;
-    const snapshot = thread.participantSnapshots[counterpartyId];
-    const name = snapshot?.displayName ?? (snapshot?.handle ? `@${snapshot.handle}` : 'Conversation');
-    const unread = thread.unreadCount[uid] ?? 0;
-    const badge = unread > 0 ? ` (${unread})` : '';
-    const prefix = thread.kind === 'order' ? 'Order' : 'Application';
-    const preview = thread.lastMessagePreview?.trim() || 'No messages yet';
-    return {
-        id: thread.id,
-        title: `${name}${badge}`,
-        subtitle: `${prefix} · ${preview} · ${formatRelative(thread.lastMessageAt || thread.updatedAt)}`,
-        href: `/inbox/${thread.id}`,
+type InboxTab = 'posted' | 'submitted';
+
+function SubmissionRow({ submission }: { submission: Submission }) {
+    const { theme } = useTheme();
+    const onPress = () => {
+        haptic('light');
+        router.push(`/bounty/${submission.bountyId}`);
     };
+    let intent: 'lime' | 'orange' | 'cyan' | 'neutral' = 'neutral';
+    let label = 'Pending';
+    if (submission.isWinner) {
+        intent = 'cyan';
+        label = 'WON';
+    } else if (submission.aiVerdict === 'pass') {
+        intent = 'lime';
+        label = 'PASS';
+    } else if (submission.aiVerdict === 'fail') {
+        intent = 'orange';
+        label = 'FAIL';
+    }
+    return (
+        <Pressable onPress={onPress}>
+            <Card variant="border-bottom">
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <View style={{ flex: 1, gap: 4 }}>
+                        <ThemedText type="body-md-semibold" style={{ color: theme[950] }} numberOfLines={1}>
+                            Submission · {formatRelative(submission.submittedAt)}
+                        </ThemedText>
+                        {submission.aiReasoning ? (
+                            <ThemedText type="caption" style={{ color: theme[500] }} numberOfLines={2}>
+                                {submission.aiReasoning}
+                            </ThemedText>
+                        ) : null}
+                    </View>
+                    <Pill intent={intent} label={label} />
+                </View>
+            </Card>
+        </Pressable>
+    );
 }
 
 export default function InboxScreen() {
-    const { user } = useAuth();
     const { theme } = useTheme();
-    const router = useRouter();
-    const { markSeen } = useInboxUnread();
+    const insets = useSafeAreaInsets();
+    const { user } = useAuth();
+    const [tab, setTab] = useState<InboxTab>('posted');
 
-    useFocusEffect(
-        useCallback(() => {
-            markSeen().catch(() => null);
-        }, [markSeen]),
-    );
-
-    const threadsQuery = useQuery({
-        queryKey: user ? qk.threads.byParticipant(user.id) : ['threads', 'byParticipant', 'anon'],
-        enabled: !!user,
-        queryFn: () => listMyThreads(user!.id),
+    const postedQuery = useQuery({
+        queryKey: user ? qk.bounties.byPoster(user.id) : ['bounties', 'byPoster', 'anon'],
+        queryFn: () => (user ? listMyPostedBounties(user.id) : Promise.resolve([])),
+        staleTime: 30_000,
+        enabled: !!user && tab === 'posted',
     });
 
-    const rows = (threadsQuery.data ?? []).map((thread) => rowForThread(thread, user?.id ?? ''));
+    const submittedQuery = useQuery({
+        queryKey: user ? qk.submissions.bySubmitter(user.id) : ['submissions', 'bySubmitter', 'anon'],
+        queryFn: () => (user ? listMySubmissions(user.id) : Promise.resolve([])),
+        staleTime: 30_000,
+        enabled: !!user && tab === 'submitted',
+    });
+
+    const loading = tab === 'posted' ? postedQuery.isLoading : submittedQuery.isLoading;
 
     return (
-        <ThemedView className="flex-1">
-            <SafeAreaView edges={['top']} className="flex-1">
+        <ThemedView style={{ flex: 1 }}>
+            <View style={{ paddingTop: insets.top }}>
                 <AdlerHomeHeader title="Inbox" />
-
-                {threadsQuery.isLoading ? (
-                    <View className="flex-1 items-center justify-center">
-                        <ActivityIndicator color={theme[950]} />
-                    </View>
-                ) : (
-                    <FlatList
-                        data={rows}
-                        keyExtractor={(item) => item.id}
-                        contentContainerStyle={{
-                            paddingHorizontal: 16,
-                            paddingTop: 16,
-                            paddingBottom: TAB_BAR_HEIGHT + 32,
-                            gap: 16,
-                        }}
-                        refreshControl={
-                            <RefreshControl
-                                refreshing={threadsQuery.isRefetching}
-                                onRefresh={threadsQuery.refetch}
-                                tintColor={theme[500]}
-                            />
-                        }
-                        ListEmptyComponent={
-                            <View className="pt-12">
-                                <EmptyState
-                                    title="No threads yet"
-                                    description="Apply to a gig or complete a purchase to open a conversation."
-                                />
-                            </View>
-                        }
-                        renderItem={({ item }) => (
-                            <InboxRow
-                                title={item.title}
-                                subline={item.subtitle}
-                                onPress={() => router.push(item.href as any)}
-                            />
-                        )}
+                <View style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
+                    <SegmentedToggle
+                        tabs={['Posted', 'Submitted'] as const}
+                        activeTab={tab === 'posted' ? 'Posted' : 'Submitted'}
+                        onTabChange={(t) => setTab(t === 'Posted' ? 'posted' : 'submitted')}
+                        size="md"
                     />
-                )}
-            </SafeAreaView>
+                </View>
+            </View>
+
+            {loading ? (
+                <View style={{ paddingHorizontal: 16, gap: 12, paddingTop: 8 }}>
+                    {[0, 1, 2].map((k) => (
+                        <Skeleton key={k} height={84} radius={12} />
+                    ))}
+                </View>
+            ) : tab === 'posted' ? (
+                <FlatList
+                    data={postedQuery.data ?? []}
+                    keyExtractor={(item) => item.id}
+                    renderItem={({ item }) => <BountyRow bounty={item} />}
+                    contentContainerStyle={{ paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 24 }}
+                    ListEmptyComponent={
+                        <EmptyState title={EMPTY_INBOX_POSTED.title} description={EMPTY_INBOX_POSTED.description} />
+                    }
+                />
+            ) : (
+                <FlatList
+                    data={submittedQuery.data ?? []}
+                    keyExtractor={(item) => item.id}
+                    renderItem={({ item }) => <SubmissionRow submission={item} />}
+                    contentContainerStyle={{ paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 24 }}
+                    ListEmptyComponent={
+                        <EmptyState title={EMPTY_INBOX_SUBMITTED.title} description={EMPTY_INBOX_SUBMITTED.description} />
+                    }
+                />
+            )}
         </ThemedView>
     );
 }

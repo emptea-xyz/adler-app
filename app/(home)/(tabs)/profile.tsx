@@ -1,183 +1,101 @@
-import React, { useState } from 'react';
-import { View, ScrollView, ActivityIndicator } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
-import { BriefcaseBusiness } from 'lucide-react-native';
-import { ThemedText } from '@/components/base/ThemedText';
-import { ThemedView } from '@/components/base/ThemedView';
-import { SectionLabel } from '@/components/base/SectionLabel';
-import { Button } from '@/components/ui/Button';
-import { ListingCard } from '@/components/ui/ListingCard';
-import EmptyState from '@/components/ui/EmptyState';
-import { ProfileHeader } from '@/components/features/profile/ProfileHeader';
-import { EditProfileSheet } from '@/components/features/profile/EditProfileSheet';
-import { useUser } from '@/contexts/UserContext';
+import React from 'react';
+import { ScrollView, View, Pressable } from 'react-native';
+import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Settings, MapPin, ChevronRight } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
-import { listMyListings } from '@/lib/services/listingsService';
-import { qk } from '@/lib/constants/queryKeys';
-import { haptic } from '@/lib/utils/haptic';
-import { viewModeFor } from '@/lib/utils/role';
+import { useUser } from '@/contexts/UserContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { useOverlaySheets } from '@/contexts/OverlaySheetsContext';
+import { ThemedView } from '@/components/base/ThemedView';
+import { ThemedText } from '@/components/base/ThemedText';
+import { Avatar } from '@/components/ui/Avatar';
+import Card from '@/components/ui/Card';
+import { WalletPill } from '@/components/ui/WalletPill';
 import { TAB_BAR_HEIGHT } from '@/constants/LayoutConstants';
-import {
-  EMPTY_PACKAGES_BY_SELLER,
-  EMPTY_GIGS_BY_BRAND,
-} from '@/lib/utils/copy';
-import type { Gig, Service } from '@/types/marketplace';
-
-const LISTINGS_PREVIEW_LIMIT = 6;
+import { haptic } from '@/lib/utils/haptic';
 
 export default function ProfileScreen() {
-  const { profile } = useUser();
-  const { theme } = useTheme();
-  const router = useRouter();
-  const [editOpen, setEditOpen] = useState(false);
+    const { theme } = useTheme();
+    const { profile } = useUser();
+    const { walletAddress } = useAuth();
+    const { openWallet } = useOverlaySheets();
+    const insets = useSafeAreaInsets();
 
-  const isCreator = viewModeFor(profile) === 'creator';
+    if (!profile) return <ThemedView style={{ flex: 1 }} />;
 
-  const servicesQuery = useQuery({
-    queryKey: profile?.id ? qk.listings.byOwner('service', profile.id) : ['listings', 'byOwner', 'service', 'anon'],
-    enabled: !!profile?.id && isCreator,
-    queryFn: () => listMyListings('service', profile!.id),
-  });
+    const locationLabel =
+        profile.location.kind === 'city' && profile.location.city
+            ? `${profile.location.city}, ${profile.location.country ?? ''}`.trim().replace(/,\s*$/, '')
+            : 'Global';
 
-  const gigsQuery = useQuery({
-    queryKey: profile?.id ? qk.listings.byOwner('gig', profile.id) : ['listings', 'byOwner', 'gig', 'anon'],
-    enabled: !!profile?.id && !isCreator,
-    queryFn: () => listMyListings('gig', profile!.id),
-  });
-
-  const listings = isCreator ? servicesQuery.data ?? [] : gigsQuery.data ?? [];
-  const listingsLoading = isCreator ? servicesQuery.isLoading : gigsQuery.isLoading;
-  const listingsTitle = isCreator ? 'Your services' : 'Your gigs';
-  const listingsEmpty = isCreator ? EMPTY_PACKAGES_BY_SELLER : EMPTY_GIGS_BY_BRAND;
-
-  return (
-    <ThemedView className="flex-1">
-      <SafeAreaView edges={['top']} className="flex-1">
-        <ScrollView
-          contentContainerStyle={{
-            paddingHorizontal: 16,
-            paddingBottom: TAB_BAR_HEIGHT + 32,
-            gap: 24,
-          }}
-          showsVerticalScrollIndicator={false}
-        >
-          <ProfileHeader
-            listingsCount={listings.length}
-            onPressEdit={() => setEditOpen(true)}
-          />
-
-          <View style={{ gap: 12 }}>
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}
+    return (
+        <ThemedView style={{ flex: 1 }}>
+            <ScrollView
+                contentContainerStyle={{
+                    paddingTop: insets.top + 16,
+                    paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 24,
+                    paddingHorizontal: 16,
+                    gap: 16,
+                }}
             >
-              <SectionLabel label={listingsTitle} />
-              {listings.length > 0 ? (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  {isCreator ? (
-                    <Button
-                      title="Applications"
-                      size="sm"
-                      variant="secondary"
-                      onPress={() => router.push('/applications')}
-                    />
-                  ) : null}
-                  <Button
-                    title="Manage"
-                    size="sm"
-                    variant="secondary"
-                    onPress={() => router.push(isCreator ? '/services' : '/gigs')}
-                  />
-                  <ThemedText type="caption-semibold" style={{ color: theme[500] }}>
-                    {listings.length}
-                  </ThemedText>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                    <ThemedText type="h2" style={{ color: theme[950] }}>
+                        Profile
+                    </ThemedText>
+                    <Pressable
+                        onPress={() => {
+                            haptic('light');
+                            router.push('/settings');
+                        }}
+                        accessibilityRole="button"
+                        accessibilityLabel="Settings"
+                        style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: theme[100], alignItems: 'center', justifyContent: 'center' }}
+                    >
+                        <Settings size={16} color={theme[950]} />
+                    </Pressable>
                 </View>
-              ) : null}
-            </View>
 
-            {listingsLoading ? (
-              <View style={{ paddingVertical: 24, alignItems: 'center' }}>
-                <ActivityIndicator color={theme[500]} />
-              </View>
-            ) : listings.length === 0 ? (
-              <View style={{ gap: 12, paddingTop: 8 }}>
-                <EmptyState
-                  title={listingsEmpty.title}
-                  description={listingsEmpty.description}
-                />
-                <Button
-                  title={isCreator ? 'List a service' : 'Post a gig'}
-                  onPress={() => {
-                    haptic('light');
-                    if (isCreator) {
-                      router.push('/services/new');
-                      return;
-                    }
-                    router.push('/gigs/new');
-                  }}
-                  variant="secondary"
-                  className="self-center"
-                />
-              </View>
-            ) : (
-              <View style={{ gap: 14 }}>
-                {listings.slice(0, LISTINGS_PREVIEW_LIMIT).map((item) => {
-                  const amount = isCreator
-                    ? (item as Service).priceSol
-                    : (item as Gig).budgetSol;
-                  return (
-                    <ListingCard
-                      key={item.id}
-                      kind={isCreator ? 'service' : 'gig'}
-                      amount={amount}
-                      category={item.category}
-                      title={item.title}
-                      ownerId={profile?.id ?? ''}
-                      createdAt={item.createdAt}
-                      mediaUrls={item.mediaUrls}
-                      overlay={isCreator ? (item as Service).overlay : null}
-                      onPress={() => {
+                <Card variant="filled">
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                        <Avatar size="lg" avatarUrl={profile.avatarUrl} initial={profile.displayName.charAt(0)} />
+                        <View style={{ flex: 1, gap: 2 }}>
+                            <ThemedText type="h4" style={{ color: theme[950] }}>{profile.displayName}</ThemedText>
+                            <ThemedText type="body-sm" style={{ color: theme[500] }}>@{profile.username}</ThemedText>
+                        </View>
+                    </View>
+                    {profile.bio ? (
+                        <ThemedText type="body-md" style={{ color: theme[800], marginTop: 12 }}>
+                            {profile.bio}
+                        </ThemedText>
+                    ) : null}
+                </Card>
+
+                <Pressable
+                    onPress={() => {
                         haptic('light');
-                        router.push(
-                          isCreator ? `/service/${item.id}` : `/gig/${item.id}`,
-                        );
-                      }}
-                    />
-                  );
-                })}
-              </View>
-            )}
-          </View>
-        </ScrollView>
-      </SafeAreaView>
+                        router.push('/settings/profile');
+                    }}
+                >
+                    <Card variant="outline">
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                            <MapPin size={18} color={theme[700]} />
+                            <View style={{ flex: 1 }}>
+                                <ThemedText type="caption-semibold" style={{ color: theme[500] }}>LOCATION</ThemedText>
+                                <ThemedText type="body-md-semibold" style={{ color: theme[950] }}>{locationLabel}</ThemedText>
+                            </View>
+                            <ChevronRight size={16} color={theme[400]} />
+                        </View>
+                    </Card>
+                </Pressable>
 
-      {!isCreator ? (
-        <View
-          style={{
-            position: 'absolute',
-            right: 16,
-            bottom: TAB_BAR_HEIGHT + 24,
-          }}
-          pointerEvents="box-none"
-        >
-          <Button
-            title="My gigs"
-            size="sm"
-            onPress={() => {
-              haptic('light');
-              router.push('/gigs');
-            }}
-            leftIcon={<BriefcaseBusiness size={14} color={theme[50]} />}
-          />
-        </View>
-      ) : null}
-
-      <EditProfileSheet visible={editOpen} onClose={() => setEditOpen(false)} />
-    </ThemedView>
-  );
+                <View>
+                    <ThemedText type="caption-semibold" style={{ color: theme[500], marginBottom: 8, marginLeft: 4 }}>WALLET</ThemedText>
+                    <Pressable onPress={openWallet}>
+                        <WalletPill amount={walletAddress ? '—' : '—'} loading={false} onPress={openWallet} />
+                    </Pressable>
+                </View>
+            </ScrollView>
+        </ThemedView>
+    );
 }

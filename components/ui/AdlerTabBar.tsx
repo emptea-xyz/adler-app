@@ -3,43 +3,30 @@ import { View, Pressable, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { Compass, Inbox, User, Bookmark } from 'lucide-react-native';
+import { Compass, Inbox, User } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { haptic } from '@/lib/utils/haptic';
 import { TAB_BAR_HEIGHT } from '@/constants/LayoutConstants';
 import { SolanaUploadArrow } from '@/components/ui/SolanaUploadArrow';
-import { useInboxUnread } from '@/hooks/useInboxUnread';
-import { Status } from '@/constants/StatusColors';
-import { useViewMode } from '@/contexts/ViewModeContext';
-
-// Figma node 132:204 — 5 visual slots in the order browse, saved, create,
-// inbox, profile. Icons only (no labels). The center "create" slot is a
-// pure action button: it opens the CreateSheet via the OverlaySheets
-// context and is NOT a navigable route.
 
 const ICONS: Record<string, React.ComponentType<{ size: number; color: string; strokeWidth?: number }>> = {
     browse: Compass,
-    saved: Bookmark,
     inbox: Inbox,
     profile: User,
 };
 
 const LABELS: Record<string, string> = {
     browse: 'Browse',
-    saved: 'Saved',
     inbox: 'Inbox',
     create: 'Create',
     profile: 'Profile',
 };
 
+const TAB_ORDER = ['browse', 'create', 'inbox', 'profile'] as const;
+
 export function AdlerTabBar({ state, navigation }: BottomTabBarProps) {
     const { theme } = useTheme();
     const insets = useSafeAreaInsets();
-    const { unread: inboxUnread } = useInboxUnread();
-    const { viewMode } = useViewMode();
-    const tabOrder = viewMode === 'creator'
-        ? (['browse', 'saved', 'create', 'inbox', 'profile'] as const)
-        : (['browse', 'inbox', 'profile'] as const);
 
     const onPress = useCallback(
         (routeName: string) => {
@@ -61,7 +48,7 @@ export function AdlerTabBar({ state, navigation }: BottomTabBarProps) {
 
     const onCreatePress = useCallback(() => {
         haptic('medium');
-        router.push('/studio/camera');
+        router.push('/post-bounty');
     }, []);
 
     const focusedRouteName = state.routes[state.index]?.name ?? '';
@@ -77,7 +64,7 @@ export function AdlerTabBar({ state, navigation }: BottomTabBarProps) {
                 },
             ]}
         >
-            {tabOrder.map((name) => {
+            {TAB_ORDER.map((name) => {
                 const isCenter = name === 'create';
                 const isFocused = focusedRouteName === name;
 
@@ -97,7 +84,6 @@ export function AdlerTabBar({ state, navigation }: BottomTabBarProps) {
                 }
 
                 const Icon = ICONS[name];
-                const showDot = name === 'inbox' && inboxUnread;
                 return (
                     <Pressable
                         key={name}
@@ -105,32 +91,13 @@ export function AdlerTabBar({ state, navigation }: BottomTabBarProps) {
                         style={styles.tabSlot}
                         accessibilityRole="button"
                         accessibilityState={isFocused ? { selected: true } : {}}
-                        accessibilityLabel={
-                            showDot ? `${LABELS[name]}, new activity` : LABELS[name]
-                        }
+                        accessibilityLabel={LABELS[name]}
                     >
-                        <View>
-                            <Icon
-                                size={22}
-                                color={isFocused ? theme[950] : theme[400]}
-                                strokeWidth={2}
-                            />
-                            {showDot ? (
-                                <View
-                                    style={{
-                                        position: 'absolute',
-                                        top: -2,
-                                        right: -2,
-                                        width: 8,
-                                        height: 8,
-                                        borderRadius: 4,
-                                        backgroundColor: Status.error,
-                                        borderWidth: 1,
-                                        borderColor: theme[50],
-                                    }}
-                                />
-                            ) : null}
-                        </View>
+                        <Icon
+                            size={22}
+                            color={isFocused ? theme[950] : theme[400]}
+                            strokeWidth={2}
+                        />
                     </Pressable>
                 );
             })}

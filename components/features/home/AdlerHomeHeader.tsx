@@ -10,15 +10,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useOverlaySheets } from '@/contexts/OverlaySheetsContext';
 import { getConnection, lamportsToSol } from '@/lib/solana/connection';
-import { qk, PROFILE_KEYS } from '@/lib/constants/queryKeys';
+import { qk } from '@/lib/constants/queryKeys';
 import { listMyNotifications } from '@/lib/services/notificationsService';
 import { formatSol } from '@/lib/utils/formatNumber';
-import { useViewMode } from '@/contexts/ViewModeContext';
-
-// Figma node 131:133 — top header on tab screens. Static screen label on the
-// left, live wallet balance pill on the right. Drops the personalized greeting
-// per design. Tapping the balance pill opens the global WalletSheet by
-// default; an optional `onPressBalance` overrides that for special cases.
 
 interface AdlerHomeHeaderProps {
     title: string;
@@ -29,10 +23,9 @@ export function AdlerHomeHeader({ title, onPressBalance }: AdlerHomeHeaderProps)
     const { theme } = useTheme();
     const { walletAddress, user } = useAuth();
     const { openWallet } = useOverlaySheets();
-    const { viewMode, availableModes, setViewMode } = useViewMode();
 
     const balanceQuery = useQuery({
-        queryKey: walletAddress ? PROFILE_KEYS.walletBalance(walletAddress) : ['wallet', 'balance', 'none'],
+        queryKey: qk.wallet.balance(walletAddress),
         enabled: !!walletAddress,
         queryFn: async () => {
             if (!walletAddress) return 0;
@@ -74,26 +67,6 @@ export function AdlerHomeHeader({ title, onPressBalance }: AdlerHomeHeaderProps)
                 {title}
             </ThemedText>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                {availableModes.length > 1 ? (
-                    <Pressable
-                        onPress={() => {
-                            setViewMode(viewMode === 'creator' ? 'brand' : 'creator');
-                        }}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Switch to ${viewMode === 'creator' ? 'brand' : 'creator'} view`}
-                        style={{
-                            minHeight: 36,
-                            borderRadius: 999,
-                            paddingHorizontal: 12,
-                            justifyContent: 'center',
-                            backgroundColor: theme[100],
-                        }}
-                    >
-                        <ThemedText type="body-sm-semibold" style={{ color: theme[950] }}>
-                            {viewMode === 'creator' ? 'Creator' : 'Brand'}
-                        </ThemedText>
-                    </Pressable>
-                ) : null}
                 <Pressable
                     onPress={() => router.push('/notifications')}
                     accessibilityRole="button"
