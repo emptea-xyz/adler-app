@@ -26,8 +26,8 @@ function resolveNetwork(): SolanaNetwork {
 }
 
 const DEFAULT_RPC_BY_NETWORK: Record<SolanaNetwork, string> = {
-    'devnet': 'https://api.devnet.solana.com',
-    'mainnet-beta': 'https://api.mainnet-beta.solana.com',
+    'devnet': 'https://us-central1-emptea-adler.cloudfunctions.net/solanaRpcProxyDevnet',
+    'mainnet-beta': 'https://us-central1-emptea-adler.cloudfunctions.net/solanaRpcProxyMainnet',
     'testnet': 'https://api.testnet.solana.com',
 };
 
@@ -77,17 +77,3 @@ export function computeFeeLamports(totalLamports: number): number {
 export function computeFeeSol(amountSol: number): number {
     return amountSol * PROTOCOL_FEE_RATE;
 }
-
-/**
- * Fee treasury address. Required in production builds; we hard-fail here
- * rather than risk routing fees to whatever default the bundle was built
- * with. Devnet builds may run without it (the on-chain program reads
- * `ProtocolConfig.fee_treasury` regardless).
- */
-const RAW_FEE_TREASURY = process.env.EXPO_PUBLIC_FEE_TREASURY_ADDRESS;
-if (!RAW_FEE_TREASURY && SOLANA_NETWORK === 'mainnet-beta') {
-    throw new Error(
-        'EXPO_PUBLIC_FEE_TREASURY_ADDRESS is required for mainnet builds.',
-    );
-}
-export const FEE_TREASURY_ADDRESS: string | null = RAW_FEE_TREASURY ?? null;
