@@ -216,7 +216,7 @@ export const mintFirebaseToken = onCall(
     const customToken = await admin.auth().createCustomToken(uid, {
       privy: { appId, sessionId: claims.session_id ?? null },
     });
-    return { customToken };
+    return { token: customToken, uid };
   },
 );
 
