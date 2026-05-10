@@ -1,8 +1,8 @@
 /**
  * Theme palette for Adler. One palette: pure neutrals. Two appearances:
  * light and dark — produced by inverting the palette at render time. The
- * brand sky-blue lives in `BRAND_ACCENT` separately so muted-text usages
- * of `theme[500]` (the natural slot for #737373) read correctly.
+ * single brand accent is Tailwind's default `sky` palette; use it via
+ * `TailwindColors.sky[N]` directly (no wrapper, no rebrand layer).
  *
  * Shade conventions:
  * - theme[50]: app background, lightest surfaces
@@ -35,7 +35,7 @@ export const MONO_PALETTE: ThemePalette = {
     200: TailwindColors.neutral[200],
     300: TailwindColors.neutral[300],
     400: TailwindColors.neutral[400],
-    500: TailwindColors.neutral[500],   // muted secondary text (#737373)
+    500: TailwindColors.neutral[500],
     600: TailwindColors.neutral[600],
     700: TailwindColors.neutral[700],
     800: TailwindColors.neutral[800],
@@ -64,71 +64,26 @@ export function invertPalette(palette: ThemePalette): ThemePalette {
 }
 
 /**
- * SIGNAL PALETTE — accent palette for charts, data series, and decorative
- * elements. Sourced from Tailwind's default palette.
- *
- * Usage: SIGNAL_PALETTE.blue[500], SIGNAL_PALETTE.red[400], etc.
+ * Single brand accent — Tailwind sky. Re-exported so chart primitives that
+ * want a 300→700 ramp don't have to know the underlying name. For new code,
+ * import `TailwindColors.sky` directly.
  */
-export const SIGNAL_PALETTE = {
-    red: TailwindColors.red,
-    yellow: TailwindColors.amber,
-    green: TailwindColors.emerald,
-    sky: TailwindColors.sky,
-    blue: TailwindColors.blue,
-    indigo: TailwindColors.indigo,
-    purple: TailwindColors.purple,
-    pink: TailwindColors.pink,
+export const SIGNAL_COLORS = {
+    accent: TailwindColors.sky,
 } as const;
 
 /**
- * ACCENT PALETTE — canonical Adler brand hues, pulled 1:1 from the Figma
- * `accent/*` collection. Use for category chips, illustrative highlights,
- * and decorative surfaces (sign-in halo, upload-arrow gradient, etc.).
- * Theme-independent: each value renders identically in light and dark
- * mode. Pair with `useTheme()` neutrals for surrounding surfaces.
+ * Brand accents — illustrative highlights, decorative pops, category chips.
+ * These do NOT flip with light/dark mode. Use sparingly and only for
+ * "decorative pop" affordances; do not use to communicate status.
  *
- * Do NOT use these for semantic state (success / error / warning / info)
- * — that's what `Status` from `constants/StatusColors.ts` is for.
+ * Pulled 1:1 from Figma's `accent/*` collection.
  */
 export const Accent = {
     pink: '#ff0088',
+    pinkDark: '#a50057',
     cyan: '#00d4ff',
     lime: '#4cd900',
     orange: '#ff5900',
     sable: '#f1c917',
-    /**
-     * Darker pink companion — gradient end-stop paired with `pink` in the
-     * canonical Adler upload-arrow icon (Figma node 132:157). Use only as
-     * the second stop of the brand pink gradient.
-     */
-    pinkDark: '#be185d',
-} as const;
-
-export type AccentName = keyof typeof Accent;
-
-/** @deprecated Use `Accent` instead. Kept for compatibility with existing imports. */
-export const ACCENT_COLORS = Accent;
-
-/**
- * Static signal slots used across the app's accent surfaces. Values are
- * theme-independent (we only have one theme) — `useTheme().signalColors` is
- * just this object.
- */
-export const SIGNAL_COLORS = {
-    /** Primary brand accent (buttons, highlights, active states) */
-    accent: SIGNAL_PALETTE.sky,
-    /** Multi-step intensity ramp for relationship/heatmap visuals */
-    ramp: {
-        '50': TailwindColors.emerald[500],
-        '100': TailwindColors.teal[500],
-        '200': TailwindColors.cyan[500],
-        '300': TailwindColors.sky[500],
-        '400': TailwindColors.blue[500],
-        '500': TailwindColors.indigo[500],
-        '600': TailwindColors.violet[500],
-        '700': TailwindColors.purple[500],
-        '800': TailwindColors.fuchsia[500],
-        '900': TailwindColors.pink[500],
-        '950': TailwindColors.rose[500],
-    },
 } as const;

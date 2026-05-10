@@ -40,6 +40,11 @@ export const EMPTY_GROUPS = {
 } as const;
 
 export const EMPTY_WALLET_BALANCE = {
-  title: 'Wallet is empty',
-  description: 'On devnet, fund yourself with the Solana CLI to start posting bounties.',
+  title: 'There is nothing here yet',
+  description: 'Deposit SOL to your wallet to get started.',
+} as const;
+
+export const EMPTY_WALLET_ACTIVITY = {
+  title: 'No activity yet',
+  description: 'On-chain transactions for this wallet will show up here.',
 } as const;

@@ -20,6 +20,7 @@ export default function HomeLayout() {
         <Stack.Screen name="bounty/[id]/submit" options={{ presentation: 'card' }} />
         <Stack.Screen name="notifications" options={{ presentation: 'card' }} />
         <Stack.Screen name="settings" />
+        <Stack.Screen name="wallet/activity" options={{ presentation: 'card' }} />
       </Stack>
     </OverlaySheetsProvider>
   );
