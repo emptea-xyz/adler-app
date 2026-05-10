@@ -38,5 +38,5 @@ export function deriveBountyEscrowPda(
 }
 
 export function deriveProtocolConfigPda(): PublicKey {
-    return PublicKey.findProgramAddressSync([Buffer.from('config')], V1_PROGRAM_ID)[0];
+    return PublicKey.findProgramAddressSync([Buffer.from('bounty_config')], V1_PROGRAM_ID)[0];
 }

@@ -30,7 +30,7 @@ const SUPER_ADMIN_UID = defineSecret('SUPER_ADMIN_UID');
 
 const PROGRAM_ID = new PublicKey('BArnn6qEM45LMxntW2eBKc5icsZGGqaLiDFCSTFx1uZr');
 const BOUNTY_ESCROW_SEED = Buffer.from('bounty');
-const PROTOCOL_CONFIG_SEED = Buffer.from('config');
+const PROTOCOL_CONFIG_SEED = Buffer.from('bounty_config');
 const MAX_AUTO_SUBMISSIONS_PER_USER = 3;
 const REPORT_HIDE_THRESHOLD = 100;
 

@@ -2,10 +2,8 @@
 
 import type { AdlerEscrow } from "./idl-types";
 
-// Anchor 0.31's IDL JSON keeps Rust snake_case names while the generated
-// idl-types.ts uses camelCase — the discrepancy is intentional in the
-// upstream codegen. Cast through unknown so the typed client surface
-// (program.methods.createBounty(...) etc.) remains correct.
+// Anchor 0.31 keeps Rust snake_case in the IDL JSON; idl-types.ts has
+// camelCase. Cast through unknown to keep the typed client surface clean.
 const idlRaw =
 {
   "address": "BArnn6qEM45LMxntW2eBKc5icsZGGqaLiDFCSTFx1uZr",
@@ -45,6 +43,13 @@ const idlRaw =
               {
                 "kind": "const",
                 "value": [
+                  98,
+                  111,
+                  117,
+                  110,
+                  116,
+                  121,
+                  95,
                   99,
                   111,
                   110,
@@ -134,6 +139,13 @@ const idlRaw =
               {
                 "kind": "const",
                 "value": [
+                  98,
+                  111,
+                  117,
+                  110,
+                  116,
+                  121,
+                  95,
                   99,
                   111,
                   110,
@@ -194,6 +206,13 @@ const idlRaw =
               {
                 "kind": "const",
                 "value": [
+                  98,
+                  111,
+                  117,
+                  110,
+                  116,
+                  121,
+                  95,
                   99,
                   111,
                   110,
@@ -289,6 +308,13 @@ const idlRaw =
               {
                 "kind": "const",
                 "value": [
+                  98,
+                  111,
+                  117,
+                  110,
+                  116,
+                  121,
+                  95,
                   99,
                   111,
                   110,
@@ -335,6 +361,13 @@ const idlRaw =
               {
                 "kind": "const",
                 "value": [
+                  98,
+                  111,
+                  117,
+                  110,
+                  116,
+                  121,
+                  95,
                   99,
                   111,
                   110,
@@ -440,6 +473,13 @@ const idlRaw =
               {
                 "kind": "const",
                 "value": [
+                  98,
+                  111,
+                  117,
+                  110,
+                  116,
+                  121,
+                  95,
                   99,
                   111,
                   110,
@@ -538,6 +578,13 @@ const idlRaw =
               {
                 "kind": "const",
                 "value": [
+                  98,
+                  111,
+                  117,
+                  110,
+                  116,
+                  121,
+                  95,
                   99,
                   111,
                   110,
