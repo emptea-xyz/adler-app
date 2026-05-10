@@ -13,838 +13,26 @@ export type AdlerEscrow = {
     "description": "Created with Anchor"
   },
   "docs": [
-    "Adler escrow v1.0 — marketplace settlement on Solana.",
+    "Adler bounty escrow — single-program bounty marketplace settlement.",
     "",
-    "Phase 1 surface: protocol config singleton + service path",
-    "(fund → submit → approve). Gigs, disputes, reputation come in later phases",
-    "(see `TODO.md`). Architecture spine: `docs/v1-design.md`."
+    "Each bounty escrows the poster's SOL into a PDA. Manual mode: poster",
+    "signs `settle_manual_bounty(winner)`. Auto mode: a custodial verifier",
+    "keypair (held by the off-chain Cloud Function) signs",
+    "`settle_auto_bounty(winner)` after Gemini Vision verifies the photo.",
+    "Anyone can call `refund_bounty` after `expires_at` (poster + 30 days)."
   ],
   "instructions": [
     {
-      "name": "addArbiter",
+      "name": "createBounty",
       "discriminator": [
-        247,
-        7,
-        235,
-        176,
-        22,
-        21,
-        73,
-        81
-      ],
-      "accounts": [
-        {
-          "name": "pool",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  97,
-                  114,
-                  98,
-                  95,
-                  112,
-                  111,
-                  111,
-                  108
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "admin",
-          "signer": true,
-          "relations": [
-            "pool"
-          ]
-        }
-      ],
-      "args": [
-        {
-          "name": "arbiter",
-          "type": "pubkey"
-        }
-      ]
-    },
-    {
-      "name": "approveRelease",
-      "discriminator": [
-        110,
-        173,
-        58,
-        175,
-        146,
-        128,
-        138,
-        255
-      ],
-      "accounts": [
-        {
-          "name": "config",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  111,
-                  110,
-                  102,
-                  105,
-                  103
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "escrow",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  111,
-                  110,
-                  116,
-                  114,
-                  97,
-                  99,
-                  116
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "brand"
-              },
-              {
-                "kind": "arg",
-                "path": "contractId"
-              }
-            ]
-          }
-        },
-        {
-          "name": "record",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  114,
-                  101,
-                  99,
-                  111,
-                  114,
-                  100
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "brand"
-              },
-              {
-                "kind": "arg",
-                "path": "contractId"
-              }
-            ]
-          }
-        },
-        {
-          "name": "brand",
-          "writable": true,
-          "signer": true,
-          "relations": [
-            "escrow"
-          ]
-        },
-        {
-          "name": "creator",
-          "writable": true,
-          "relations": [
-            "escrow"
-          ]
-        },
-        {
-          "name": "feeTreasury",
-          "docs": [
-            "`config.fee_treasury` below (defense-in-depth against a stale snapshot)."
-          ],
-          "writable": true,
-          "relations": [
-            "escrow"
-          ]
-        },
-        {
-          "name": "systemProgram",
-          "address": "11111111111111111111111111111111"
-        }
-      ],
-      "args": [
-        {
-          "name": "contractId",
-          "type": {
-            "array": [
-              "u8",
-              32
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "arbitrate",
-      "discriminator": [
-        105,
-        91,
-        110,
-        150,
-        216,
-        11,
-        142,
-        142
-      ],
-      "accounts": [
-        {
-          "name": "config",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  111,
-                  110,
-                  102,
-                  105,
-                  103
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "pool",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  97,
-                  114,
-                  98,
-                  95,
-                  112,
-                  111,
-                  111,
-                  108
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "escrow",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  111,
-                  110,
-                  116,
-                  114,
-                  97,
-                  99,
-                  116
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "brand"
-              },
-              {
-                "kind": "arg",
-                "path": "contractId"
-              }
-            ]
-          }
-        },
-        {
-          "name": "record",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  114,
-                  101,
-                  99,
-                  111,
-                  114,
-                  100
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "brand"
-              },
-              {
-                "kind": "arg",
-                "path": "contractId"
-              }
-            ]
-          }
-        },
-        {
-          "name": "brand",
-          "writable": true,
-          "relations": [
-            "escrow"
-          ]
-        },
-        {
-          "name": "creator",
-          "writable": true,
-          "relations": [
-            "escrow"
-          ]
-        },
-        {
-          "name": "feeTreasury",
-          "writable": true,
-          "relations": [
-            "escrow"
-          ]
-        },
-        {
-          "name": "arbiter",
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "systemProgram",
-          "address": "11111111111111111111111111111111"
-        }
-      ],
-      "args": [
-        {
-          "name": "contractId",
-          "type": {
-            "array": [
-              "u8",
-              32
-            ]
-          }
-        },
-        {
-          "name": "outcome",
-          "type": {
-            "defined": {
-              "name": "outcome"
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "autoRelease",
-      "discriminator": [
-        212,
-        34,
-        30,
-        246,
-        192,
-        13,
-        97,
-        31
-      ],
-      "accounts": [
-        {
-          "name": "config",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  111,
-                  110,
-                  102,
-                  105,
-                  103
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "escrow",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  111,
-                  110,
-                  116,
-                  114,
-                  97,
-                  99,
-                  116
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "brand"
-              },
-              {
-                "kind": "arg",
-                "path": "contractId"
-              }
-            ]
-          }
-        },
-        {
-          "name": "record",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  114,
-                  101,
-                  99,
-                  111,
-                  114,
-                  100
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "brand"
-              },
-              {
-                "kind": "arg",
-                "path": "contractId"
-              }
-            ]
-          }
-        },
-        {
-          "name": "brand",
-          "writable": true,
-          "relations": [
-            "escrow"
-          ]
-        },
-        {
-          "name": "creator",
-          "writable": true,
-          "relations": [
-            "escrow"
-          ]
-        },
-        {
-          "name": "feeTreasury",
-          "docs": [
-            "`config.fee_treasury` below."
-          ],
-          "writable": true,
-          "relations": [
-            "escrow"
-          ]
-        },
-        {
-          "name": "caller",
-          "docs": [
-            "Permissionless caller. Pays gas + the `ContractRecord` rent (~0.002 SOL).",
-            "On devnet this is a topped-up sweeper keypair; on mainnet a budgeted",
-            "refill cron."
-          ],
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "systemProgram",
-          "address": "11111111111111111111111111111111"
-        }
-      ],
-      "args": [
-        {
-          "name": "contractId",
-          "type": {
-            "array": [
-              "u8",
-              32
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "bindCreator",
-      "discriminator": [
-        235,
-        173,
-        192,
-        9,
-        201,
-        93,
-        120,
-        139
-      ],
-      "accounts": [
-        {
-          "name": "config",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  111,
-                  110,
-                  102,
-                  105,
-                  103
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "escrow",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  111,
-                  110,
-                  116,
-                  114,
-                  97,
-                  99,
-                  116
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "brand"
-              },
-              {
-                "kind": "arg",
-                "path": "contractId"
-              }
-            ]
-          }
-        },
-        {
-          "name": "brand",
-          "writable": true,
-          "signer": true,
-          "relations": [
-            "escrow"
-          ]
-        },
-        {
-          "name": "creator",
-          "docs": [
-            "on subsequent settlement ix."
-          ]
-        }
-      ],
-      "args": [
-        {
-          "name": "contractId",
-          "type": {
-            "array": [
-              "u8",
-              32
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "brandRefund",
-      "discriminator": [
-        129,
-        18,
-        201,
-        156,
-        158,
-        233,
-        214,
-        244
-      ],
-      "accounts": [
-        {
-          "name": "config",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  111,
-                  110,
-                  102,
-                  105,
-                  103
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "escrow",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  111,
-                  110,
-                  116,
-                  114,
-                  97,
-                  99,
-                  116
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "brand"
-              },
-              {
-                "kind": "arg",
-                "path": "contractId"
-              }
-            ]
-          }
-        },
-        {
-          "name": "brand",
-          "writable": true,
-          "signer": true,
-          "relations": [
-            "escrow"
-          ]
-        }
-      ],
-      "args": [
-        {
-          "name": "contractId",
-          "type": {
-            "array": [
-              "u8",
-              32
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "cancelUnboundGig",
-      "discriminator": [
-        143,
-        46,
-        181,
-        78,
-        188,
-        47,
-        164,
-        241
-      ],
-      "accounts": [
-        {
-          "name": "config",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  111,
-                  110,
-                  102,
-                  105,
-                  103
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "escrow",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  111,
-                  110,
-                  116,
-                  114,
-                  97,
-                  99,
-                  116
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "brand"
-              },
-              {
-                "kind": "arg",
-                "path": "contractId"
-              }
-            ]
-          }
-        },
-        {
-          "name": "brand",
-          "writable": true,
-          "signer": true,
-          "relations": [
-            "escrow"
-          ]
-        }
-      ],
-      "args": [
-        {
-          "name": "contractId",
-          "type": {
-            "array": [
-              "u8",
-              32
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "fundGig",
-      "discriminator": [
-        47,
-        107,
-        217,
-        195,
-        133,
-        87,
-        27,
-        81
-      ],
-      "accounts": [
-        {
-          "name": "config",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  111,
-                  110,
-                  102,
-                  105,
-                  103
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "escrow",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  111,
-                  110,
-                  116,
-                  114,
-                  97,
-                  99,
-                  116
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "brand"
-              },
-              {
-                "kind": "arg",
-                "path": "contractId"
-              }
-            ]
-          }
-        },
-        {
-          "name": "brand",
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "systemProgram",
-          "address": "11111111111111111111111111111111"
-        }
-      ],
-      "args": [
-        {
-          "name": "contractId",
-          "type": {
-            "array": [
-              "u8",
-              32
-            ]
-          }
-        },
-        {
-          "name": "budgetLamports",
-          "type": "u64"
-        },
-        {
-          "name": "deliveryDeadline",
-          "type": "i64"
-        }
-      ]
-    },
-    {
-      "name": "fundService",
-      "discriminator": [
-        78,
         122,
+        90,
+        14,
+        143,
+        8,
+        125,
         200,
-        242,
-        128,
-        177,
-        134,
-        129
+        2
       ],
       "accounts": [
         {
@@ -873,37 +61,29 @@ export type AdlerEscrow = {
               {
                 "kind": "const",
                 "value": [
-                  99,
+                  98,
                   111,
+                  117,
                   110,
                   116,
-                  114,
-                  97,
-                  99,
-                  116
+                  121
                 ]
               },
               {
                 "kind": "account",
-                "path": "brand"
+                "path": "poster"
               },
               {
                 "kind": "arg",
-                "path": "contractId"
+                "path": "bountyId"
               }
             ]
           }
         },
         {
-          "name": "brand",
+          "name": "poster",
           "writable": true,
           "signer": true
-        },
-        {
-          "name": "creator",
-          "docs": [
-            "constraints on subsequent ix."
-          ]
         },
         {
           "name": "systemProgram",
@@ -912,7 +92,7 @@ export type AdlerEscrow = {
       ],
       "args": [
         {
-          "name": "contractId",
+          "name": "bountyId",
           "type": {
             "array": [
               "u8",
@@ -921,80 +101,11 @@ export type AdlerEscrow = {
           }
         },
         {
-          "name": "priceLamports",
+          "name": "amountLamports",
           "type": "u64"
-        }
-      ]
-    },
-    {
-      "name": "initArbitrationPool",
-      "discriminator": [
-        222,
-        28,
-        239,
-        139,
-        6,
-        58,
-        1,
-        1
-      ],
-      "accounts": [
-        {
-          "name": "config",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  111,
-                  110,
-                  102,
-                  105,
-                  103
-                ]
-              }
-            ]
-          }
         },
         {
-          "name": "pool",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  97,
-                  114,
-                  98,
-                  95,
-                  112,
-                  111,
-                  111,
-                  108
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "admin",
-          "writable": true,
-          "signer": true,
-          "relations": [
-            "config"
-          ]
-        },
-        {
-          "name": "systemProgram",
-          "address": "11111111111111111111111111111111"
-        }
-      ],
-      "args": [
-        {
-          "name": "quorum",
+          "name": "mode",
           "type": "u8"
         }
       ]
@@ -1047,101 +158,93 @@ export type AdlerEscrow = {
           "type": "pubkey"
         },
         {
+          "name": "verifierPubkey",
+          "type": "pubkey"
+        },
+        {
           "name": "feeTreasury",
           "type": "pubkey"
         },
         {
           "name": "feeBps",
           "type": "u16"
-        },
-        {
-          "name": "approvalWindowSecs",
-          "type": "i64"
-        },
-        {
-          "name": "refundGraceSecs",
-          "type": "i64"
         }
       ]
     },
     {
-      "name": "mintReputation",
+      "name": "refundBounty",
       "discriminator": [
-        33,
-        107,
-        136,
         167,
-        51,
-        254,
-        107,
-        84
+        234,
+        121,
+        108,
+        247,
+        216,
+        216,
+        124
       ],
       "accounts": [
         {
-          "name": "brand",
-          "docs": [
-            "`seeds` constraint on `record` validates this matches the actual",
-            "record's brand."
-          ]
-        },
-        {
-          "name": "record",
+          "name": "config",
           "pda": {
             "seeds": [
               {
                 "kind": "const",
                 "value": [
-                  114,
-                  101,
                   99,
                   111,
-                  114,
-                  100
+                  110,
+                  102,
+                  105,
+                  103
                 ]
-              },
-              {
-                "kind": "account",
-                "path": "brand"
-              },
-              {
-                "kind": "arg",
-                "path": "contractId"
               }
             ]
           }
         },
         {
-          "name": "subject",
-          "docs": [
-            "`record.creator` (validated in handler)."
-          ]
-        },
-        {
-          "name": "card",
+          "name": "escrow",
           "writable": true,
           "pda": {
             "seeds": [
               {
                 "kind": "const",
                 "value": [
-                  114,
-                  101,
-                  112
+                  98,
+                  111,
+                  117,
+                  110,
+                  116,
+                  121
                 ]
               },
               {
                 "kind": "account",
-                "path": "subject"
+                "path": "poster"
               },
               {
                 "kind": "arg",
-                "path": "contractId"
+                "path": "bountyId"
               }
             ]
           }
         },
         {
-          "name": "reviewer",
+          "name": "poster",
+          "docs": [
+            "`has_one = poster` on escrow. Not a signer: anyone can call refund",
+            "after expiry (e.g. the off-chain `expireBounties` Cloud Function)."
+          ],
+          "writable": true,
+          "relations": [
+            "escrow"
+          ]
+        },
+        {
+          "name": "caller",
+          "docs": [
+            "Pays the tx fees. Doesn't have to be the poster."
+          ],
           "writable": true,
           "signer": true
         },
@@ -1152,253 +255,7 @@ export type AdlerEscrow = {
       ],
       "args": [
         {
-          "name": "contractId",
-          "type": {
-            "array": [
-              "u8",
-              32
-            ]
-          }
-        },
-        {
-          "name": "axes",
-          "type": {
-            "array": [
-              "u8",
-              4
-            ]
-          }
-        },
-        {
-          "name": "commentHash",
-          "type": {
-            "array": [
-              "u8",
-              32
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "openDispute",
-      "discriminator": [
-        137,
-        25,
-        99,
-        119,
-        23,
-        223,
-        161,
-        42
-      ],
-      "accounts": [
-        {
-          "name": "config",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  111,
-                  110,
-                  102,
-                  105,
-                  103
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "escrow",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  111,
-                  110,
-                  116,
-                  114,
-                  97,
-                  99,
-                  116
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "escrow.brand",
-                "account": "contractEscrow"
-              },
-              {
-                "kind": "arg",
-                "path": "contractId"
-              }
-            ]
-          }
-        },
-        {
-          "name": "pool",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  97,
-                  114,
-                  98,
-                  95,
-                  112,
-                  111,
-                  111,
-                  108
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "signer",
-          "signer": true
-        }
-      ],
-      "args": [
-        {
-          "name": "contractId",
-          "type": {
-            "array": [
-              "u8",
-              32
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "removeArbiter",
-      "discriminator": [
-        205,
-        17,
-        244,
-        128,
-        189,
-        245,
-        112,
-        190
-      ],
-      "accounts": [
-        {
-          "name": "pool",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  97,
-                  114,
-                  98,
-                  95,
-                  112,
-                  111,
-                  111,
-                  108
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "admin",
-          "signer": true,
-          "relations": [
-            "pool"
-          ]
-        }
-      ],
-      "args": [
-        {
-          "name": "arbiter",
-          "type": "pubkey"
-        }
-      ]
-    },
-    {
-      "name": "requestRevision",
-      "discriminator": [
-        205,
-        195,
-        75,
-        171,
-        242,
-        149,
-        90,
-        14
-      ],
-      "accounts": [
-        {
-          "name": "config",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  111,
-                  110,
-                  102,
-                  105,
-                  103
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "escrow",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  99,
-                  111,
-                  110,
-                  116,
-                  114,
-                  97,
-                  99,
-                  116
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "brand"
-              },
-              {
-                "kind": "arg",
-                "path": "contractId"
-              }
-            ]
-          }
-        },
-        {
-          "name": "brand",
-          "signer": true,
-          "relations": [
-            "escrow"
-          ]
-        }
-      ],
-      "args": [
-        {
-          "name": "contractId",
+          "name": "bountyId",
           "type": {
             "array": [
               "u8",
@@ -1456,16 +313,16 @@ export type AdlerEscrow = {
       ]
     },
     {
-      "name": "submitDelivery",
+      "name": "settleAutoBounty",
       "discriminator": [
-        217,
-        177,
-        33,
-        54,
-        136,
-        185,
-        123,
-        96
+        100,
+        186,
+        88,
+        99,
+        6,
+        180,
+        124,
+        167
       ],
       "accounts": [
         {
@@ -1494,39 +351,160 @@ export type AdlerEscrow = {
               {
                 "kind": "const",
                 "value": [
-                  99,
+                  98,
                   111,
+                  117,
                   110,
                   116,
-                  114,
-                  97,
-                  99,
-                  116
+                  121
                 ]
               },
               {
                 "kind": "account",
-                "path": "escrow.brand",
-                "account": "contractEscrow"
+                "path": "poster"
               },
               {
                 "kind": "arg",
-                "path": "contractId"
+                "path": "bountyId"
               }
             ]
           }
         },
         {
-          "name": "creator",
-          "signer": true,
+          "name": "poster",
+          "writable": true,
           "relations": [
             "escrow"
           ]
+        },
+        {
+          "name": "verifier",
+          "docs": [
+            "Custodial verifier keypair held by the Cloud Function. Must equal",
+            "`config.verifier_pubkey`."
+          ],
+          "signer": true
+        },
+        {
+          "name": "winner",
+          "docs": [
+            "submitter's pubkey after Gemini Vision passes the photo against the",
+            "bounty prompt."
+          ],
+          "writable": true
+        },
+        {
+          "name": "feeTreasury",
+          "writable": true,
+          "relations": [
+            "escrow"
+          ]
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
         }
       ],
       "args": [
         {
-          "name": "contractId",
+          "name": "bountyId",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "settleManualBounty",
+      "discriminator": [
+        176,
+        49,
+        254,
+        37,
+        244,
+        137,
+        65,
+        204
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  111,
+                  117,
+                  110,
+                  116,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "poster"
+              },
+              {
+                "kind": "arg",
+                "path": "bountyId"
+              }
+            ]
+          }
+        },
+        {
+          "name": "poster",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "escrow"
+          ]
+        },
+        {
+          "name": "winner",
+          "docs": [
+            "and supplies the pubkey; this is by definition trusted in manual mode."
+          ],
+          "writable": true
+        },
+        {
+          "name": "feeTreasury",
+          "writable": true,
+          "relations": [
+            "escrow"
+          ]
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "bountyId",
           "type": {
             "array": [
               "u8",
@@ -1590,42 +568,16 @@ export type AdlerEscrow = {
   ],
   "accounts": [
     {
-      "name": "arbitrationPool",
+      "name": "bountyEscrow",
       "discriminator": [
-        252,
-        247,
-        152,
-        39,
-        153,
-        43,
-        210,
-        34
-      ]
-    },
-    {
-      "name": "contractEscrow",
-      "discriminator": [
-        183,
-        77,
-        139,
-        253,
-        122,
-        40,
-        238,
-        73
-      ]
-    },
-    {
-      "name": "contractRecord",
-      "discriminator": [
-        106,
-        220,
-        239,
-        203,
-        54,
+        59,
+        18,
+        13,
+        80,
+        225,
         187,
-        35,
-        208
+        6,
+        16
       ]
     },
     {
@@ -1640,189 +592,137 @@ export type AdlerEscrow = {
         215,
         209
       ]
-    },
-    {
-      "name": "reputationCard",
-      "discriminator": [
-        195,
-        146,
-        0,
-        247,
-        113,
-        104,
-        155,
-        210
-      ]
     }
   ],
   "errors": [
     {
       "code": 6000,
-      "name": "invalidPrice",
-      "msg": "Price must be greater than zero."
+      "name": "invalidAmount",
+      "msg": "Amount must be greater than zero."
     },
     {
       "code": 6001,
-      "name": "brandMismatch",
-      "msg": "Brand pubkey on the instruction does not match the PDA's brand."
+      "name": "invalidMode",
+      "msg": "Mode must be 0 (Manual) or 1 (Auto)."
     },
     {
       "code": 6002,
-      "name": "creatorMismatch",
-      "msg": "Creator pubkey on the instruction does not match the PDA's creator."
+      "name": "protocolPaused",
+      "msg": "Protocol is paused."
     },
     {
       "code": 6003,
+      "name": "bountyExpired",
+      "msg": "Bounty has expired; only refund is allowed."
+    },
+    {
+      "code": 6004,
+      "name": "refundBeforeExpiry",
+      "msg": "Bounty has not yet expired; refund is not allowed."
+    },
+    {
+      "code": 6005,
+      "name": "wrongVerifier",
+      "msg": "Wrong verifier signer; must equal config.verifier_pubkey."
+    },
+    {
+      "code": 6006,
+      "name": "bountyIdMismatch",
+      "msg": "bounty_id arg does not match the PDA's bounty_id."
+    },
+    {
+      "code": 6007,
+      "name": "posterMismatch",
+      "msg": "Poster pubkey on the instruction does not match the PDA's poster."
+    },
+    {
+      "code": 6008,
       "name": "feeTreasuryMismatch",
       "msg": "Fee treasury pubkey does not match ProtocolConfig.fee_treasury."
     },
     {
-      "code": 6004,
+      "code": 6009,
+      "name": "notAutoMode",
+      "msg": "This instruction is for auto-mode bounties only."
+    },
+    {
+      "code": 6010,
+      "name": "notManualMode",
+      "msg": "This instruction is for manual-mode bounties only."
+    },
+    {
+      "code": 6011,
       "name": "overflow",
       "msg": "Arithmetic overflow."
     },
     {
-      "code": 6005,
-      "name": "protocolPaused",
-      "msg": "Protocol is paused; settlement-mutating instructions are blocked."
-    },
-    {
-      "code": 6006,
-      "name": "notAParty",
-      "msg": "Signer is not a party to this contract."
-    },
-    {
-      "code": 6007,
-      "name": "revisionCapReached",
-      "msg": "Revision cap (2) reached; the next step is open_dispute."
-    },
-    {
-      "code": 6008,
-      "name": "wrongState",
-      "msg": "Contract is not in the required state for this instruction."
-    },
-    {
-      "code": 6009,
-      "name": "deliveryDeadlineNotReached",
-      "msg": "Delivery deadline has not yet passed."
-    },
-    {
-      "code": 6010,
-      "name": "approvalDeadlineNotReached",
-      "msg": "Approval deadline has not yet passed."
-    },
-    {
-      "code": 6011,
-      "name": "refundGraceActive",
-      "msg": "Refund grace window has not yet elapsed."
-    },
-    {
       "code": 6012,
-      "name": "invalidAxis",
-      "msg": "Reputation axis must be between 1 and 5 inclusive."
-    },
-    {
-      "code": 6013,
-      "name": "invalidBps",
-      "msg": "Split creator_bps must be <= 10_000."
-    },
-    {
-      "code": 6014,
-      "name": "arbiterNotInPool",
-      "msg": "Signer is not a member of the arbitration pool."
-    },
-    {
-      "code": 6015,
-      "name": "contractIdMismatch",
-      "msg": "contract_id arg does not match the PDA's contract_id."
-    },
-    {
-      "code": 6016,
-      "name": "feeMismatch",
-      "msg": "Brand transferred the wrong fee amount."
-    },
-    {
-      "code": 6017,
-      "name": "poolFull",
-      "msg": "Arbitration pool is full (max 16 arbiters)."
-    },
-    {
-      "code": 6018,
-      "name": "duplicateArbiter",
-      "msg": "Pubkey is already in the arbitration pool."
-    },
-    {
-      "code": 6019,
-      "name": "lastArbiterWithDisputes",
-      "msg": "Cannot remove the last arbiter while disputes are open."
-    },
-    {
-      "code": 6020,
-      "name": "invalidDeadline",
-      "msg": "Deadline argument is invalid (must be in the future)."
-    },
-    {
-      "code": 6021,
       "name": "alreadyInitialized",
       "msg": "Singleton PDA is already initialized."
-    },
-    {
-      "code": 6022,
-      "name": "selfRating",
-      "msg": "Reviewer cannot rate themselves."
-    },
-    {
-      "code": 6023,
-      "name": "notRatable",
-      "msg": "Cannot mint reputation for a refund-resolved contract."
     }
   ],
   "types": [
     {
-      "name": "arbitrationPool",
+      "name": "bountyEscrow",
       "docs": [
-        "Singleton pool of arbiters allowed to call `arbitrate`. Mirrors Firestore",
-        "`roles/{uid}.role == \"arbiter\"` — the `arbiterSync` Cloud Function is the",
-        "upstream writer.",
+        "Per-bounty escrow PDA. Holds `amount + fee + rent` lamports until",
+        "terminal (settle or refund — both close the PDA).",
         "",
-        "Seeds: `[b\"arb_pool\"]`. See `docs/v1-design.md` §2.2."
+        "Seeds: `[b\"bounty\", poster.key().as_ref(), &bounty_id]`."
       ],
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "admin",
+            "name": "poster",
+            "type": "pubkey"
+          },
+          {
+            "name": "bountyId",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "amountLamports",
             "docs": [
-              "Admin pubkey allowed to add/remove arbiters. Initially copies",
-              "`ProtocolConfig.admin`."
+              "Amount paid out to the winner on settle (or refunded to poster)."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "feeLamports",
+            "docs": [
+              "`floor(amount_lamports * config.fee_bps / 10_000)`, snapshotted at",
+              "create time. Sent to fee_treasury on settle. Returned to poster on",
+              "refund."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "feeTreasury",
+            "docs": [
+              "Snapshotted from `ProtocolConfig.fee_treasury` at create time."
             ],
             "type": "pubkey"
           },
           {
-            "name": "arbiters",
+            "name": "mode",
             "docs": [
-              "Up to 16 entries. `add_arbiter` rejects past this cap with `PoolFull`."
-            ],
-            "type": {
-              "vec": "pubkey"
-            }
-          },
-          {
-            "name": "quorum",
-            "docs": [
-              "Quorum is 1 in v1 (single-arbiter resolution). Field is reserved for",
-              "post-v1 multi-sig arbitration; not enforced by `arbitrate` yet."
+              "0 = Manual (poster signs settle), 1 = Auto (verifier_pubkey signs)."
             ],
             "type": "u8"
           },
           {
-            "name": "disputedCount",
+            "name": "expiresAt",
             "docs": [
-              "Number of contracts currently in the `Disputed` state. Maintained by",
-              "`open_dispute` (++) and `arbitrate` (--). The `remove_arbiter`",
-              "last-arbiter guard reads this to keep open disputes resolvable."
+              "`now + BOUNTY_EXPIRY_SECS` at create. After this slot timestamp,",
+              "`refund_bounty` can be called by anyone."
             ],
-            "type": "u32"
+            "type": "i64"
           },
           {
             "name": "bump",
@@ -1835,15 +735,22 @@ export type AdlerEscrow = {
       "name": "configField",
       "docs": [
         "Single-field update enum for `update_protocol_field`. Per-field typing",
-        "makes audit logs precise — the ix args show exactly what changed. Struct",
-        "variants (named `value`) keep the TS-binding shape unambiguous across",
-        "Anchor versions: `{ admin: { value: pubkey } }`, `{ feeBps: { value: 100 } }`."
+        "keeps audit logs precise."
       ],
       "type": {
         "kind": "enum",
         "variants": [
           {
             "name": "admin",
+            "fields": [
+              {
+                "name": "value",
+                "type": "pubkey"
+              }
+            ]
+          },
+          {
+            "name": "verifierPubkey",
             "fields": [
               {
                 "name": "value",
@@ -1868,262 +775,6 @@ export type AdlerEscrow = {
                 "type": "pubkey"
               }
             ]
-          },
-          {
-            "name": "approvalWindowSecs",
-            "fields": [
-              {
-                "name": "value",
-                "type": "i64"
-              }
-            ]
-          },
-          {
-            "name": "refundGraceSecs",
-            "fields": [
-              {
-                "name": "value",
-                "type": "i64"
-              }
-            ]
-          },
-          {
-            "name": "arbitrationPool",
-            "fields": [
-              {
-                "name": "value",
-                "type": "pubkey"
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "name": "contractEscrow",
-      "docs": [
-        "Per-contract escrow PDA. Holds `price + fee + rent` lamports until terminal.",
-        "",
-        "Seeds: `[b\"contract\", brand.key().as_ref(), &contract_id]`.",
-        "See `docs/v1-design.md` §2.3."
-      ],
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "kind",
-            "type": {
-              "defined": {
-                "name": "kind"
-              }
-            }
-          },
-          {
-            "name": "contractId",
-            "type": {
-              "array": [
-                "u8",
-                32
-              ]
-            }
-          },
-          {
-            "name": "brand",
-            "type": "pubkey"
-          },
-          {
-            "name": "creator",
-            "docs": [
-              "`Pubkey::default()` while a Gig is unbound."
-            ],
-            "type": "pubkey"
-          },
-          {
-            "name": "feeTreasury",
-            "docs": [
-              "Snapshotted from `ProtocolConfig.fee_treasury` at fund time."
-            ],
-            "type": "pubkey"
-          },
-          {
-            "name": "priceLamports",
-            "type": "u64"
-          },
-          {
-            "name": "feeLamports",
-            "docs": [
-              "`floor(price_lamports * config.fee_bps / 10_000)`, snapshotted at fund time."
-            ],
-            "type": "u64"
-          },
-          {
-            "name": "state",
-            "type": {
-              "defined": {
-                "name": "state"
-              }
-            }
-          },
-          {
-            "name": "deliveryDeadline",
-            "docs": [
-              "After this slot timestamp, brand can `brand_refund` (Bound only). For",
-              "Service: `now + approval_window_secs` at fund. For Gig: brand-supplied."
-            ],
-            "type": "i64"
-          },
-          {
-            "name": "deliveredAt",
-            "docs": [
-              "Set on `submit_delivery`."
-            ],
-            "type": {
-              "option": "i64"
-            }
-          },
-          {
-            "name": "approvalDeadline",
-            "docs": [
-              "Set lazily on `submit_delivery`: `now + approval_window_secs`. Reset on",
-              "each `submit_delivery` after a `request_revision`."
-            ],
-            "type": "i64"
-          },
-          {
-            "name": "revisionsUsed",
-            "docs": [
-              "Capped at 2 by `request_revision`."
-            ],
-            "type": "u8"
-          },
-          {
-            "name": "disputeFiler",
-            "docs": [
-              "Set on `open_dispute`; `Pubkey::default()` otherwise."
-            ],
-            "type": "pubkey"
-          },
-          {
-            "name": "disputeOpenedAt",
-            "docs": [
-              "Set on `open_dispute`."
-            ],
-            "type": "i64"
-          },
-          {
-            "name": "bump",
-            "type": "u8"
-          }
-        ]
-      }
-    },
-    {
-      "name": "contractRecord",
-      "docs": [
-        "Settled-contract record. Initialized by the closing instruction",
-        "(`approve_release`, `auto_release`, `arbitrate`) immediately before",
-        "`ContractEscrow` is closed; `mint_reputation` reads it to verify the",
-        "contract was settled.",
-        "",
-        "`brand_refund` and `cancel_unbound_gig` do **not** write a record — those",
-        "paths produce no `ReputationCard` (no rating to be made for a refund).",
-        "",
-        "Seeds: `[b\"record\", brand.key().as_ref(), &contract_id]`.",
-        "See `docs/v1-design.md` §2.4."
-      ],
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "kind",
-            "type": {
-              "defined": {
-                "name": "kind"
-              }
-            }
-          },
-          {
-            "name": "brand",
-            "type": "pubkey"
-          },
-          {
-            "name": "creator",
-            "type": "pubkey"
-          },
-          {
-            "name": "priceLamports",
-            "type": "u64"
-          },
-          {
-            "name": "feeLamports",
-            "type": "u64"
-          },
-          {
-            "name": "outcome",
-            "type": {
-              "defined": {
-                "name": "settledOutcome"
-              }
-            }
-          },
-          {
-            "name": "settledAt",
-            "type": "i64"
-          },
-          {
-            "name": "bump",
-            "type": "u8"
-          }
-        ]
-      }
-    },
-    {
-      "name": "kind",
-      "docs": [
-        "What kind of contract this escrow represents. See `docs/v1-design.md` §3.1.",
-        "",
-        "`Service` contracts have the creator known at fund time (brand bought a",
-        "listed service). `Gig` contracts start unbound — brand pre-locks the",
-        "budget and the creator slot is filled later via `bind_creator`."
-      ],
-      "type": {
-        "kind": "enum",
-        "variants": [
-          {
-            "name": "service"
-          },
-          {
-            "name": "gig"
-          }
-        ]
-      }
-    },
-    {
-      "name": "outcome",
-      "docs": [
-        "Arbitration outcome enum. Used by `arbitrate` (Phase 5) and stored on",
-        "`ContractRecord` via `SettledOutcome::Resolved(_)`. Defined upfront so the",
-        "IDL is stable across phases.",
-        "",
-        "See `docs/v1-design.md` §3.3."
-      ],
-      "type": {
-        "kind": "enum",
-        "variants": [
-          {
-            "name": "release"
-          },
-          {
-            "name": "refund"
-          },
-          {
-            "name": "split",
-            "fields": [
-              {
-                "name": "creatorBps",
-                "type": "u16"
-              }
-            ]
           }
         ]
       }
@@ -2132,7 +783,7 @@ export type AdlerEscrow = {
       "name": "protocolConfig",
       "docs": [
         "Singleton protocol policy. Stores tunable fields and the kill switch.",
-        "Seeds: `[b\"config\"]`. See `docs/v1-design.md` §2.1."
+        "Seeds: `[b\"config\"]`."
       ],
       "type": {
         "kind": "struct",
@@ -2141,6 +792,15 @@ export type AdlerEscrow = {
             "name": "admin",
             "docs": [
               "Pubkey allowed to call `update_protocol_field` and `set_paused`."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "verifierPubkey",
+            "docs": [
+              "Custodial verifier keypair held by the off-chain Cloud Function.",
+              "Required signer for `settle_auto_bounty`. Set at init; rotatable via",
+              "`update_protocol_field`."
             ],
             "type": "pubkey"
           },
@@ -2154,28 +814,8 @@ export type AdlerEscrow = {
           {
             "name": "feeTreasury",
             "docs": [
-              "Lamport sink for protocol fees. Snapshotted onto every contract at fund time."
-            ],
-            "type": "pubkey"
-          },
-          {
-            "name": "approvalWindowSecs",
-            "docs": [
-              "Default 72 × 3600 = 259_200. Pinned in `docs/approval-deadline.md`."
-            ],
-            "type": "i64"
-          },
-          {
-            "name": "refundGraceSecs",
-            "docs": [
-              "Default 24 × 3600 = 86_400. Pinned in `docs/approval-deadline.md`."
-            ],
-            "type": "i64"
-          },
-          {
-            "name": "arbitrationPool",
-            "docs": [
-              "Set by `init_arbitration_pool` (Phase 5). `Pubkey::default()` until then."
+              "Lamport sink for protocol fees. Snapshotted onto every bounty at",
+              "create time."
             ],
             "type": "pubkey"
           },
@@ -2183,147 +823,13 @@ export type AdlerEscrow = {
             "name": "paused",
             "docs": [
               "Kill switch. When `true`, settlement-mutating ix early-return with",
-              "`ProtocolPaused`. Reads, `mint_reputation`, and admin ix continue to work."
+              "`ProtocolPaused`."
             ],
             "type": "bool"
           },
           {
             "name": "bump",
             "type": "u8"
-          }
-        ]
-      }
-    },
-    {
-      "name": "reputationCard",
-      "docs": [
-        "Per-(subject, contract_id) reputation entry. Immutable after mint.",
-        "",
-        "Seeds: `[b\"rep\", subject.key().as_ref(), &contract_id]`. The subject-keyed",
-        "seed lets indexers compute \"all reputation for user X\" via",
-        "`getProgramAccounts(filter: subject==X)` without joining back to the",
-        "contract record.",
-        "",
-        "See `docs/v1-design.md` §2.5."
-      ],
-      "type": {
-        "kind": "struct",
-        "fields": [
-          {
-            "name": "record",
-            "docs": [
-              "The `ContractRecord` PDA — frozen pointer to which contract this",
-              "reputation came from."
-            ],
-            "type": "pubkey"
-          },
-          {
-            "name": "reviewer",
-            "docs": [
-              "Whichever counterparty rated."
-            ],
-            "type": "pubkey"
-          },
-          {
-            "name": "subject",
-            "docs": [
-              "The other counterparty (`reviewer != subject` enforced)."
-            ],
-            "type": "pubkey"
-          },
-          {
-            "name": "axes",
-            "docs": [
-              "scope / communication / timeliness / quality, each 1..=5. Whitepaper §7."
-            ],
-            "type": {
-              "array": [
-                "u8",
-                4
-              ]
-            }
-          },
-          {
-            "name": "commentHash",
-            "docs": [
-              "sha256 of the off-chain comment (the comment lives in Firestore;",
-              "length-bounded by the web schema)."
-            ],
-            "type": {
-              "array": [
-                "u8",
-                32
-              ]
-            }
-          },
-          {
-            "name": "amountLamports",
-            "docs": [
-              "Snapshot of `record.price_lamports` for amount-weighted aggregates:",
-              "`Σ(meanOfAxes × amountSol) / Σ(amountSol)`."
-            ],
-            "type": "u64"
-          },
-          {
-            "name": "timestamp",
-            "type": "i64"
-          },
-          {
-            "name": "bump",
-            "type": "u8"
-          }
-        ]
-      }
-    },
-    {
-      "name": "settledOutcome",
-      "docs": [
-        "Terminal outcome stored on `ContractRecord`. `Refunded` is not represented:",
-        "`brand_refund` and `cancel_unbound_gig` produce no record at all (no rating",
-        "to be made for a refund). See `docs/v1-design.md` §3.4."
-      ],
-      "type": {
-        "kind": "enum",
-        "variants": [
-          {
-            "name": "settled"
-          },
-          {
-            "name": "resolved",
-            "fields": [
-              {
-                "defined": {
-                  "name": "outcome"
-                }
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "name": "state",
-      "docs": [
-        "Live state of a `ContractEscrow`. Terminal states (`Settled`, `Refunded`,",
-        "`Resolved`) are not represented — the PDA is closed in those cases and",
-        "`ContractRecord` carries the terminal outcome via `SettledOutcome`.",
-        "",
-        "See `docs/v1-design.md` §3.2."
-      ],
-      "type": {
-        "kind": "enum",
-        "variants": [
-          {
-            "name": "funded"
-          },
-          {
-            "name": "bound"
-          },
-          {
-            "name": "delivered"
-          },
-          {
-            "name": "disputed"
           }
         ]
       }
