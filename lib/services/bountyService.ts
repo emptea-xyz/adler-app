@@ -29,6 +29,7 @@ function rowToBounty(id: string, data: Record<string, unknown>): Bounty {
     return {
         id,
         posterId: (data.posterId as string) ?? '',
+        posterWalletAddress: (data.posterWalletAddress as string) ?? '',
         title: (data.title as string) ?? '',
         prompt: (data.prompt as string) ?? '',
         mode: (data.mode as BountyMode) ?? 'manual',

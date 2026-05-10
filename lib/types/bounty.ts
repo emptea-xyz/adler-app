@@ -10,6 +10,10 @@ export type BountyScope = 'public' | 'group';
 export interface Bounty {
   id: string;
   posterId: string;
+  /** Snapshotted at create time. The verifier + manual-settle paths
+   *  derive PDAs from this; profile.walletAddress can drift but this
+   *  is the canonical wallet that funded the on-chain escrow. */
+  posterWalletAddress: string;
   title: string;
   prompt: string;
   mode: BountyMode;
