@@ -44,12 +44,6 @@ export const MONO_PALETTE: ThemePalette = {
 };
 
 /**
- * Brand sky-blue. Used on the role-select selected card and any future
- * "selected / brand-affirmation" surface. Theme-independent.
- */
-export const BRAND_ACCENT = TailwindColors.sky[500];
-
-/**
  * Inverts a palette for dark mode: swaps light ↔ dark shades. Shade 500
  * (accent midpoint) stays in place.
  */
@@ -111,15 +105,6 @@ export const Accent = {
 } as const;
 
 export type AccentName = keyof typeof Accent;
-
-/** Ordered list, matches the Figma swatch order in the design file. */
-export const ACCENT_NAMES: readonly AccentName[] = [
-    'pink',
-    'cyan',
-    'lime',
-    'orange',
-    'sable',
-] as const;
 
 /** @deprecated Use `Accent` instead. Kept for compatibility with existing imports. */
 export const ACCENT_COLORS = Accent;

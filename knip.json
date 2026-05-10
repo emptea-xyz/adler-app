@@ -16,9 +16,6 @@
   ],
   "ignoreDependencies": [
     "babel-plugin-transform-remove-console",
-    "buffer",
-    "expo-blur",
-    "expo-image-manipulator",
-    "@shopify/react-native-skia"
+    "buffer"
   ]
 }
