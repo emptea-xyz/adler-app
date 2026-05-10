@@ -6,7 +6,6 @@ import {
     ChevronRight,
     ExternalLink,
     LogOut,
-    Wallet,
     UserCog,
     Sun,
     Bell,
@@ -115,19 +114,9 @@ export default function SettingsIndexScreen() {
                         <SectionLabel label="Account" />
                     </View>
                     <Row
-                        icon={<Wallet color={theme[700]} size={18} />}
-                        title="Wallet"
-                        onPress={() => router.push('/wallet')}
-                    />
-                    <Row
                         icon={<UserCog color={theme[700]} size={18} />}
                         title="Profile"
                         onPress={() => router.push('/settings/profile')}
-                    />
-                    <Row
-                        icon={<FileText color={theme[700]} size={18} />}
-                        title="Billing"
-                        onPress={() => router.push('/settings/billing')}
                     />
                     <Row
                         icon={<LogOut color={theme[700]} size={18} />}
