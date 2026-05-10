@@ -8,7 +8,7 @@ Compressed ruleset for the submission push. Long reference docs (`ux-principles.
 - NativeWind 4 · `cn()` helper · theme tokens via `useTheme()` from `ThemeContext`
 - TanStack Query 5 (server) + Context (global) + useState (local)
 - Privy embedded Solana wallets → Firebase Auth bridge via `mintFirebaseToken` Cloud Function
-- Solana **devnet** · `@solana/web3.js` · direct SOL transfers (escrow lands in Step 4 of PORT_PLAN)
+- Solana **devnet** · `@solana/web3.js` · direct SOL transfers (escrow lands in Step 4 of docs/PORT_PLAN.md)
 - Firestore + Storage + Functions · no analytics/Sentry-only
 - Skia for charts · Reanimated 4 · Lucide icons · Geist font
 
