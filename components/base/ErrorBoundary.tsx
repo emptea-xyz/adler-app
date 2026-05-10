@@ -1,6 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { View, Text, Pressable, useColorScheme } from 'react-native';
-import * as Sentry from '@sentry/react-native';
 
 interface Props {
   children: ReactNode;
@@ -130,16 +129,6 @@ class ErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('ErrorBoundary caught an error:', error);
     console.error('Component stack:', errorInfo.componentStack);
-    // Best-effort Sentry capture — no-op when SENTRY_DSN isn't set.
-    try {
-      Sentry.captureException(error, {
-        contexts: {
-          react: { componentStack: errorInfo.componentStack ?? '' },
-        },
-      });
-    } catch {
-      // Ignore Sentry transport failures.
-    }
   }
 
   handleRetry = () => {

@@ -27,7 +27,6 @@
     "@react-native-firebase/app-check": "^24.0.0",
     "@react-navigation/bottom-tabs": "^7.10.1",
     "@react-navigation/native": "^7.1.28",
-    "@sentry/react-native": "~7.11.0",
     "@shopify/react-native-skia": "2.4.18",
     "@solana/web3.js": "^1.98.4",
     "@tanstack/react-query": "5.90.21",

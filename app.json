@@ -78,14 +78,6 @@
           "faceIDPermission": "Adler uses Face ID to keep your wallet secure."
         }
       ],
-      [
-        "@sentry/react-native",
-        {
-          "url": "https://de.sentry.io/",
-          "organization": "emptea",
-          "project": "adler"
-        }
-      ],
       "@react-native-firebase/app",
       "@react-native-firebase/app-check",
       "expo-video"

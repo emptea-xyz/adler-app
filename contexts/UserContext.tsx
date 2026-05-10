@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Sentry from '@sentry/react-native';
 import { useAuth } from './AuthContext';
 import { ensureProfileExists, getProfile, setPushToken } from '@/lib/services/profileService';
 import {
@@ -47,7 +46,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
             setProfile(null);
             setLoading(false);
             pushSyncedFor.current = null;
-            try { Sentry.setUser(null); } catch { /* no-op */ }
             AsyncStorage.removeItem(STORAGE_KEYS.CACHED_PROFILE).catch(() => {});
             return;
         }
@@ -78,9 +76,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
             if (!isMounted.current) return;
             setProfile(ensured);
             AsyncStorage.setItem(STORAGE_KEYS.CACHED_PROFILE, JSON.stringify(ensured)).catch(() => {});
-            try {
-                Sentry.setUser({ id: ensured.id, username: ensured.username });
-            } catch { /* no-op when Sentry isn't initialized */ }
 
             // Register silently when the user already granted iOS permission.
             // If permission is still undetermined, show Adler's pre-prompt first.
