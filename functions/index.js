@@ -198,23 +198,23 @@ export const mintFirebaseToken = onCall(
 
     let claims;
     try {
-      claims = await verifyAccessToken(accessToken, {
-        appId,
-        appSecret,
-        jwks: getJwks(appId),
+      claims = await verifyAccessToken({
+        access_token: accessToken,
+        app_id: appId,
+        verification_key: getJwks(appId),
       });
     } catch (err) {
       console.warn('Privy access token verification failed', err);
       throw new HttpsError('unauthenticated', 'Invalid Privy access token');
     }
 
-    const uid = claims.userId;
+    const uid = claims.user_id;
     if (typeof uid !== 'string' || uid.length === 0) {
-      throw new HttpsError('unauthenticated', 'Privy claims missing userId');
+      throw new HttpsError('unauthenticated', 'Privy claims missing user_id');
     }
 
     const customToken = await admin.auth().createCustomToken(uid, {
-      privy: { appId, sessionId: claims.sessionId ?? null },
+      privy: { appId, sessionId: claims.session_id ?? null },
     });
     return { customToken };
   },
