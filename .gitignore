@@ -31,6 +31,10 @@ builds/
 *.key
 *.mobileprovision
 *.orig
+credentials.json
+
+# Backups
+*.bak
 
 # Editor
 .idea/

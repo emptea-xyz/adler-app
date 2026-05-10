@@ -52,6 +52,10 @@
             "deploymentTarget": "15.1",
             "extraPods": [
               {
+                "name": "FirebaseCore",
+                "modular_headers": true
+              },
+              {
                 "name": "FirebaseCoreInternal",
                 "modular_headers": true
               },

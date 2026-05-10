@@ -1,5 +1,7 @@
 # Adler
 
+> Package manager: **pnpm** (use `pnpm install`, not npm).
+
 A two-sided UGC marketplace built on Solana.
 
 - **Creators** list content packages (video / images) for brands to purchase.

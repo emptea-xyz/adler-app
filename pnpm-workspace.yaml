@@ -1,0 +1,10 @@
+allowBuilds:
+  '@firebase/util': true
+  '@sentry/cli': true
+  '@shopify/react-native-skia': true
+  bufferutil: true
+  protobufjs: true
+  unrs-resolver: true
+  utf-8-validate: true
+nodeLinker: hoisted
+shamefullyHoist: true
