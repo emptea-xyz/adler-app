@@ -61,43 +61,46 @@ export default function WalletActivityScreen() {
     const renderItem = ({ item }: { item: ActivityItem }) => (
         <Pressable
             onPress={() => openTx(item.signature)}
-            style={({ pressed }) => ({
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 12,
-                paddingVertical: 14,
-                paddingHorizontal: 16,
-                opacity: pressed ? 0.6 : 1,
-                borderBottomWidth: 1,
-                borderBottomColor: theme[100],
-            })}
+            style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
         >
             <View
                 style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 18,
-                    backgroundColor: theme[100],
+                    flexDirection: 'row',
                     alignItems: 'center',
-                    justifyContent: 'center',
+                    gap: 12,
+                    paddingVertical: 14,
+                    paddingHorizontal: 16,
+                    borderBottomWidth: 1,
+                    borderBottomColor: theme[100],
                 }}
             >
-                <Icon
-                    name={item.success ? 'arrow.left.arrow.right' : 'exclamationmark.triangle'}
-                    size={16}
-                    color={theme[700]}
-                />
+                <View
+                    style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: 18,
+                        backgroundColor: theme[100],
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                    }}
+                >
+                    <Icon
+                        name={item.success ? 'arrow.left.arrow.right' : 'exclamationmark.triangle'}
+                        size={16}
+                        color={theme[700]}
+                    />
+                </View>
+                <View style={{ flex: 1, gap: 2 }}>
+                    <ThemedText type="body-md-semibold" style={{ color: theme[950] }} numberOfLines={1}>
+                        {item.signature.slice(0, 8)}…{item.signature.slice(-8)}
+                    </ThemedText>
+                    <ThemedText type="caption" style={{ color: theme[500] }}>
+                        {item.blockTimeMs ? formatRelative(item.blockTimeMs) : 'pending'}
+                        {!item.success ? ' · failed' : ''}
+                    </ThemedText>
+                </View>
+                <Icon name="chevron.right" size={14} color={theme[400]} />
             </View>
-            <View style={{ flex: 1, gap: 2 }}>
-                <ThemedText type="body-md-semibold" style={{ color: theme[950] }} numberOfLines={1}>
-                    {item.signature.slice(0, 8)}…{item.signature.slice(-8)}
-                </ThemedText>
-                <ThemedText type="caption" style={{ color: theme[500] }}>
-                    {item.blockTimeMs ? formatRelative(item.blockTimeMs) : 'pending'}
-                    {!item.success ? ' · failed' : ''}
-                </ThemedText>
-            </View>
-            <Icon name="chevron.right" size={14} color={theme[400]} />
         </Pressable>
     );
 

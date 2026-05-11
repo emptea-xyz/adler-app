@@ -5,11 +5,7 @@ import { AdlerTabBar } from '@/components/ui/AdlerTabBar';
 export default function TabsLayout() {
   return (
     <Tabs
-      screenOptions={{
-        headerShown: false,
-        // Allow the centered FAB in AdlerTabBar to overflow above the bar.
-        tabBarStyle: { borderTopWidth: 0, elevation: 0, overflow: 'visible' },
-      }}
+      screenOptions={{ headerShown: false }}
       tabBar={(props) => <AdlerTabBar {...props} />}
     >
       <Tabs.Screen name="browse" />

@@ -145,23 +145,26 @@ export default function WalletScreen() {
                             haptic('medium');
                             setReceiveOpen(true);
                         }}
-                        style={({ pressed }) => ({
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            gap: 8,
-                            height: 56,
-                            paddingHorizontal: 28,
-                            borderRadius: 9999,
-                            backgroundColor: theme[950],
-                            opacity: pressed ? 0.85 : 1,
-                        })}
+                        style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
                         accessibilityRole="button"
                         accessibilityLabel="Receive SOL"
                     >
-                        <Icon name="arrow.down" size={18} color={theme[50]} weight="semibold" />
-                        <ThemedText type="body-lg-semibold" style={{ color: theme[50] }}>
-                            Receive
-                        </ThemedText>
+                        <View
+                            style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                gap: 8,
+                                height: 56,
+                                paddingHorizontal: 28,
+                                borderRadius: 9999,
+                                backgroundColor: theme[950],
+                            }}
+                        >
+                            <Icon name="arrow.down" size={18} color={theme[50]} weight="semibold" />
+                            <ThemedText type="body-lg-semibold" style={{ color: theme[50] }}>
+                                Receive
+                            </ThemedText>
+                        </View>
                     </Pressable>
                 </View>
 

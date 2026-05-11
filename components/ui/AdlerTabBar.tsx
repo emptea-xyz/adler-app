@@ -7,12 +7,11 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useOverlaySheets } from '@/contexts/OverlaySheetsContext';
 import { haptic } from '@/lib/utils/haptic';
 import { TAB_BAR_HEIGHT } from '@/constants/LayoutConstants';
-import { TailwindColors } from '@/constants/TailwindColors';
-import { Neutral } from '@/constants/NeutralColors';
 
 const ICONS: Record<string, IconName> = {
     browse: 'safari.fill',
     inbox: 'tray.fill',
+    create: 'plus.circle.fill',
     profile: 'person.fill',
     wallet: 'wallet.bifold.fill',
 };
@@ -20,21 +19,21 @@ const ICONS: Record<string, IconName> = {
 const LABELS: Record<string, string> = {
     browse: 'Browse',
     inbox: 'Inbox',
+    create: 'Create',
     profile: 'Profile',
     wallet: 'Wallet',
 };
 
-const TAB_ORDER = ['browse', 'inbox', 'profile', 'wallet'] as const;
-
-const FAB_SIZE = 56;
-const FAB_RAISE = 12;
+// `create` is a virtual slot — it does not have a Tabs.Screen route. It
+// opens the post-bounty bottom sheet directly.
+const TAB_ORDER = ['browse', 'inbox', 'create', 'profile', 'wallet'] as const;
 
 export function AdlerTabBar({ state, navigation }: BottomTabBarProps) {
     const { theme } = useTheme();
     const insets = useSafeAreaInsets();
     const { openPostBounty } = useOverlaySheets();
 
-    const onPress = useCallback(
+    const onTabPress = useCallback(
         (routeName: string) => {
             const route = state.routes.find((r) => r.name === routeName);
             if (!route) return;
@@ -67,57 +66,34 @@ export function AdlerTabBar({ state, navigation }: BottomTabBarProps) {
                     backgroundColor: theme[50],
                     paddingBottom: insets.bottom,
                     height: TAB_BAR_HEIGHT + insets.bottom,
-                    overflow: 'visible',
                 },
             ]}
         >
-            {TAB_ORDER.map((name, index) => {
-                const isFocused = focusedRouteName === name;
-                // Push the two inner tabs (index 1 and 2) outward so they
-                // don't visually collide with the centered FAB.
-                const innerSpacing =
-                    index === 1
-                        ? { paddingRight: FAB_SIZE / 2 + 8 }
-                        : index === 2
-                          ? { paddingLeft: FAB_SIZE / 2 + 8 }
-                          : null;
+            {TAB_ORDER.map((name) => {
+                const isCreate = name === 'create';
+                const isFocused = !isCreate && focusedRouteName === name;
+                // `plus.circle.fill` is a solid SF Symbol — tinting it dark
+                // gives a filled dark circle with a light plus cutout. Always
+                // dark so Create stays the visual anchor regardless of which
+                // tab is focused.
+                const color = isCreate
+                    ? theme[950]
+                    : isFocused
+                      ? theme[950]
+                      : theme[400];
                 return (
                     <Pressable
                         key={name}
-                        onPress={() => onPress(name)}
-                        style={[styles.tabSlot, innerSpacing]}
+                        onPress={() => (isCreate ? onCreatePress() : onTabPress(name))}
+                        style={styles.tabSlot}
                         accessibilityRole="button"
                         accessibilityState={isFocused ? { selected: true } : {}}
                         accessibilityLabel={LABELS[name]}
                     >
-                        <Icon
-                            name={ICONS[name]}
-                            size={28}
-                            color={isFocused ? theme[950] : theme[400]}
-                        />
+                        <Icon name={ICONS[name]} size={28} color={color} />
                     </Pressable>
                 );
             })}
-
-            <View
-                pointerEvents="box-none"
-                style={[styles.fabWrap, { bottom: insets.bottom + FAB_RAISE }]}
-            >
-                <Pressable
-                    onPress={onCreatePress}
-                    hitSlop={12}
-                    accessibilityRole="button"
-                    accessibilityLabel="Create"
-                    style={({ pressed }) => ({
-                        opacity: pressed ? 0.9 : 1,
-                        transform: [{ scale: pressed ? 0.96 : 1 }],
-                    })}
-                >
-                    <View style={[styles.fab, { backgroundColor: TailwindColors.sky[500] }]}>
-                        <Icon name="plus" size={28} color={Neutral.white} weight="bold" />
-                    </View>
-                </Pressable>
-            </View>
         </View>
     );
 }
@@ -134,25 +110,5 @@ const styles = StyleSheet.create({
         height: TAB_BAR_HEIGHT - 8,
         alignItems: 'center',
         justifyContent: 'center',
-    },
-    fabWrap: {
-        position: 'absolute',
-        left: '50%',
-        marginLeft: -FAB_SIZE / 2,
-        width: FAB_SIZE,
-        height: FAB_SIZE,
-        zIndex: 10,
-    },
-    fab: {
-        width: FAB_SIZE,
-        height: FAB_SIZE,
-        borderRadius: FAB_SIZE / 2,
-        alignItems: 'center',
-        justifyContent: 'center',
-        shadowColor: Neutral.black,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.18,
-        shadowRadius: 10,
-        elevation: 8,
     },
 });
