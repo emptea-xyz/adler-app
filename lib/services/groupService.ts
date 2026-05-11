@@ -39,6 +39,7 @@ function rowToGroup(id: string, data: Record<string, unknown>): Group {
         memberCount: typeof data.memberCount === 'number' ? data.memberCount : 0,
         openBountyTotalLamports:
             typeof data.openBountyTotalLamports === 'number' ? data.openBountyTotalLamports : 0,
+        logoUrl: (data.logoUrl as string | null | undefined) ?? null,
     };
 }
 
@@ -66,6 +67,28 @@ export async function getGroup(id: string): Promise<Group | null> {
     const snap = await getDoc(doc(db, GROUPS, id));
     if (!snap.exists()) return null;
     return rowToGroup(snap.id, snap.data() as Record<string, unknown>);
+}
+
+export async function listGroups(max = 50): Promise<Group[]> {
+    const snap = await getDocs(
+        query(
+            collection(db, GROUPS),
+            where('status', '==', 'active'),
+            orderBy('memberCount', 'desc'),
+            limit(max),
+        ),
+    );
+    return snap.docs.map((d) => rowToGroup(d.id, d.data() as Record<string, unknown>));
+}
+
+export async function searchGroups(q: string, max = 30): Promise<Group[]> {
+    // Client-side substring filter over listGroups() for v1.
+    // Firestore has no native full-text search; revisit with Algolia/Typesense
+    // once the catalog grows.
+    const all = await listGroups(200);
+    const needle = q.trim().toLowerCase();
+    if (!needle) return all.slice(0, max);
+    return all.filter((g) => g.name.toLowerCase().includes(needle)).slice(0, max);
 }
 
 export async function listMyMemberships(uid: string): Promise<GroupMember[]> {

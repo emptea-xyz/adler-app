@@ -13,9 +13,21 @@ import { SectionLabel } from '@/components/base/SectionLabel';
 import { Button } from '@/components/ui/Button';
 import { Pill } from '@/components/ui/Pill';
 import Card from '@/components/ui/Card';
-import EmptyState from '@/components/ui/EmptyState';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Alert } from '@/components/ui/Alert';
+import { BountyTags } from '@/components/features/bounty/BountyTags';
+import {
+    BountyStatusPill,
+    type BountyItemStatus,
+} from '@/components/features/bounty/BountyStatusIcon';
+import {
+    bountyStatusToCard,
+    submissionStatusToCard,
+} from '@/components/features/bounty/BountyItemCard';
+import { Avatar } from '@/components/ui/Avatar';
+import { SolanaIcon } from '@/components/ui/SolanaIcon';
+import { TailwindColors } from '@/constants/TailwindColors';
+import { Radius } from '@/constants/LayoutConstants';
 import { useBounty } from '@/hooks/useBounty';
 import { useBountyEscrow } from '@/hooks/useBountyEscrow';
 import {
@@ -26,12 +38,11 @@ import { getProfile } from '@/lib/services/profileService';
 import { reportBounty, hasReported } from '@/lib/services/reportService';
 import { qk } from '@/lib/constants/queryKeys';
 import { explorerTxUrl } from '@/lib/solana/connection';
-import { formatSol, formatLargeNumber } from '@/lib/utils/formatNumber';
-import { formatRelative } from '@/lib/utils/dates';
+import { formatSol } from '@/lib/utils/formatNumber';
+import { formatRelative, formatRemaining } from '@/lib/utils/dates';
 import { haptic } from '@/lib/utils/haptic';
 import { toast } from '@/lib/utils/toast';
-import { EMPTY_BOUNTY_SUBMISSIONS } from '@/lib/utils/copy';
-import { MAX_AUTO_SUBMISSIONS_PER_USER } from '@/lib/constants/escrow';
+import { MAX_SUBMISSIONS_PER_USER } from '@/lib/constants/escrow';
 import type { Submission } from '@/lib/types/submission';
 
 export default function BountyDetailScreen() {
@@ -42,14 +53,41 @@ export default function BountyDetailScreen() {
     const queryClient = useQueryClient();
     const insets = useSafeAreaInsets();
     const [reportOpen, setReportOpen] = useState(false);
+    const [cancelOpen, setCancelOpen] = useState(false);
     const [pickWinnerSheet, setPickWinnerSheet] = useState<Submission | null>(null);
+    const { cancel, pending: cancelPending } = useBountyEscrow();
 
     const bountyQuery = useBounty(id);
+    const bounty = bountyQuery.data;
+    const isPoster = !!user && !!bounty && bounty.posterId === user.id;
+    const cancellable =
+        !!bounty &&
+        (bounty.status === 'open' || bounty.status === 'in_review') &&
+        bounty.submissionCount === 0;
+
+    const posterQuery = useQuery({
+        queryKey: bounty?.posterId
+            ? qk.profiles.detail(bounty.posterId)
+            : ['profiles', 'detail', 'none'],
+        queryFn: () => (bounty?.posterId ? getProfile(bounty.posterId) : Promise.resolve(null)),
+        enabled: !!bounty?.posterId,
+        staleTime: 5 * 60_000,
+    });
+    const poster = posterQuery.data ?? null;
+
+    // Poster sees the full submission list to pick a winner; everyone else
+    // sees only a count. The list is therefore only fetched for the poster.
     const submissionsQuery = useQuery({
         queryKey: qk.submissions.byBounty(id),
         queryFn: () => listSubmissionsForBounty(id),
         staleTime: 15_000,
-        enabled: !!id,
+        enabled: !!id && isPoster,
+    });
+    const submissionCountQuery = useQuery({
+        queryKey: [...qk.submissions.byBounty(id), 'count'],
+        queryFn: async () => (await listSubmissionsForBounty(id)).length,
+        staleTime: 15_000,
+        enabled: !!id && !isPoster,
     });
     const mySubmissionsQuery = useQuery({
         queryKey: user ? qk.submissions.mineForBounty(id, user.id) : ['submissions', 'mineForBounty', 'anon'],
@@ -58,19 +96,41 @@ export default function BountyDetailScreen() {
         enabled: !!user && !!id,
     });
 
-    const bounty = bountyQuery.data;
     const submissions = submissionsQuery.data ?? [];
+    const submissionCount = isPoster ? submissions.length : (submissionCountQuery.data ?? 0);
     const mineCount = (mySubmissionsQuery.data ?? []).length;
-    const isPoster = user && bounty && bounty.posterId === user.id;
+    const mine = mySubmissionsQuery.data ?? [];
+
+    const submissionWindowOpen = !!bounty && Date.now() < bounty.submissionEndsAt;
     const canSubmit =
         !!user && !!bounty && !isPoster && bounty.status === 'open' &&
-        (bounty.mode !== 'auto' || mineCount < MAX_AUTO_SUBMISSIONS_PER_USER);
+        submissionWindowOpen && mineCount < MAX_SUBMISSIONS_PER_USER;
 
     const onRefresh = async () => {
         await Promise.all([
             queryClient.invalidateQueries({ queryKey: qk.bounties.detail(id) }),
             queryClient.invalidateQueries({ queryKey: qk.submissions.byBounty(id) }),
         ]);
+    };
+
+    const onCancel = async () => {
+        if (!bounty || cancelPending) return;
+        try {
+            await cancel({
+                bountyId: bounty.id,
+                bountyIdHex: bounty.contractIdHex,
+                posterWalletAddress: bounty.posterWalletAddress,
+            });
+            haptic('heavy');
+            toast.success('Bounty cancelled and refunded.');
+            await queryClient.invalidateQueries({ queryKey: qk.bounties.all() });
+            setCancelOpen(false);
+            router.back();
+        } catch (e) {
+            haptic('error');
+            const msg = e instanceof Error ? e.message : String(e);
+            toast.error(msg || "Couldn't cancel bounty");
+        }
     };
 
     const onReport = async () => {
@@ -91,7 +151,7 @@ export default function BountyDetailScreen() {
         }
     };
 
-    if (bountyQuery.isLoading || !bounty) {
+    if (bountyQuery.isLoading) {
         return (
             <ThemedView style={{ flex: 1, paddingTop: insets.top }}>
                 <ScreenHeader title="Bounty" />
@@ -103,6 +163,36 @@ export default function BountyDetailScreen() {
             </ThemedView>
         );
     }
+    if (!bounty) {
+        return (
+            <ThemedView style={{ flex: 1, paddingTop: insets.top }}>
+                <ScreenHeader title="Bounty" />
+                <View style={{ padding: 24, gap: 12, alignItems: 'center', marginTop: 80 }}>
+                    <Icon name="exclamationmark.circle.fill" size={40} color={theme[400]} />
+                    <ThemedText type="body-md-semibold" style={{ color: theme[950] }}>
+                        Bounty not found
+                    </ThemedText>
+                    <ThemedText type="body-sm" style={{ color: theme[500], textAlign: 'center' }}>
+                        This bounty has been removed or no longer exists.
+                    </ThemedText>
+                    <View style={{ marginTop: 8 }}>
+                        <Button
+                            variant="primary"
+                            size="default"
+                            title="Go back"
+                            onPress={() => router.back()}
+                        />
+                    </View>
+                </View>
+            </ThemedView>
+        );
+    }
+
+    const cardStatus: BountyItemStatus = isPoster
+        ? bountyStatusToCard(bounty)
+        : mine.length > 0
+          ? pickBestSubmissionStatus(mine, bounty)
+          : bountyStatusToCard(bounty);
 
     const headerActions = !isPoster
         ? {
@@ -110,13 +200,22 @@ export default function BountyDetailScreen() {
               onPress: () => setReportOpen(true),
               accessibilityLabel: 'Report bounty',
           }
-        : undefined;
+        : cancellable
+          ? {
+                icon: 'trash.fill' as const,
+                onPress: () => {
+                    haptic('medium');
+                    setCancelOpen(true);
+                },
+                accessibilityLabel: 'Cancel bounty',
+            }
+          : undefined;
 
     return (
         <ThemedView style={{ flex: 1, paddingTop: insets.top }}>
             <ScreenHeader title="Bounty" actionButton={headerActions} />
             <ScrollView
-                contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 200 + insets.bottom }}
+                contentContainerStyle={{ padding: 16, gap: 20, paddingBottom: 200 + insets.bottom }}
                 refreshControl={
                     <RefreshControl
                         refreshing={bountyQuery.isFetching || submissionsQuery.isFetching}
@@ -124,45 +223,67 @@ export default function BountyDetailScreen() {
                     />
                 }
             >
-                <View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                        <ThemedText type="h1" style={{ color: theme[950] }}>
-                            {formatSol(bounty.bountyLamports / 1e9)} SOL
-                        </ThemedText>
-                        <View style={{ flexDirection: 'row', gap: 6 }}>
-                            <Pill intent={bounty.mode === 'auto' ? 'accent' : 'neutral'} label={bounty.mode === 'auto' ? 'AUTO' : 'MANUAL'} />
-                            <Pill
-                                intent={
-                                    bounty.status === 'open'
-                                        ? 'success'
-                                        : bounty.status === 'settled'
-                                          ? 'info'
-                                          : bounty.status === 'refunded'
-                                            ? 'neutral'
-                                            : 'dark'
-                                }
-                                label={bounty.status.toUpperCase()}
+                {/* Hero: title + prompt is the content the user came for. */}
+                <View style={{ gap: 12 }}>
+                    <ThemedText type="h2" style={{ color: theme[950] }}>
+                        {bounty.title}
+                    </ThemedText>
+                    {poster ? (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <Avatar
+                                size="sm"
+                                avatarUrl={poster.avatarUrl}
+                                initial={poster.displayName.charAt(0)}
                             />
+                            <View style={{ flexShrink: 1 }}>
+                                <ThemedText
+                                    type="body-md-semibold"
+                                    style={{ color: theme[950] }}
+                                    numberOfLines={1}
+                                >
+                                    {poster.displayName}
+                                </ThemedText>
+                                <ThemedText type="caption" style={{ color: theme[500] }}>
+                                    @{poster.username}
+                                </ThemedText>
+                            </View>
                         </View>
-                    </View>
-                    <ThemedText type="body-md" style={{ color: theme[500], marginTop: 4 }}>
-                        Expires {formatRelative(bounty.expiresAt)} · {formatLargeNumber(bounty.reportCount)} reports
+                    ) : null}
+                    <ThemedText type="body-md" style={{ color: theme[700], lineHeight: 22 }}>
+                        {bounty.prompt}
                     </ThemedText>
                 </View>
 
-                <Card variant="filled">
-                    <ThemedText type="h4" style={{ color: theme[950], marginBottom: 8 }}>
-                        {bounty.title}
-                    </ThemedText>
-                    <ThemedText type="body-md" style={{ color: theme[800] }}>
-                        {bounty.prompt}
-                    </ThemedText>
-                </Card>
+                {/* Meta line: icon-tags + reward + expiry + submissions + status. */}
+                <View style={{ gap: 10 }}>
+                    <BountyTags bounty={bounty} />
+                    <View
+                        style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 6,
+                            flexWrap: 'wrap',
+                        }}
+                    >
+                        <MetaPill
+                            bg={TailwindColors.sky[50]}
+                            fg={TailwindColors.sky[700]}
+                            icon={<SolanaIcon size={10} color={TailwindColors.sky[700]} />}
+                            label={formatSol(bounty.bountyLamports / 1e9)}
+                        />
+                        <TimePill bounty={bounty} />
+                        <MetaPill
+                            bg={theme[100]}
+                            fg={theme[700]}
+                            icon={<Icon name="person.2.fill" size={11} color={theme[700]} />}
+                            label={`${submissionCount} ${submissionCount === 1 ? 'submission' : 'submissions'}`}
+                        />
+                        <BountyStatusPill status={cardStatus} iconSize={12} />
+                    </View>
+                </View>
 
                 {bounty.txSignature ? (
-                    <Pressable
-                        onPress={() => Linking.openURL(explorerTxUrl(bounty.txSignature!))}
-                    >
+                    <Pressable onPress={() => Linking.openURL(explorerTxUrl(bounty.txSignature!))}>
                         <Card variant="border-bottom">
                             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
@@ -180,26 +301,29 @@ export default function BountyDetailScreen() {
                     </Pressable>
                 ) : null}
 
-                <View>
-                    <SectionLabel label={`SUBMISSIONS · ${submissions.length}`} />
-                    {submissions.length === 0 ? (
-                        <EmptyState
-                            title={EMPTY_BOUNTY_SUBMISSIONS.title}
-                            description={EMPTY_BOUNTY_SUBMISSIONS.description}
-                        />
-                    ) : (
-                        submissions.map((sub) => (
-                            <SubmissionCard
-                                key={sub.id}
-                                submission={sub}
-                                isPoster={!!isPoster}
-                                isOpen={bounty.status === 'open'}
-                                isManual={bounty.mode === 'manual'}
-                                onPickWinner={() => setPickWinnerSheet(sub)}
-                            />
-                        ))
-                    )}
-                </View>
+                {/* Poster sees the full submission list to pick a winner.
+                    For everyone else, the count is already shown inline above. */}
+                {isPoster ? (
+                    <View>
+                        <SectionLabel label="SUBMISSIONS" />
+                        {submissions.length === 0 ? (
+                            <View style={{ paddingVertical: 12 }}>
+                                <ThemedText type="body-sm" style={{ color: theme[500] }}>
+                                    No submissions yet. They appear here as soon as people enter.
+                                </ThemedText>
+                            </View>
+                        ) : (
+                            submissions.map((sub) => (
+                                <SubmissionCard
+                                    key={sub.id}
+                                    submission={sub}
+                                    isOpen={bounty.status === 'open' || bounty.status === 'in_review'}
+                                    onPickWinner={() => setPickWinnerSheet(sub)}
+                                />
+                            ))
+                        )}
+                    </View>
+                ) : null}
             </ScrollView>
 
             {canSubmit ? (
@@ -218,9 +342,11 @@ export default function BountyDetailScreen() {
                         size="lg"
                         variant="primary"
                         title={
-                            bounty.mode === 'auto'
-                                ? `Submit photo (${mineCount}/${MAX_AUTO_SUBMISSIONS_PER_USER})`
-                                : 'Submit photo'
+                            bounty.submissionKind === 'link'
+                                ? 'Submit link'
+                                : bounty.submissionKind === 'video'
+                                  ? 'Submit video'
+                                  : 'Submit photo'
                         }
                         onPress={() => router.push(`/bounty/${id}/submit`)}
                     />
@@ -230,12 +356,23 @@ export default function BountyDetailScreen() {
             <Alert
                 visible={reportOpen}
                 title="Report this bounty?"
-                message="Reports go to Adler. After 100 reports, the bounty is hidden."
+                message="Tell us if something looks off. Reports go to Adler — your username stays private."
                 confirmText="Report"
                 cancelText="Cancel"
                 isDestructive
                 onConfirm={onReport}
                 onCancel={() => setReportOpen(false)}
+            />
+
+            <Alert
+                visible={cancelOpen}
+                title="Cancel this bounty?"
+                message="This refunds your SOL on-chain and removes the bounty. Not reversible."
+                confirmText={cancelPending ? 'Cancelling…' : 'Cancel bounty'}
+                cancelText="Keep"
+                isDestructive
+                onConfirm={onCancel}
+                onCancel={() => setCancelOpen(false)}
             />
 
             {pickWinnerSheet ? (
@@ -249,39 +386,155 @@ export default function BountyDetailScreen() {
     );
 }
 
+// When the user has multiple submissions on a bounty, surface the most
+// favourable state: a win trumps a loss, an active "judging" trumps a stale
+// "pending", and so on.
+const STATUS_RANK: Record<BountyItemStatus, number> = {
+    won: 5,
+    processing: 4,
+    pending: 3,
+    open: 2,
+    lost: 1,
+    closed: 0,
+};
+function pickBestSubmissionStatus(
+    subs: Submission[],
+    bounty: import('@/lib/types/bounty').Bounty,
+): BountyItemStatus {
+    let best: BountyItemStatus = submissionStatusToCard(subs[0], bounty);
+    for (const s of subs.slice(1)) {
+        const next = submissionStatusToCard(s, bounty);
+        if (STATUS_RANK[next] > STATUS_RANK[best]) best = next;
+    }
+    return best;
+}
+
+function MetaPill({
+    bg,
+    fg,
+    icon,
+    label,
+}: {
+    bg: string;
+    fg: string;
+    icon: React.ReactNode;
+    label: string;
+}) {
+    return (
+        <View
+            style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+                paddingHorizontal: 10,
+                paddingVertical: 5,
+                borderRadius: Radius.full,
+                backgroundColor: bg,
+                alignSelf: 'flex-start',
+            }}
+        >
+            {icon}
+            <ThemedText type="caption-semibold" style={{ color: fg }}>
+                {label}
+            </ThemedText>
+        </View>
+    );
+}
+
+function TimePill({ bounty }: { bounty: import('@/lib/types/bounty').Bounty }) {
+    const { theme } = useTheme();
+    const isOpen = bounty.status === 'open';
+    const isReview = bounty.status === 'in_review';
+    // Target may be 0 on legacy docs that pre-date submissionEndsAt /
+    // expiresAt. Treat 0 as "unknown" and fall back to the posted-at line
+    // so we never render a phantom "expired".
+    const target = isOpen
+        ? bounty.submissionEndsAt
+        : isReview
+          ? bounty.expiresAt
+          : 0;
+    const hasTarget = target > 0;
+    const expired = hasTarget && Date.now() >= target;
+
+    let bg: string;
+    let fg: string;
+    if (expired) {
+        bg = TailwindColors.red[50];
+        fg = TailwindColors.red[700];
+    } else if (hasTarget && (isOpen || isReview)) {
+        bg = TailwindColors.amber[50];
+        fg = TailwindColors.amber[700];
+    } else {
+        bg = theme[100];
+        fg = theme[700];
+    }
+
+    const label =
+        isOpen && hasTarget
+            ? `Closes ${formatRemaining(bounty.submissionEndsAt)}`
+            : isReview && hasTarget
+              ? `Pick by ${formatRemaining(bounty.expiresAt)}`
+              : `Posted ${formatRelative(bounty.createdAt)}`;
+
+    return (
+        <MetaPill
+            bg={bg}
+            fg={fg}
+            icon={<Icon name="clock.fill" size={11} color={fg} />}
+            label={label}
+        />
+    );
+}
+
 function SubmissionCard({
     submission,
-    isPoster,
     isOpen,
-    isManual,
     onPickWinner,
 }: {
     submission: Submission;
-    isPoster: boolean;
     isOpen: boolean;
-    isManual: boolean;
     onPickWinner: () => void;
 }) {
     const { theme } = useTheme();
-    let intent: 'info' | 'success' | 'error' | 'neutral' = 'neutral';
-    let label = 'PENDING';
-    if (submission.isWinner) {
-        intent = 'info';
-        label = 'WINNER';
-    } else if (submission.aiVerdict === 'pass') {
-        intent = 'success';
-        label = 'PASS';
-    } else if (submission.aiVerdict === 'fail') {
-        intent = 'error';
-        label = 'FAIL';
-    }
+    const intent: 'info' | 'neutral' = submission.isWinner ? 'info' : 'neutral';
+    const label = submission.isWinner ? 'WINNER' : 'PENDING';
+    const isLink = !!submission.linkUrl;
+    const isVideo = !!submission.videoUrl;
     return (
         <Card variant="border-bottom">
             <View style={{ flexDirection: 'row', gap: 12 }}>
-                <Image
-                    source={{ uri: submission.photoUrl }}
-                    style={{ width: 64, height: 64, borderRadius: 8, backgroundColor: theme[100] }}
-                />
+                {isLink ? (
+                    <View
+                        style={{
+                            width: 64,
+                            height: 64,
+                            borderRadius: 8,
+                            backgroundColor: theme[100],
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                        }}
+                    >
+                        <Icon name="link" size={24} color={theme[700]} />
+                    </View>
+                ) : isVideo ? (
+                    <View
+                        style={{
+                            width: 64,
+                            height: 64,
+                            borderRadius: 8,
+                            backgroundColor: theme[100],
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                        }}
+                    >
+                        <Icon name="play.fill" size={24} color={theme[700]} />
+                    </View>
+                ) : (
+                    <Image
+                        source={{ uri: submission.photoUrl }}
+                        style={{ width: 64, height: 64, borderRadius: 8, backgroundColor: theme[100] }}
+                    />
+                )}
                 <View style={{ flex: 1, gap: 4 }}>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <ThemedText type="body-sm" style={{ color: theme[500] }}>
@@ -289,12 +542,29 @@ function SubmissionCard({
                         </ThemedText>
                         <Pill intent={intent} label={label} />
                     </View>
-                    {submission.aiReasoning ? (
-                        <ThemedText type="caption" style={{ color: theme[700] }} numberOfLines={3}>
-                            {submission.aiReasoning}
-                        </ThemedText>
+                    {isLink && submission.linkUrl ? (
+                        <Pressable onPress={() => Linking.openURL(submission.linkUrl!)} hitSlop={4}>
+                            <ThemedText
+                                type="caption-semibold"
+                                style={{ color: theme[700] }}
+                                numberOfLines={2}
+                            >
+                                {submission.linkUrl}
+                            </ThemedText>
+                        </Pressable>
                     ) : null}
-                    {isPoster && isManual && isOpen ? (
+                    {isVideo && submission.videoUrl ? (
+                        <Pressable onPress={() => Linking.openURL(submission.videoUrl)} hitSlop={4}>
+                            <ThemedText
+                                type="caption-semibold"
+                                style={{ color: theme[700] }}
+                                numberOfLines={1}
+                            >
+                                Open video
+                            </ThemedText>
+                        </Pressable>
+                    ) : null}
+                    {isOpen ? (
                         <View style={{ marginTop: 4 }}>
                             <Button
                                 size="sm"

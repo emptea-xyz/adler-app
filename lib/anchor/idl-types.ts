@@ -19,9 +19,106 @@ export type AdlerEscrow = {
     "signs `settle_manual_bounty(winner)`. Auto mode: a custodial verifier",
     "keypair (held by the off-chain Cloud Function) signs",
     "`settle_auto_bounty(winner)` after Gemini Vision verifies the photo.",
-    "Anyone can call `refund_bounty` after `expires_at` (poster + 30 days)."
+    "Anyone can call `refund_bounty` after `expires_at`",
+    "(= create_time + submission_window + 30-day review window)."
   ],
   "instructions": [
+    {
+      "name": "cancelBounty",
+      "docs": [
+        "Poster-initiated cancel — refunds the escrow before `expires_at`.",
+        "Off-chain layer (Firestore rules) gates this on the bounty having",
+        "zero submissions; on-chain only enforces that the caller is the",
+        "poster and the bounty hasn't refund-unlocked yet."
+      ],
+      "discriminator": [
+        79,
+        65,
+        107,
+        143,
+        128,
+        165,
+        135,
+        46
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  111,
+                  117,
+                  110,
+                  116,
+                  121,
+                  95,
+                  99,
+                  111,
+                  110,
+                  102,
+                  105,
+                  103
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "escrow",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  111,
+                  117,
+                  110,
+                  116,
+                  121
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "poster"
+              },
+              {
+                "kind": "arg",
+                "path": "bountyId"
+              }
+            ]
+          }
+        },
+        {
+          "name": "poster",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "escrow"
+          ]
+        },
+        {
+          "name": "systemProgram",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "bountyId",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    },
     {
       "name": "createBounty",
       "discriminator": [
@@ -114,6 +211,10 @@ export type AdlerEscrow = {
         {
           "name": "mode",
           "type": "u8"
+        },
+        {
+          "name": "submissionWindowSecs",
+          "type": "u32"
         }
       ]
     },
@@ -656,56 +757,61 @@ export type AdlerEscrow = {
     },
     {
       "code": 6002,
+      "name": "invalidSubmissionWindow",
+      "msg": "Submission window must be 3, 7, or 30 days (in seconds)."
+    },
+    {
+      "code": 6003,
       "name": "protocolPaused",
       "msg": "Protocol is paused."
     },
     {
-      "code": 6003,
+      "code": 6004,
       "name": "bountyExpired",
       "msg": "Bounty has expired; only refund is allowed."
     },
     {
-      "code": 6004,
+      "code": 6005,
       "name": "refundBeforeExpiry",
       "msg": "Bounty has not yet expired; refund is not allowed."
     },
     {
-      "code": 6005,
+      "code": 6006,
       "name": "wrongVerifier",
       "msg": "Wrong verifier signer; must equal config.verifier_pubkey."
     },
     {
-      "code": 6006,
+      "code": 6007,
       "name": "bountyIdMismatch",
       "msg": "bounty_id arg does not match the PDA's bounty_id."
     },
     {
-      "code": 6007,
+      "code": 6008,
       "name": "posterMismatch",
       "msg": "Poster pubkey on the instruction does not match the PDA's poster."
     },
     {
-      "code": 6008,
+      "code": 6009,
       "name": "feeTreasuryMismatch",
       "msg": "Fee treasury pubkey does not match ProtocolConfig.fee_treasury."
     },
     {
-      "code": 6009,
+      "code": 6010,
       "name": "notAutoMode",
       "msg": "This instruction is for auto-mode bounties only."
     },
     {
-      "code": 6010,
+      "code": 6011,
       "name": "notManualMode",
       "msg": "This instruction is for manual-mode bounties only."
     },
     {
-      "code": 6011,
+      "code": 6012,
       "name": "overflow",
       "msg": "Arithmetic overflow."
     },
     {
-      "code": 6012,
+      "code": 6013,
       "name": "alreadyInitialized",
       "msg": "Singleton PDA is already initialized."
     }
@@ -766,10 +872,19 @@ export type AdlerEscrow = {
             "type": "u8"
           },
           {
+            "name": "submissionWindowSecs",
+            "docs": [
+              "Submission window in seconds (one of `SUBMISSION_WINDOW_*_SECS`).",
+              "Snapshotted at create time so clients can render the original choice.",
+              "`submission_ends_at = expires_at - REVIEW_WINDOW_SECS`."
+            ],
+            "type": "u32"
+          },
+          {
             "name": "expiresAt",
             "docs": [
-              "`now + BOUNTY_EXPIRY_SECS` at create. After this slot timestamp,",
-              "`refund_bounty` can be called by anyone."
+              "`now + submission_window_secs + REVIEW_WINDOW_SECS` at create.",
+              "After this slot timestamp, `refund_bounty` can be called by anyone."
             ],
             "type": "i64"
           },

@@ -22,7 +22,7 @@ Adler payments depend on having an embedded Solana wallet, which requires Privy 
 ## 2. Navigation & Information Architecture
 
 ### Flat Navigation with Bottom Tabs
-The custom `AdlerTabBar` exposes exactly 4 destinations: **Browse**, **Inbox**, **Create** (oversized center action), **Profile**. This adheres to Miller's Law of working memory. Never use deep, nested menu hierarchies that require excessive tapping and memorization.
+The custom `TabBar` exposes exactly 4 destinations: **Browse**, **Inbox**, **Create** (oversized center action), **Profile**. This adheres to Miller's Law of working memory. Never use deep, nested menu hierarchies that require excessive tapping and memorization.
 
 ### Browse as Command Center
 The Browse tab is the home screen. It surfaces the most critical at-a-glance info — the user's wallet balance pill, role chip, and a feed of listings. Bold typography, distinct hierarchy, zero extraneous noise. The wallet balance is visible without scrolling.

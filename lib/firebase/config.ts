@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, persistentSingleTabManager } from 'firebase/firestore';
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getFunctions } from 'firebase/functions';
 // @ts-ignore - Firebase types for RN interactions can be tricky
@@ -117,13 +117,19 @@ if (getApps().length === 0) {
     auth = getAuth(app);
 }
 
-const db = initializeFirestore(app, {
-    localCache: persistentLocalCache({
-        tabManager: Platform.OS === 'web'
-            ? persistentMultipleTabManager()
-            : persistentSingleTabManager({ forceOwnership: true }),
-    }),
-});
+// Firestore JS SDK only ships IndexedDB-backed persistence; React Native
+// has no IndexedDB, so persistentLocalCache logs a noisy warning before
+// falling back to memory. Skip it entirely on native — we get the same
+// memory cache without the warning, and TanStack Query already handles
+// offline reads at the application layer.
+const db =
+    Platform.OS === 'web'
+        ? initializeFirestore(app, {
+              localCache: persistentLocalCache({
+                  tabManager: persistentMultipleTabManager(),
+              }),
+          })
+        : initializeFirestore(app, {});
 const storage = getStorage(app);
 const functions = getFunctions(app);
 

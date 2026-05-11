@@ -5,10 +5,8 @@
 // every authenticated user can post a bounty, submit, and win.
 
 export interface ProfileLocation {
-  kind: 'city' | 'global';
-  /** Required when kind === 'city'. */
-  city: string | null;
-  /** ISO-3166-1 alpha-2, uppercase. Required when kind === 'city'. */
+  kind: 'country' | 'global';
+  /** ISO-3166-1 alpha-2, uppercase. Required when kind === 'country'. */
   country: string | null;
 }
 
@@ -29,10 +27,15 @@ export interface Profile {
   latestActivityAt: number;
   createdAt: number;
   updatedAt: number;
+  /** Unix ms of the last username change. 0 = never changed. Used to gate
+   *  the 30-day cooldown — enforced both client-side and by firestore.rules. */
+  lastUsernameChangeAt: number;
 }
+
+/** Username can be changed once every 30 days. */
+export const USERNAME_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
 
 export const DEFAULT_LOCATION: ProfileLocation = {
   kind: 'global',
-  city: null,
   country: null,
 };

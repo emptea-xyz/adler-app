@@ -1,68 +1,25 @@
-import React, { useState } from 'react';
-import { FlatList, View, Pressable } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
-import { router } from 'expo-router';
+import React, { useMemo, useState } from 'react';
+import { FlatList, View } from 'react-native';
+import { useQueries, useQuery } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTheme } from '@/contexts/ThemeContext';
 import { ThemedView } from '@/components/base/ThemedView';
-import { ThemedText } from '@/components/base/ThemedText';
 import { AdlerHomeHeader } from '@/components/features/home/AdlerHomeHeader';
 import { SegmentedToggle } from '@/components/ui/SegmentedToggle';
 import EmptyState from '@/components/ui/EmptyState';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { BountyRow } from '@/components/features/bounty/BountyRow';
-import Card from '@/components/ui/Card';
-import { Pill } from '@/components/ui/Pill';
-import { listMyPostedBounties } from '@/lib/services/bountyService';
+import {
+    BountyCardForBounty,
+    BountyCardForSubmission,
+} from '@/components/features/bounty/BountyItemCard';
+import { getBounty, listMyPostedBounties } from '@/lib/services/bountyService';
 import { listMySubmissions } from '@/lib/services/submissionService';
 import { qk } from '@/lib/constants/queryKeys';
 import { EMPTY_INBOX_POSTED, EMPTY_INBOX_SUBMITTED } from '@/lib/utils/copy';
-import { formatRelative } from '@/lib/utils/dates';
-import { haptic } from '@/lib/utils/haptic';
 import { TAB_BAR_HEIGHT } from '@/constants/LayoutConstants';
-import type { Submission } from '@/lib/types/submission';
+import type { Bounty } from '@/lib/types/bounty';
 
 type InboxTab = 'posted' | 'submitted';
-
-function SubmissionRow({ submission }: { submission: Submission }) {
-    const { theme } = useTheme();
-    const onPress = () => {
-        haptic('light');
-        router.push(`/bounty/${submission.bountyId}`);
-    };
-    let intent: 'success' | 'error' | 'info' | 'neutral' = 'neutral';
-    let label = 'Pending';
-    if (submission.isWinner) {
-        intent = 'info';
-        label = 'WON';
-    } else if (submission.aiVerdict === 'pass') {
-        intent = 'success';
-        label = 'PASS';
-    } else if (submission.aiVerdict === 'fail') {
-        intent = 'error';
-        label = 'FAIL';
-    }
-    return (
-        <Pressable onPress={onPress}>
-            <Card variant="border-bottom">
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <View style={{ flex: 1, gap: 4 }}>
-                        <ThemedText type="body-md-semibold" style={{ color: theme[950] }} numberOfLines={1}>
-                            Submission · {formatRelative(submission.submittedAt)}
-                        </ThemedText>
-                        {submission.aiReasoning ? (
-                            <ThemedText type="caption" style={{ color: theme[500] }} numberOfLines={2}>
-                                {submission.aiReasoning}
-                            </ThemedText>
-                        ) : null}
-                    </View>
-                    <Pill intent={intent} label={label} />
-                </View>
-            </Card>
-        </Pressable>
-    );
-}
 
 export default function InboxScreen() {
     const insets = useSafeAreaInsets();
@@ -83,6 +40,28 @@ export default function InboxScreen() {
         enabled: !!user && tab === 'submitted',
     });
 
+    const submissions = submittedQuery.data ?? [];
+    const submissionBountyIds = useMemo(
+        () => Array.from(new Set(submissions.map((s) => s.bountyId))),
+        [submissions],
+    );
+
+    const bountyQueries = useQueries({
+        queries: submissionBountyIds.map((id) => ({
+            queryKey: qk.bounties.detail(id),
+            queryFn: () => getBounty(id),
+            staleTime: 60_000,
+        })),
+    });
+
+    const bountyById = useMemo(() => {
+        const map: Record<string, Bounty | undefined> = {};
+        submissionBountyIds.forEach((id, i) => {
+            map[id] = bountyQueries[i]?.data ?? undefined;
+        });
+        return map;
+    }, [submissionBountyIds, bountyQueries]);
+
     const loading = tab === 'posted' ? postedQuery.isLoading : submittedQuery.isLoading;
 
     return (
@@ -102,14 +81,14 @@ export default function InboxScreen() {
             {loading ? (
                 <View style={{ paddingHorizontal: 16, gap: 12, paddingTop: 8 }}>
                     {[0, 1, 2].map((k) => (
-                        <Skeleton key={k} height={84} />
+                        <Skeleton key={k} height={100} />
                     ))}
                 </View>
             ) : tab === 'posted' ? (
                 <FlatList
                     data={postedQuery.data ?? []}
                     keyExtractor={(item) => item.id}
-                    renderItem={({ item }) => <BountyRow bounty={item} />}
+                    renderItem={({ item }) => <BountyCardForBounty bounty={item} />}
                     contentContainerStyle={{ paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 24 }}
                     ListEmptyComponent={
                         <EmptyState title={EMPTY_INBOX_POSTED.title} description={EMPTY_INBOX_POSTED.description} />
@@ -117,9 +96,14 @@ export default function InboxScreen() {
                 />
             ) : (
                 <FlatList
-                    data={submittedQuery.data ?? []}
+                    data={submissions}
                     keyExtractor={(item) => item.id}
-                    renderItem={({ item }) => <SubmissionRow submission={item} />}
+                    renderItem={({ item }) => (
+                        <BountyCardForSubmission
+                            submission={item}
+                            bounty={bountyById[item.bountyId]}
+                        />
+                    )}
                     contentContainerStyle={{ paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 24 }}
                     ListEmptyComponent={
                         <EmptyState title={EMPTY_INBOX_SUBMITTED.title} description={EMPTY_INBOX_SUBMITTED.description} />

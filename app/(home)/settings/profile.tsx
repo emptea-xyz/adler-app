@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ScrollView, View, Pressable, Image } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { FlatList, ScrollView, View, Pressable, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Icon } from '@/components/ui/Icon';
@@ -8,19 +8,22 @@ import { ThemedView } from '@/components/base/ThemedView';
 import { ScreenHeader } from '@/components/base/ScreenHeader';
 import { SectionLabel } from '@/components/base/SectionLabel';
 import { Button } from '@/components/ui/Button';
+import { BottomSheet } from '@/components/ui/BottomSheet';
 import TextInput from '@/components/ui/TextInput';
-import Card from '@/components/ui/Card';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useUser } from '@/contexts/UserContext';
 import {
+    changeUsername,
     setAvatarUrl,
     setLocation,
     updateProfileBasics,
 } from '@/lib/services/profileService';
+import { USERNAME_COOLDOWN_MS } from '@/lib/types/profile';
 import { pickImage, uploadProfilePicture } from '@/lib/services/imageUploadService';
 import { toast } from '@/lib/utils/toast';
 import { haptic } from '@/lib/utils/haptic';
+import { COUNTRIES, codeToFlag, countryName } from '@/lib/constants/countries';
 import type { ProfileLocation } from '@/lib/types/profile';
 
 export default function SettingsProfileScreen() {
@@ -28,14 +31,24 @@ export default function SettingsProfileScreen() {
     const { user } = useAuth();
     const { theme } = useTheme();
     const { profile, refreshProfile } = useUser();
+    const [username, setUsername] = useState(profile?.username ?? '');
     const [displayName, setDisplayName] = useState(profile?.displayName ?? '');
     const [bio, setBio] = useState(profile?.bio ?? '');
-    const [city, setCity] = useState(profile?.location.city ?? '');
-    const [country, setCountry] = useState(profile?.location.country ?? '');
+    const initialCountry =
+        profile?.location.kind === 'country' ? profile.location.country : null;
+    const [countryCode, setCountryCode] = useState<string | null>(initialCountry);
+    const [pickerOpen, setPickerOpen] = useState(false);
     const [saving, setSaving] = useState(false);
     const [avatarBusy, setAvatarBusy] = useState(false);
 
     if (!profile || !user) return <ThemedView style={{ flex: 1 }} />;
+
+    const lastChange = profile.lastUsernameChangeAt;
+    const cooldownRemainingMs =
+        lastChange > 0 ? Math.max(0, USERNAME_COOLDOWN_MS - (Date.now() - lastChange)) : 0;
+    const cooldownDaysLeft = Math.ceil(cooldownRemainingMs / 86400000);
+    const cooldownActive = cooldownRemainingMs > 0;
+    const usernameChanged = username.trim().toLowerCase() !== profile.username;
 
     const onPickAvatar = async () => {
         try {
@@ -57,15 +70,18 @@ export default function SettingsProfileScreen() {
         if (!user) return;
         setSaving(true);
         try {
+            // Username change is a separate atomic TX (uniqueness + cooldown).
+            // Run it first; if it fails, abort before touching other fields so
+            // the user sees a clean error.
+            if (usernameChanged) {
+                await changeUsername(user.id, username.trim().toLowerCase());
+            }
             const trimmedName = displayName.trim().slice(0, 50);
             const trimmedBio = bio.trim().slice(0, 280);
             await updateProfileBasics(user.id, { displayName: trimmedName, bio: trimmedBio });
-            const trimmedCity = city.trim();
-            const trimmedCountry = country.trim().toUpperCase();
-            const newLocation: ProfileLocation =
-                trimmedCity && trimmedCountry.length === 2
-                    ? { kind: 'city', city: trimmedCity, country: trimmedCountry }
-                    : { kind: 'global', city: null, country: null };
+            const newLocation: ProfileLocation = countryCode
+                ? { kind: 'country', country: countryCode }
+                : { kind: 'global', country: null };
             await setLocation(user.id, newLocation);
             await refreshProfile();
             haptic('success');
@@ -112,6 +128,25 @@ export default function SettingsProfileScreen() {
                     </View>
 
                     <View style={{ gap: 8, marginBottom: 24 }}>
+                        <SectionLabel label="USERNAME" />
+                        <TextInput
+                            value={username}
+                            onChangeText={(v) => setUsername(v.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                            placeholder={profile.username}
+                            maxLength={20}
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                            editable={!cooldownActive}
+                            leftIcon={<ThemedText type="body-md" style={{ color: theme[400] }}>@</ThemedText>}
+                        />
+                        <ThemedText type="caption" style={{ color: theme[500] }}>
+                            {cooldownActive
+                                ? `You can change your username again in ${cooldownDaysLeft} day${cooldownDaysLeft === 1 ? '' : 's'}.`
+                                : '3–20 lowercase letters, digits, or underscores. One change per 30 days.'}
+                        </ThemedText>
+                    </View>
+
+                    <View style={{ gap: 8, marginBottom: 24 }}>
                         <SectionLabel label="DISPLAY NAME" />
                         <TextInput
                             value={displayName}
@@ -135,34 +170,42 @@ export default function SettingsProfileScreen() {
                     </View>
 
                     <View style={{ gap: 8, marginBottom: 24 }}>
-                        <SectionLabel label="LOCATION" />
-                        <Card variant="filled">
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                                <Icon name="mappin.circle.fill" size={20} color={theme[700]} />
-                                <ThemedText type="body-sm" style={{ color: theme[700] }}>
-                                    Leave blank to set Global
+                        <SectionLabel label="COUNTRY" />
+                        <Pressable
+                            onPress={() => {
+                                haptic('light');
+                                setPickerOpen(true);
+                            }}
+                            accessibilityRole="button"
+                            style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+                        >
+                            <View
+                                style={{
+                                    flexDirection: 'row',
+                                    alignItems: 'center',
+                                    paddingHorizontal: 14,
+                                    paddingVertical: 14,
+                                    borderRadius: 12,
+                                    backgroundColor: theme[100],
+                                }}
+                            >
+                                <ThemedText
+                                    type="body-md"
+                                    style={{ fontSize: 18, lineHeight: 20, marginRight: 12 }}
+                                >
+                                    {countryCode ? codeToFlag(countryCode) : '🌐'}
                                 </ThemedText>
+                                <ThemedText
+                                    type="body-md"
+                                    style={{ color: theme[950], flex: 1 }}
+                                    numberOfLines={1}
+                                >
+                                    {countryCode ? countryName(countryCode) ?? countryCode : 'Global'}
+                                </ThemedText>
+                                <Icon name="chevron.down" size={14} color={theme[500]} />
                             </View>
-                            <TextInput
-                                value={city}
-                                onChangeText={setCity}
-                                placeholder="City"
-                                maxLength={60}
-                                style={{ marginBottom: 8 }}
-                            />
-                            <TextInput
-                                value={country}
-                                onChangeText={(v) => setCountry(v.toUpperCase())}
-                                placeholder="Country (ISO-2, e.g. CH)"
-                                maxLength={2}
-                                autoCapitalize="characters"
-                            />
-                        </Card>
+                        </Pressable>
                     </View>
-
-                    <ThemedText type="caption" style={{ color: theme[500] }}>
-                        Username @{profile.username} can&apos;t be changed.
-                    </ThemedText>
                 </ScrollView>
 
                 <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, padding: 16, backgroundColor: theme[50] }}>
@@ -176,6 +219,131 @@ export default function SettingsProfileScreen() {
                     />
                 </View>
             </SafeAreaView>
+
+            <CountryPickerSheet
+                visible={pickerOpen}
+                selected={countryCode}
+                onClose={() => setPickerOpen(false)}
+                onSelect={(code) => {
+                    setCountryCode(code);
+                    setPickerOpen(false);
+                }}
+            />
         </ThemedView>
+    );
+}
+
+interface CountryPickerSheetProps {
+    visible: boolean;
+    selected: string | null;
+    onClose: () => void;
+    onSelect: (code: string | null) => void;
+}
+
+function CountryPickerSheet({ visible, selected, onClose, onSelect }: CountryPickerSheetProps) {
+    const { theme } = useTheme();
+    const [search, setSearch] = useState('');
+
+    const filtered = useMemo(() => {
+        const q = search.trim().toLowerCase();
+        if (!q) return COUNTRIES;
+        return COUNTRIES.filter(
+            (c) => c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q),
+        );
+    }, [search]);
+
+    return (
+        <BottomSheet
+            visible={visible}
+            onClose={() => {
+                setSearch('');
+                onClose();
+            }}
+            title="Pick a country"
+            height={640}
+            keyboardAware
+        >
+            {() => (
+                <View style={{ flex: 1, paddingTop: 8 }}>
+                    <View style={{ paddingBottom: 8 }}>
+                        <TextInput
+                            value={search}
+                            onChangeText={setSearch}
+                            placeholder="Search…"
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                            leftIcon={<Icon name="magnifyingglass" size={16} color={theme[400]} />}
+                        />
+                    </View>
+                    <FlatList
+                        data={filtered}
+                        keyExtractor={(c) => c.code}
+                        keyboardShouldPersistTaps="handled"
+                        ListHeaderComponent={
+                            <Pressable
+                                onPress={() => {
+                                    haptic('light');
+                                    onSelect(null);
+                                }}
+                                style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+                            >
+                                <View
+                                    style={{
+                                        flexDirection: 'row',
+                                        alignItems: 'center',
+                                        paddingVertical: 12,
+                                        borderBottomWidth: 1,
+                                        borderBottomColor: theme[100],
+                                    }}
+                                >
+                                    <ThemedText type="body-md" style={{ fontSize: 20, lineHeight: 20, marginRight: 12 }}>
+                                        🌐
+                                    </ThemedText>
+                                    <ThemedText type="body-md" style={{ color: theme[950], flex: 1 }}>
+                                        Global
+                                    </ThemedText>
+                                    {selected === null ? (
+                                        <Icon name="checkmark" size={16} color={theme[700]} />
+                                    ) : null}
+                                </View>
+                            </Pressable>
+                        }
+                        renderItem={({ item }) => (
+                            <Pressable
+                                onPress={() => {
+                                    haptic('light');
+                                    onSelect(item.code);
+                                }}
+                                style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+                            >
+                                <View
+                                    style={{
+                                        flexDirection: 'row',
+                                        alignItems: 'center',
+                                        paddingVertical: 12,
+                                        borderBottomWidth: 1,
+                                        borderBottomColor: theme[100],
+                                    }}
+                                >
+                                    <ThemedText type="body-md" style={{ fontSize: 20, lineHeight: 20, marginRight: 12 }}>
+                                        {codeToFlag(item.code)}
+                                    </ThemedText>
+                                    <ThemedText
+                                        type="body-md"
+                                        style={{ color: theme[950], flex: 1 }}
+                                        numberOfLines={1}
+                                    >
+                                        {item.name}
+                                    </ThemedText>
+                                    {selected === item.code ? (
+                                        <Icon name="checkmark" size={16} color={theme[700]} />
+                                    ) : null}
+                                </View>
+                            </Pressable>
+                        )}
+                    />
+                </View>
+            )}
+        </BottomSheet>
     );
 }

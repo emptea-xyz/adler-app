@@ -10,9 +10,10 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
-    "test": "npm run typecheck",
-    "test:functions": "npm --prefix functions run test:functions"
+    "test": "pnpm run typecheck",
+    "test:functions": "pnpm --dir functions run test:functions"
   },
+  "packageManager": "pnpm@11.0.9",
   "dependencies": {
     "@coral-xyz/anchor": "^0.32.1",
     "@ethersproject/shims": "^5.8.0",

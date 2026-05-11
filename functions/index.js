@@ -1,6 +1,6 @@
 import { onCall, onRequest, HttpsError } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
-import { onDocumentCreated } from 'firebase-functions/v2/firestore';
+import { onDocumentCreated, onDocumentDeleted } from 'firebase-functions/v2/firestore';
 import { defineSecret } from 'firebase-functions/params';
 import { Buffer } from 'node:buffer';
 import admin from 'firebase-admin';
@@ -9,7 +9,6 @@ import { createRemoteJWKSet } from 'jose';
 import { Connection, Keypair, PublicKey, SystemProgram } from '@solana/web3.js';
 import anchor from '@coral-xyz/anchor';
 import bs58 from 'bs58';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -24,14 +23,15 @@ admin.initializeApp();
 const PRIVY_APP_ID = defineSecret('PRIVY_APP_ID');
 const PRIVY_APP_SECRET = defineSecret('PRIVY_APP_SECRET');
 const HELIUS_RPC_URL_DEVNET = defineSecret('HELIUS_RPC_URL_DEVNET');
-const VERIFIER_KEYPAIR_BASE58 = defineSecret('VERIFIER_KEYPAIR_BASE58');
-const GEMINI_API_KEY = defineSecret('GEMINI_API_KEY');
+// Server-side keypair used as the permissionless `caller` for `refundBounty`
+// on the scheduled-expiry sweep. Pays the tx fee; refund goes back to the
+// poster regardless of who signs.
+const REFUND_CALLER_KEYPAIR_BASE58 = defineSecret('VERIFIER_KEYPAIR_BASE58');
 const SUPER_ADMIN_UID = defineSecret('SUPER_ADMIN_UID');
 
 const PROGRAM_ID = new PublicKey('BArnn6qEM45LMxntW2eBKc5icsZGGqaLiDFCSTFx1uZr');
 const BOUNTY_ESCROW_SEED = Buffer.from('bounty');
 const PROTOCOL_CONFIG_SEED = Buffer.from('bounty_config');
-const MAX_AUTO_SUBMISSIONS_PER_USER = 3;
 const REPORT_HIDE_THRESHOLD = 100;
 
 // ─── JWKS / Privy auth ────────────────────────────────────────────────────
@@ -158,12 +158,15 @@ function deriveProtocolConfigPda() {
   return pda;
 }
 
-let _verifierKeypair = null;
-function loadVerifierKeypair(secretValue) {
-  if (_verifierKeypair) return _verifierKeypair;
+let _refundCallerKeypair = null;
+function loadRefundCallerKeypair(secretValue) {
+  if (_refundCallerKeypair) return _refundCallerKeypair;
   const decoded = bs58.decode(secretValue);
-  _verifierKeypair = Keypair.fromSecretKey(decoded);
-  return _verifierKeypair;
+  if (decoded.length !== 64) {
+    throw new Error(`Refund caller secret must be 64 bytes, got ${decoded.length}`);
+  }
+  _refundCallerKeypair = Keypair.fromSecretKey(decoded);
+  return _refundCallerKeypair;
 }
 
 function buildAnchorProgram(connection, signer) {
@@ -247,7 +250,7 @@ export const solanaRpcProxyDevnet = onRequest(
 );
 
 // ─────────────────────────────────────────────────────────────────────────
-// Bounty: enforce per-(bounty,user) submission cap (auto mode)
+// Bounty: enforce per-(bounty,user) submission cap
 // ─────────────────────────────────────────────────────────────────────────
 
 export const enforceSubmissionCap = onDocumentCreated(
@@ -260,193 +263,77 @@ export const enforceSubmissionCap = onDocumentCreated(
     const submitterId = submission?.submitterId;
     if (!bountyId || !submitterId) return;
 
-    const bountySnap = await admin.firestore().collection('bounties').doc(bountyId).get();
-    if (!bountySnap.exists) return;
-    const bounty = bountySnap.data();
-    if (bounty.mode !== 'auto') return;
+    const db = admin.firestore();
+    const bountyRef = db.collection('bounties').doc(bountyId);
 
-    const existing = await admin
-      .firestore()
-      .collection('submissions')
-      .where('bountyId', '==', bountyId)
-      .where('submitterId', '==', submitterId)
-      .get();
-    if (existing.size <= MAX_AUTO_SUBMISSIONS_PER_USER) return;
+    // The gate (status, window) AND the side-effect (counter increment)
+    // happen in a single Firestore transaction so they're atomic with the
+    // poster's `startCancel` transaction. Exactly one wins; the other
+    // retries on stale data.
+    let outcome;
+    try {
+      outcome = await db.runTransaction(async (tx) => {
+        const bountySnap = await tx.get(bountyRef);
+        if (!bountySnap.exists) return 'no_bounty';
+        const bounty = bountySnap.data();
 
+        if (bounty.status !== 'open') return 'status_closed';
+
+        const now = Date.now();
+        const submissionEndsAt =
+          typeof bounty.submissionEndsAt === 'number' ? bounty.submissionEndsAt : null;
+        if (submissionEndsAt !== null && now > submissionEndsAt) {
+          return 'window_closed';
+        }
+
+        tx.update(bountyRef, {
+          submissionCount: admin.firestore.FieldValue.increment(1),
+        });
+        return 'accepted';
+      });
+    } catch (err) {
+      console.warn(`submission cap tx for ${bountyId} failed`, err);
+      outcome = 'error';
+    }
+
+    if (outcome === 'accepted') return;
+
+    // Reject path — delete the offending submission and tell the
+    // submitter why. The deterministic doc id `${bountyId}_${uid}` is the
+    // first-line dup gate; if we got here it's a status or window
+    // problem.
     await snap.ref.delete();
+    const body =
+      outcome === 'window_closed'
+        ? 'The submission window for this bounty has ended.'
+        : 'This bounty is no longer accepting submissions.';
     await emitNotification({
       recipientId: submitterId,
       kind: 'system',
-      title: 'Submission cap reached',
-      body: `You can submit at most ${MAX_AUTO_SUBMISSIONS_PER_USER} photos per auto bounty.`,
+      title: 'Submissions closed',
+      body,
       href: `/(home)/bounty/${bountyId}`,
       refs: { bountyId },
     });
   },
 );
 
-// ─────────────────────────────────────────────────────────────────────────
-// Bounty: verify submission + auto-settle on pass
-// ─────────────────────────────────────────────────────────────────────────
-
-async function fetchPhotoBytes(photoUrl) {
-  const res = await fetch(photoUrl);
-  if (!res.ok) throw new Error(`photo fetch HTTP ${res.status}`);
-  const arrayBuffer = await res.arrayBuffer();
-  return Buffer.from(arrayBuffer);
-}
-
-async function geminiVerify({ bountyPrompt, photoUrl, geminiKey }) {
-  const photoBytes = await fetchPhotoBytes(photoUrl);
-  const genai = new GoogleGenerativeAI(geminiKey);
-  const model = genai.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
-  const prompt = `You verify whether a photo satisfies a bounty prompt. Reply with strict JSON only, no prose: {"verdict":"pass"|"fail","confidence":0..1,"reasoning":"..."}. Bounty prompt: ${bountyPrompt}`;
-  const result = await model.generateContent([
-    prompt,
-    {
-      inlineData: {
-        mimeType: 'image/jpeg',
-        data: photoBytes.toString('base64'),
-      },
-    },
-  ]);
-  const text = result.response.text().trim();
-  const cleaned = text.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim();
-  const parsed = JSON.parse(cleaned);
-  return {
-    verdict: parsed.verdict === 'pass' ? 'pass' : 'fail',
-    confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0,
-    reasoning: typeof parsed.reasoning === 'string' ? parsed.reasoning.slice(0, 200) : '',
-  };
-}
-
-async function settleAutoOnChain({ bounty, winnerWalletAddress, verifierKeypair, connection }) {
-  const program = buildAnchorProgram(connection, verifierKeypair);
-  const posterPubkey = new PublicKey(bounty.posterWalletAddress);
-  const winnerPubkey = new PublicKey(winnerWalletAddress);
-  const bountyIdBytes = bountyIdToBytes(bounty.contractIdHex);
-  const escrowPda = deriveBountyEscrowPda(posterPubkey, bountyIdBytes);
-  const configPda = deriveProtocolConfigPda();
-  const config = await program.account.protocolConfig.fetch(configPda);
-
-  return await program.methods
-    .settleAutoBounty(Array.from(bountyIdBytes))
-    .accounts({
-      config: configPda,
-      escrow: escrowPda,
-      poster: posterPubkey,
-      verifier: verifierKeypair.publicKey,
-      winner: winnerPubkey,
-      feeTreasury: config.feeTreasury,
-      systemProgram: SystemProgram.programId,
-    })
-    .signers([verifierKeypair])
-    .rpc();
-}
-
-export const verifyBountySubmission = onDocumentCreated(
-  {
-    document: 'submissions/{submissionId}',
-    secrets: [VERIFIER_KEYPAIR_BASE58, GEMINI_API_KEY, HELIUS_RPC_URL_DEVNET],
-    timeoutSeconds: 60,
-    memory: '512MiB',
-  },
+// Mirror the counter on submission delete (the rule lets a submitter
+// withdraw a submission before winning). Keeps `submissionCount == 0`
+// truthful so the poster can cancel again afterwards.
+export const decrementSubmissionCountOnDelete = onDocumentDeleted(
+  'submissions/{submissionId}',
   async (event) => {
-    const snap = event.data;
-    if (!snap) return;
-    const submission = snap.data();
-    const submissionId = event.params.submissionId;
+    const submission = event.data?.data();
     const bountyId = submission?.bountyId;
     if (!bountyId) return;
-
     const bountyRef = admin.firestore().collection('bounties').doc(bountyId);
-    const bountySnap = await bountyRef.get();
-    if (!bountySnap.exists) return;
-    const bounty = bountySnap.data();
-    if (bounty.status !== 'open') return;
-
-    const submitterProfileSnap = await admin
-      .firestore()
-      .collection('profiles')
-      .doc(submission.submitterId)
-      .get();
-    const winnerWalletAddress = submitterProfileSnap.exists
-      ? submitterProfileSnap.data()?.walletAddress
-      : null;
-
-    let verdict = { verdict: 'fail', confidence: 0, reasoning: 'verifier error' };
     try {
-      verdict = await geminiVerify({
-        bountyPrompt: bounty.prompt,
-        photoUrl: submission.photoUrl,
-        geminiKey: GEMINI_API_KEY.value(),
+      await bountyRef.update({
+        submissionCount: admin.firestore.FieldValue.increment(-1),
       });
     } catch (err) {
-      console.warn('Gemini verify failed', err);
-      verdict = {
-        verdict: 'fail',
-        confidence: 0,
-        reasoning: `verifier error: ${err.message?.slice(0, 100) ?? 'unknown'}`,
-      };
-    }
-
-    const updates = {
-      aiVerdict: verdict.verdict,
-      aiConfidence: verdict.confidence,
-      aiReasoning: verdict.reasoning,
-    };
-
-    if (bounty.mode === 'auto' && verdict.verdict === 'pass' && winnerWalletAddress) {
-      try {
-        const connection = new Connection(HELIUS_RPC_URL_DEVNET.value(), 'confirmed');
-        const verifierKeypair = loadVerifierKeypair(VERIFIER_KEYPAIR_BASE58.value());
-        const sig = await settleAutoOnChain({
-          bounty,
-          winnerWalletAddress,
-          verifierKeypair,
-          connection,
-        });
-
-        await admin.firestore().runTransaction(async (tx) => {
-          const fresh = await tx.get(bountyRef);
-          if (!fresh.exists) return;
-          if (fresh.data().status !== 'open') return;
-          tx.update(bountyRef, {
-            status: 'settled',
-            winnerId: submission.submitterId,
-            winningSubmissionId: submissionId,
-            txSignature: sig,
-            settledAt: admin.firestore.FieldValue.serverTimestamp(),
-          });
-          tx.update(snap.ref, { ...updates, isWinner: true });
-        });
-
-        await notifyUser({
-          recipientId: submission.submitterId,
-          kind: 'bounty_won',
-          title: 'You won a bounty',
-          body: `${(bounty.bountyLamports / 1e9).toFixed(3)} SOL is in your wallet.`,
-          href: `/(home)/bounty/${bountyId}`,
-          refs: { bountyId, submissionId },
-        });
-        return;
-      } catch (err) {
-        console.warn('Auto-settle on-chain failed', err);
-        updates.aiReasoning = `${updates.aiReasoning} | settle err: ${err.message?.slice(0, 80) ?? ''}`;
-      }
-    }
-
-    await snap.ref.update(updates);
-
-    if (bounty.mode === 'auto' && verdict.verdict === 'fail') {
-      await notifyUser({
-        recipientId: submission.submitterId,
-        kind: 'bounty_lost',
-        title: 'Submission rejected',
-        body: verdict.reasoning || 'The verifier said this photo did not match the prompt.',
-        href: `/(home)/bounty/${bountyId}`,
-        refs: { bountyId, submissionId },
-      });
+      console.warn(`Decrement for ${bountyId} failed`, err);
     }
   },
 );
@@ -499,8 +386,8 @@ export const enforceReportThreshold = onDocumentCreated(
 // Bounty: scheduled expiry → on-chain refund
 // ─────────────────────────────────────────────────────────────────────────
 
-async function refundOnChain({ bounty, verifierKeypair, connection }) {
-  const program = buildAnchorProgram(connection, verifierKeypair);
+async function refundOnChain({ bounty, callerKeypair, connection }) {
+  const program = buildAnchorProgram(connection, callerKeypair);
   const posterPubkey = new PublicKey(bounty.posterWalletAddress);
   const bountyIdBytes = bountyIdToBytes(bounty.contractIdHex);
   const escrowPda = deriveBountyEscrowPda(posterPubkey, bountyIdBytes);
@@ -512,53 +399,101 @@ async function refundOnChain({ bounty, verifierKeypair, connection }) {
       config: configPda,
       escrow: escrowPda,
       poster: posterPubkey,
-      caller: verifierKeypair.publicKey,
+      caller: callerKeypair.publicKey,
       systemProgram: SystemProgram.programId,
     })
-    .signers([verifierKeypair])
+    .signers([callerKeypair])
     .rpc();
 }
 
 export const expireBounties = onSchedule(
   {
     schedule: 'every 1 hours',
-    secrets: [VERIFIER_KEYPAIR_BASE58, HELIUS_RPC_URL_DEVNET],
+    secrets: [REFUND_CALLER_KEYPAIR_BASE58, HELIUS_RPC_URL_DEVNET],
     timeoutSeconds: 540,
     memory: '512MiB',
   },
   async () => {
     const now = Date.now();
-    const expired = await admin
-      .firestore()
+    const db = admin.firestore();
+
+    // Pass 1 — submission window closed: open → in_review.
+    // The poster now has the 90-day review window to pick a winner.
+    const closing = await db
       .collection('bounties')
       .where('status', '==', 'open')
+      .where('submissionEndsAt', '<=', now)
+      .limit(100)
+      .get();
+    for (const doc of closing.docs) {
+      const bounty = doc.data();
+      try {
+        await doc.ref.update({
+          status: 'in_review',
+          submissionsClosedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        await notifyUser({
+          recipientId: bounty.posterId,
+          kind: 'bounty_in_review',
+          title: 'Pick a winner',
+          body: 'Submissions are closed. You have 90 days to award the bounty.',
+          href: `/(home)/bounty/${doc.id}`,
+          refs: { bountyId: doc.id },
+        });
+      } catch (err) {
+        console.warn(`Move-to-review for ${doc.id} failed`, err);
+      }
+    }
+
+    // Pass 2 — review window expired: refund anyone still un-settled.
+    // Includes `cancelling` so a poster-initiated cancel that crashed
+    // between the on-chain ix and the Firestore finalise gets reconciled
+    // here (refundOnChain will either succeed or report "account not
+    // found" if the escrow is already closed — both flip to refunded).
+    const expired = await db
+      .collection('bounties')
+      .where('status', 'in', ['open', 'in_review', 'cancelling'])
       .where('expiresAt', '<=', now)
       .limit(50)
       .get();
     if (expired.empty) return;
 
     const connection = new Connection(HELIUS_RPC_URL_DEVNET.value(), 'confirmed');
-    const verifierKeypair = loadVerifierKeypair(VERIFIER_KEYPAIR_BASE58.value());
+    const callerKeypair = loadRefundCallerKeypair(REFUND_CALLER_KEYPAIR_BASE58.value());
 
     for (const doc of expired.docs) {
       const bounty = doc.data();
       try {
-        const sig = await refundOnChain({ bounty, verifierKeypair, connection });
+        const sig = await refundOnChain({ bounty, callerKeypair, connection });
         await doc.ref.update({
           status: 'refunded',
           txSignature: sig,
           refundedAt: admin.firestore.FieldValue.serverTimestamp(),
+          cancellingFromStatus: admin.firestore.FieldValue.delete(),
         });
         await notifyUser({
           recipientId: bounty.posterId,
           kind: 'bounty_expired_refund',
           title: 'Bounty refunded',
-          body: 'No winning submission within 30 days. Your SOL is back in your wallet.',
+          body: 'No winner picked in the review window. Your SOL is back in your wallet.',
           href: `/(home)/bounty/${doc.id}`,
           refs: { bountyId: doc.id },
         });
       } catch (err) {
-        console.warn(`Refund for ${doc.id} failed`, err);
+        // Escrow account already closed (poster successfully cancelled
+        // on-chain but Firestore finalise didn't land) — reconcile to
+        // `refunded` so we don't loop on this bounty forever.
+        const msg = err instanceof Error ? err.message : String(err);
+        if (/AccountNotInitialized|account.*does not exist|account.*not found/i.test(msg)) {
+          await doc.ref.update({
+            status: 'refunded',
+            txSignature: bounty.txSignature ?? 'reconciled',
+            refundedAt: admin.firestore.FieldValue.serverTimestamp(),
+            cancellingFromStatus: admin.firestore.FieldValue.delete(),
+          });
+        } else {
+          console.warn(`Refund for ${doc.id} failed`, err);
+        }
       }
     }
   },

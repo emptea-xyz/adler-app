@@ -1,23 +1,20 @@
-import { PublicKey } from '@solana/web3.js';
 import type { PrivyEmbeddedSolanaWalletProvider } from '@privy-io/expo';
 import { buildEscrowCtx, baseAccounts } from '@/lib/escrow/_build';
 import { sendIxs } from '@/lib/escrow/_send';
 
-export interface RefundBountyInput {
+export interface CancelBountyInput {
     bountyIdHex: string;
     posterWalletAddress: string;
-    callerWalletAddress: string;
     provider: PrivyEmbeddedSolanaWalletProvider;
 }
 
-export async function refundBounty(input: RefundBountyInput): Promise<string> {
+export async function cancelBounty(input: CancelBountyInput): Promise<string> {
     const ctx = buildEscrowCtx(input.bountyIdHex, input.posterWalletAddress);
-    const callerPubkey = new PublicKey(input.callerWalletAddress);
 
     const ix = await ctx.program.methods
-        .refundBounty(ctx.bountyIdArray)
-        .accountsPartial({ ...baseAccounts(ctx), caller: callerPubkey })
+        .cancelBounty(ctx.bountyIdArray)
+        .accountsPartial(baseAccounts(ctx))
         .instruction();
 
-    return sendIxs(input.provider, [ix], callerPubkey);
+    return sendIxs(input.provider, [ix], ctx.posterPubkey);
 }

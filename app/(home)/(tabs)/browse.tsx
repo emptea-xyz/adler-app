@@ -6,10 +6,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { ThemedView } from '@/components/base/ThemedView';
 import { AdlerHomeHeader } from '@/components/features/home/AdlerHomeHeader';
+import { CircleIconButton } from '@/components/ui/CircleIconButton';
 import { SegmentedToggle } from '@/components/ui/SegmentedToggle';
 import EmptyState from '@/components/ui/EmptyState';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { BountyRow } from '@/components/features/bounty/BountyRow';
+import { BountyCardForBounty } from '@/components/features/bounty/BountyItemCard';
+import { GroupsSearchSheet } from '@/components/features/groups/GroupsSearchSheet';
 import {
     listOpenPublicBounties,
     listGroupBounties,
@@ -35,6 +37,7 @@ export default function BrowseScreen() {
     const insets = useSafeAreaInsets();
     const queryClient = useQueryClient();
     const [tab, setTab] = useState<BrowseTab>('public');
+    const [groupsOpen, setGroupsOpen] = useState(false);
 
     const publicQuery = useQuery({
         queryKey: qk.bounties.listPublic('open'),
@@ -72,7 +75,16 @@ export default function BrowseScreen() {
     return (
         <ThemedView style={{ flex: 1 }}>
             <View style={{ paddingTop: insets.top }}>
-                <AdlerHomeHeader title="Browse" />
+                <AdlerHomeHeader
+                    title="Browse"
+                    rightSlot={
+                        <CircleIconButton
+                            icon="person.2.fill"
+                            onPress={() => setGroupsOpen(true)}
+                            accessibilityLabel="Find groups"
+                        />
+                    }
+                />
                 <View style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
                     <SegmentedToggle
                         tabs={['Public', 'My Groups'] as const}
@@ -93,7 +105,7 @@ export default function BrowseScreen() {
                 <FlatList
                     data={data}
                     keyExtractor={(item) => item.id}
-                    renderItem={({ item }) => <BountyRow bounty={item} />}
+                    renderItem={({ item }) => <BountyCardForBounty bounty={item} />}
                     contentContainerStyle={{ paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 24 }}
                     refreshControl={
                         <RefreshControl
@@ -113,6 +125,8 @@ export default function BrowseScreen() {
                     }
                 />
             )}
+
+            <GroupsSearchSheet visible={groupsOpen} onClose={() => setGroupsOpen(false)} />
         </ThemedView>
     );
 }

@@ -9,6 +9,7 @@ import {
 import { auth, db } from '@/lib/firebase/config';
 import {
     DEFAULT_LOCATION,
+    USERNAME_COOLDOWN_MS,
     type Profile,
     type ProfileLocation,
 } from '@/lib/types/profile';
@@ -52,12 +53,14 @@ function generateDisplayName(): string {
 function readLocation(value: unknown): ProfileLocation {
     if (!value || typeof value !== 'object') return DEFAULT_LOCATION;
     const raw = value as Record<string, unknown>;
-    const kind = raw.kind === 'city' ? 'city' : 'global';
-    if (kind === 'global') return DEFAULT_LOCATION;
-    const city = typeof raw.city === 'string' ? raw.city : null;
+    // Accept both the current shape (kind: 'country') and the legacy
+    // shape (kind: 'city', { city, country }) — for legacy docs we just
+    // drop the city and keep the country code.
     const country = typeof raw.country === 'string' ? raw.country : null;
-    if (!city || !country || country.length !== 2) return DEFAULT_LOCATION;
-    return { kind: 'city', city, country: country.toUpperCase() };
+    if (raw.kind === 'global' || !country || country.length !== 2) {
+        return DEFAULT_LOCATION;
+    }
+    return { kind: 'country', country: country.toUpperCase() };
 }
 
 function rowToProfile(uid: string, data: Record<string, unknown>): Profile {
@@ -74,6 +77,7 @@ function rowToProfile(uid: string, data: Record<string, unknown>): Profile {
         latestActivityAt: tsMs(data.latestActivityAt),
         createdAt: tsMs(data.createdAt) || Date.now(),
         updatedAt: tsMs(data.updatedAt) || Date.now(),
+        lastUsernameChangeAt: tsMs(data.lastUsernameChangeAt),
     };
 }
 
@@ -127,8 +131,24 @@ export async function ensureProfileExists(
                 backfillUsernameClaim = !slugSnap.exists();
             }
 
-            if (walletAddress && !data.walletAddress) {
-                tx.update(ref, { walletAddress, updatedAt: serverTimestamp() });
+            // Backfill missing/legacy fields on existing profiles so subsequent
+            // writes (push token, profile edits) pass the rule's strict
+            // validation. Migrates legacy `{kind: 'city', city, country}` to
+            // the new country-only shape.
+            const patch: Record<string, unknown> = {};
+            if (walletAddress && !data.walletAddress) patch.walletAddress = walletAddress;
+            const loc = data.location as Record<string, unknown> | undefined;
+            if (!loc) {
+                patch.location = DEFAULT_LOCATION;
+            } else if (loc.kind === 'city') {
+                const country = typeof loc.country === 'string' ? loc.country : null;
+                patch.location = country && country.length === 2
+                    ? { kind: 'country', country: country.toUpperCase() }
+                    : DEFAULT_LOCATION;
+            }
+            if (typeof data.groupCount !== 'number') patch.groupCount = 0;
+            if (Object.keys(patch).length > 0) {
+                tx.update(ref, { ...patch, updatedAt: serverTimestamp() });
             }
             if (backfillUsernameClaim && existingUsername) {
                 tx.set(doc(db, USERNAMES_COLLECTION, existingUsername), {
@@ -139,6 +159,7 @@ export async function ensureProfileExists(
 
             return rowToProfile(snap.id, {
                 ...data,
+                ...patch,
                 walletAddress:
                     walletAddress ?? (data.walletAddress as string | undefined) ?? null,
                 updatedAt: Date.now(),
@@ -182,6 +203,7 @@ export async function ensureProfileExists(
             latestActivityAt: 0,
             createdAt: now,
             updatedAt: now,
+            lastUsernameChangeAt: 0,
         };
     });
 }
@@ -203,12 +225,8 @@ export async function setLocation(
 ): Promise<void> {
     assertCurrentUser(userId);
     const sanitized: ProfileLocation =
-        location.kind === 'city' && location.city && location.country
-            ? {
-                  kind: 'city',
-                  city: location.city.trim(),
-                  country: location.country.toUpperCase(),
-              }
+        location.kind === 'country' && location.country && location.country.length === 2
+            ? { kind: 'country', country: location.country.toUpperCase() }
             : DEFAULT_LOCATION;
     await updateDoc(doc(db, COLLECTION, userId), {
         location: sanitized,
@@ -241,6 +259,57 @@ export async function setWalletAddress(
         { walletAddress, updatedAt: serverTimestamp() },
         { merge: true },
     );
+}
+
+/**
+ * Atomic username change: claim new slug, release old slug, update profile.
+ * Rate-limited to once every 30 days via `lastUsernameChangeAt`; the same
+ * cooldown is enforced server-side by `firestore.rules`.
+ *
+ * Throws on: bad format, taken slug, cooldown active, or profile missing.
+ */
+export async function changeUsername(userId: string, newUsername: string): Promise<void> {
+    assertCurrentUser(userId);
+    const slug = newUsername.trim().toLowerCase();
+    if (!USERNAME_REGEX.test(slug)) {
+        throw new Error('Username must be 3–20 chars: lowercase letters, digits, underscores.');
+    }
+
+    const profileRef = doc(db, COLLECTION, userId);
+    const newSlugRef = doc(db, USERNAMES_COLLECTION, slug);
+
+    await runTransaction(db, async (tx) => {
+        const profileSnap = await tx.get(profileRef);
+        if (!profileSnap.exists()) throw new Error('Profile not found.');
+        const data = profileSnap.data();
+        const oldUsername = data.username as string | undefined;
+        if (!oldUsername) throw new Error('Profile has no current username.');
+        if (slug === oldUsername) return; // No-op.
+
+        const lastChangeMs = tsMs(data.lastUsernameChangeAt);
+        if (lastChangeMs > 0) {
+            const elapsed = Date.now() - lastChangeMs;
+            if (elapsed < USERNAME_COOLDOWN_MS) {
+                const daysLeft = Math.ceil((USERNAME_COOLDOWN_MS - elapsed) / 86400000);
+                throw new Error(
+                    `You can change your username again in ${daysLeft} day${daysLeft === 1 ? '' : 's'}.`,
+                );
+            }
+        }
+
+        const newSlugSnap = await tx.get(newSlugRef);
+        if (newSlugSnap.exists()) {
+            throw new Error('That username is taken.');
+        }
+
+        tx.set(newSlugRef, { userId, createdAt: serverTimestamp() });
+        tx.delete(doc(db, USERNAMES_COLLECTION, oldUsername));
+        tx.update(profileRef, {
+            username: slug,
+            lastUsernameChangeAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+        });
+    });
 }
 
 export async function setPushToken(userId: string, pushToken: string): Promise<void> {

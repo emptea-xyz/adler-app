@@ -136,11 +136,6 @@ export default function SettingsIndexScreen() {
             onPress: () => router.push('/settings/account'),
         },
         {
-            icon: 'sun.max.fill',
-            title: 'Appearance',
-            onPress: () => router.push('/settings/appearance'),
-        },
-        {
             icon: 'bell.fill',
             title: 'Notifications',
             onPress: () => router.push('/settings/notifications'),

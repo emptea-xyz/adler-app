@@ -1,4 +1,5 @@
 import {
+    PublicKey,
     Transaction,
     type TransactionInstruction,
 } from '@solana/web3.js';
@@ -31,10 +32,12 @@ function wrapError(err: unknown, signature?: string): EscrowError {
 export async function sendIxs(
     provider: PrivyEmbeddedSolanaWalletProvider,
     ixs: TransactionInstruction[],
+    feePayer: PublicKey | string,
 ): Promise<string> {
     const connection = getConnection();
     const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
     const tx = new Transaction({ blockhash, lastValidBlockHeight }).add(...ixs);
+    tx.feePayer = typeof feePayer === 'string' ? new PublicKey(feePayer) : feePayer;
 
     let signature: string | undefined;
     try {
@@ -51,17 +54,14 @@ export async function sendIxs(
     }
 
     try {
-        const res = await connection.confirmTransaction(
-            { signature, blockhash, lastValidBlockHeight },
-            'confirmed',
-        );
-        if (res.value.err) {
+        const txErr = await pollConfirmation(connection, signature, lastValidBlockHeight);
+        if (txErr) {
             const logs = await connection
-                .getTransaction(signature, { commitment: 'confirmed' })
+                .getTransaction(signature, { commitment: 'confirmed', maxSupportedTransactionVersion: 0 })
                 .then((txInfo) => txInfo?.meta?.logMessages?.join('\n') ?? '')
                 .catch(() => '');
             throw wrapError(
-                new Error(`Transaction failed on-chain: ${JSON.stringify(res.value.err)}\n${logs}`),
+                new Error(`Transaction failed on-chain: ${JSON.stringify(txErr)}\n${logs}`),
                 signature,
             );
         }
@@ -70,4 +70,36 @@ export async function sendIxs(
     }
 
     return signature;
+}
+
+async function pollConfirmation(
+    connection: ReturnType<typeof getConnection>,
+    signature: string,
+    lastValidBlockHeight: number,
+): Promise<unknown | null> {
+    const intervalMs = 1000;
+    const timeoutMs = 60_000;
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+        const { value } = await connection.getSignatureStatuses([signature], {
+            searchTransactionHistory: false,
+        });
+        const status = value[0];
+        if (status) {
+            if (status.err) return status.err;
+            if (
+                status.confirmationStatus === 'confirmed' ||
+                status.confirmationStatus === 'finalized'
+            ) {
+                return null;
+            }
+        } else {
+            const currentHeight = await connection.getBlockHeight('confirmed').catch(() => null);
+            if (currentHeight !== null && currentHeight > lastValidBlockHeight) {
+                throw new Error('Transaction expired before confirmation');
+            }
+        }
+        await new Promise((r) => setTimeout(r, intervalMs));
+    }
+    throw new Error('Timed out waiting for transaction confirmation');
 }

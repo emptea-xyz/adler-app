@@ -4,7 +4,7 @@
  *   `invalidateQueries({ queryKey: qk.bounties.all() })`
  * covers every bounties-shaped cache entry.
  */
-import type { BountyScope, BountyStatus } from '@/lib/types/bounty';
+import type { BountyStatus } from '@/lib/types/bounty';
 
 export const qk = {
   profiles: {
@@ -18,7 +18,6 @@ export const qk = {
     listGroup: (groupIds: string[], status: BountyStatus = 'open') =>
       ['bounties', 'list', 'group', [...groupIds].sort(), status] as const,
     byPoster: (uid: string) => ['bounties', 'byPoster', uid] as const,
-    byScope: (scope: BountyScope) => ['bounties', 'byScope', scope] as const,
   },
   submissions: {
     all: () => ['submissions'] as const,
@@ -29,15 +28,14 @@ export const qk = {
     mineForBounty: (bountyId: string, uid: string) =>
       ['submissions', 'mineForBounty', bountyId, uid] as const,
   },
-  reports: {
-    byBounty: (bountyId: string) => ['reports', 'byBounty', bountyId] as const,
-  },
   groups: {
     all: () => ['groups'] as const,
     detail: (id: string) => ['groups', 'detail', id] as const,
     myMemberships: (uid: string) => ['groups', 'myMemberships', uid] as const,
     joinRequests: (groupId: string) =>
       ['groups', 'joinRequests', groupId] as const,
+    list: () => ['groups', 'list'] as const,
+    search: (q: string) => ['groups', 'search', q] as const,
   },
   notifications: {
     list: (uid: string) => ['notifications', 'list', uid] as const,
@@ -50,7 +48,6 @@ export const qk = {
       ['wallet', 'balance', address ?? 'none'] as const,
     activity: (address: string | null) =>
       ['wallet', 'activity', address ?? 'none'] as const,
-    solUsd: () => ['wallet', 'solUsd'] as const,
   },
 };
 

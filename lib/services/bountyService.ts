@@ -1,12 +1,13 @@
 import {
-    addDoc,
     collection,
+    deleteField,
     doc,
     getDoc,
     getDocs,
     limit,
     orderBy,
     query,
+    runTransaction,
     serverTimestamp,
     setDoc,
     updateDoc,
@@ -15,27 +16,49 @@ import {
 import { auth, db } from '@/lib/firebase/config';
 import { tsMs } from '@/lib/utils/firestoreTimestamp';
 import { deriveBountyId } from '@/lib/escrow/pda';
-import { BOUNTY_EXPIRY_SECS } from '@/lib/constants/escrow';
+import { REVIEW_WINDOW_SECS, SUBMISSION_WINDOW_SECS } from '@/lib/constants/escrow';
 import type {
     Bounty,
-    BountyMode,
     BountyScope,
     BountyStatus,
+    BountySubmissionKind,
 } from '@/lib/types/bounty';
 
 const BOUNTIES = 'bounties';
 
 function rowToBounty(id: string, data: Record<string, unknown>): Bounty {
+    const createdAt = tsMs(data.createdAt) || Date.now();
+    // Defensive read — older bounty docs may pre-date the
+    // submissionEndsAt/expiresAt fields. When missing or 0, derive from
+    // createdAt + the canonical 30d window so the UI doesn't render
+    // "expired" against a bogus zero timestamp.
+    const rawSubmissionEnds =
+        typeof data.submissionEndsAt === 'number'
+            ? data.submissionEndsAt
+            : tsMs(data.submissionEndsAt);
+    const submissionEndsAt =
+        rawSubmissionEnds > 0
+            ? rawSubmissionEnds
+            : createdAt + SUBMISSION_WINDOW_SECS * 1000;
+    const rawExpires =
+        typeof data.expiresAt === 'number' ? data.expiresAt : tsMs(data.expiresAt);
+    const expiresAt =
+        rawExpires > 0
+            ? rawExpires
+            : submissionEndsAt + REVIEW_WINDOW_SECS * 1000;
+    const kindRaw = data.submissionKind;
+    const submissionKind: BountySubmissionKind =
+        kindRaw === 'video' ? 'video' : kindRaw === 'link' ? 'link' : 'photo';
     return {
         id,
         posterId: (data.posterId as string) ?? '',
         posterWalletAddress: (data.posterWalletAddress as string) ?? '',
         title: (data.title as string) ?? '',
         prompt: (data.prompt as string) ?? '',
-        mode: (data.mode as BountyMode) ?? 'manual',
         bountyLamports: typeof data.bountyLamports === 'number' ? data.bountyLamports : 0,
-        createdAt: tsMs(data.createdAt) || Date.now(),
-        expiresAt: typeof data.expiresAt === 'number' ? data.expiresAt : tsMs(data.expiresAt),
+        createdAt,
+        submissionEndsAt,
+        expiresAt,
         status: (data.status as BountyStatus) ?? 'open',
         scope: (data.scope as BountyScope) ?? 'public',
         groupId: (data.groupId as string | null) ?? null,
@@ -45,6 +68,9 @@ function rowToBounty(id: string, data: Record<string, unknown>): Bounty {
         reportCount: typeof data.reportCount === 'number' ? data.reportCount : 0,
         contractIdHex: (data.contractIdHex as string) ?? '',
         escrowFunded: data.escrowFunded === true,
+        submissionCount:
+            typeof data.submissionCount === 'number' ? data.submissionCount : 0,
+        submissionKind,
     };
 }
 
@@ -57,16 +83,17 @@ function assertCurrentUser(): string {
 export interface DraftBountyInput {
     title: string;
     prompt: string;
-    mode: BountyMode;
     bountyLamports: number;
     posterWalletAddress: string;
     scope: BountyScope;
     groupId?: string | null;
+    submissionKind: BountySubmissionKind;
 }
 
 export interface DraftBountyArtifact {
     docId: string;
     contractIdHex: string;
+    submissionEndsAt: number;
     expiresAt: number;
 }
 
@@ -77,20 +104,25 @@ export interface DraftBountyArtifact {
  * Firestore doc with `escrowFunded: true`. Avoids ghost docs from failed
  * on-chain transactions.
  */
-export async function draftBounty(): Promise<{ docId: string; contractIdHex: string; expiresAt: number }> {
-    const uid = assertCurrentUser();
+export async function draftBounty(): Promise<DraftBountyArtifact> {
+    assertCurrentUser();
     const docRef = doc(collection(db, BOUNTIES));
     const id = await deriveBountyId(docRef.id);
+    const now = Date.now();
+    const submissionEndsAt = now + SUBMISSION_WINDOW_SECS * 1000;
+    const expiresAt = submissionEndsAt + REVIEW_WINDOW_SECS * 1000;
     return {
         docId: docRef.id,
         contractIdHex: id.hex,
-        expiresAt: Date.now() + BOUNTY_EXPIRY_SECS * 1000,
+        submissionEndsAt,
+        expiresAt,
     };
 }
 
 export interface PersistBountyInput extends DraftBountyInput {
     docId: string;
     contractIdHex: string;
+    submissionEndsAt: number;
     expiresAt: number;
 }
 
@@ -109,9 +141,9 @@ export async function persistBounty(input: PersistBountyInput): Promise<Bounty> 
         posterWalletAddress: input.posterWalletAddress,
         title: input.title.trim(),
         prompt: input.prompt.trim(),
-        mode: input.mode,
         bountyLamports: input.bountyLamports,
         createdAt: serverTimestamp(),
+        submissionEndsAt: input.submissionEndsAt,
         expiresAt: input.expiresAt,
         status: 'open' as const,
         scope: input.scope,
@@ -122,6 +154,8 @@ export async function persistBounty(input: PersistBountyInput): Promise<Bounty> 
         reportCount: 0,
         contractIdHex: input.contractIdHex,
         escrowFunded: true,
+        submissionCount: 0,
+        submissionKind: input.submissionKind,
     };
     await setDoc(ref, payload);
     return rowToBounty(input.docId, { ...payload, createdAt: Date.now() });
@@ -182,9 +216,69 @@ export async function listMyPostedBounties(uid: string, max = 50): Promise<Bount
 }
 
 /**
- * Manual-mode poster picks a winner. Updates Firestore directly with the
- * tx signature returned from the on-chain `settle_manual_bounty` call.
- * The rule allows this single open → settled transition for the poster.
+ * Three-step cancel protocol — preserves invariants across the
+ * (Firestore) submission counter and the (Solana) on-chain escrow.
+ *
+ * 1. `startCancel` runs a Firestore transaction that flips
+ *    `open|in_review → cancelling` *only if* `submissionCount === 0`. If
+ *    `enforceSubmissionCap` is racing in another transaction to increment
+ *    the counter, exactly one wins; the other retries on stale data and
+ *    aborts cleanly. Returns the prior status so a failure can be rolled
+ *    back.
+ * 2. Caller sends the on-chain `cancel_bounty` ix. The `cancelling`
+ *    status blocks any further submissions in the meantime.
+ * 3. On success → `finishCancel` writes `refunded` + tx signature.
+ *    On error → `abortCancel` rolls status back to the recorded prior.
+ */
+export async function startCancel(bountyId: string): Promise<{ from: BountyStatus }> {
+    assertCurrentUser();
+    const ref = doc(db, BOUNTIES, bountyId);
+    return await runTransaction(db, async (tx) => {
+        const snap = await tx.get(ref);
+        if (!snap.exists()) throw new Error('Bounty no longer exists');
+        const data = snap.data() as Record<string, unknown>;
+        const count = typeof data.submissionCount === 'number' ? data.submissionCount : 0;
+        if (count > 0) throw new Error('A submission has already been made.');
+        const from = data.status as BountyStatus;
+        if (from !== 'open' && from !== 'in_review') {
+            throw new Error("This bounty can't be cancelled.");
+        }
+        tx.update(ref, {
+            status: 'cancelling' as const,
+            cancellingFromStatus: from,
+        });
+        return { from };
+    });
+}
+
+export async function finishCancel(
+    bountyId: string,
+    txSignature: string,
+): Promise<void> {
+    assertCurrentUser();
+    await updateDoc(doc(db, BOUNTIES, bountyId), {
+        status: 'refunded',
+        txSignature,
+        refundedAt: serverTimestamp(),
+        cancellingFromStatus: deleteField(),
+    });
+}
+
+export async function abortCancel(
+    bountyId: string,
+    revertTo: BountyStatus,
+): Promise<void> {
+    assertCurrentUser();
+    await updateDoc(doc(db, BOUNTIES, bountyId), {
+        status: revertTo,
+        cancellingFromStatus: deleteField(),
+    });
+}
+
+/**
+ * Poster picks a winner. Updates Firestore directly with the tx signature
+ * returned from the on-chain `settle_manual_bounty` call. The rule allows
+ * this single open|in_review → settled transition for the poster.
  */
 export async function markManualSettled(
     bountyId: string,

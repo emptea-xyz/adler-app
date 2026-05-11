@@ -2,16 +2,15 @@
 
 ## Tech Stack
 
-- **Framework**: Expo 55 + React Native 0.83 + Expo Router (file-based routing)
+- **Framework**: Expo 55 + React Native 0.83 + Expo Router (file-based routing). iOS-only target — `app.json` platforms = `["ios", "web"]`.
 - **Language**: TypeScript (strict mode, `@` path alias = project root)
 - **Styling**: NativeWind 4 (Tailwind CSS for RN), class builder via `cn()` in `lib/utils/cn.ts`
 - **State**: TanStack Query 5 (server state) + React Context (global state) + useState (local)
 - **Auth**: Privy (`@privy-io/expo`) with embedded Solana wallets, bridged to Firebase Auth via a Cloud Function
-- **Payments**: `@solana/web3.js` against Solana **devnet** — direct SOL transfers from the buyer's embedded wallet
-- **Backend**: Firebase 12 (Firestore + Storage + Functions). No analytics/crash reporting on the client in v1.
-- **Charts**: `@shopify/react-native-skia` — generic primitives at `components/ui/charts/` (kept for future analytics dashboards)
-- **Animations**: `react-native-reanimated` 4
-- **Icons**: `lucide-react-native`
+- **Payments**: Anchor program `adler-escrow` on Solana devnet — funded bounty escrows, manual / auto settlement, refund + cancel paths
+- **Backend**: Firebase 12 (Firestore + Storage + Functions + App Check). No analytics/crash reporting on the client in v1.
+- **Animations**: `react-native-reanimated` 4 + `@shopify/react-native-skia` (TabBar, ProgressBar, EagleLoader, ArrowProgress)
+- **Icons**: `lucide-react-native` (via `components/ui/Icon.tsx`)
 - **Fonts**: Geist (400 Regular, 600 SemiBold) via `expo-google-fonts`
 - **Haptics**: `expo-haptics` (vocabulary in `lib/utils/haptic.ts`)
 
@@ -47,112 +46,140 @@ Privy issues a JWT for the authenticated user; we mint a Firebase custom token f
 
 ```
 app/                              # Expo Router file-based routing
-├── (auth)/                       # Pre-auth + role-pick
+├── (auth)/                       # Pre-auth
 │   ├── _layout.tsx
-│   ├── sign-in.tsx               # Privy email-OTP login
-│   └── role-select.tsx           # Pick Creator or Brand on first sign-in
-├── (home)/                       # Authenticated app (gated by AuthContext + UserContext)
-│   ├── _layout.tsx               # Routes guard: needs user + profile.role
-│   ├── (tabs)/                   # Browse / Inbox / Create / Profile
-│   ├── package/[id].tsx          # Package detail
-│   ├── gig/[id].tsx              # Gig detail (with applications + award flow)
-│   ├── checkout.tsx              # Solana payment confirmation modal
-│   ├── order/[id].tsx            # Order receipt + tx signature
-│   └── settings/                 # wallet, role-switch, sign-out
-├── _layout.tsx                   # Root: PrivyProvider → QueryProvider → ThemeProvider → AuthProvider → UserProvider
+│   └── sign-in.tsx               # Privy email-OTP login
+├── (home)/                       # Authenticated app
+│   ├── _layout.tsx               # Routes guard: needs user
+│   ├── (tabs)/                   # Browse / Inbox / Wallet / Profile
+│   │   ├── _layout.tsx
+│   │   ├── browse.tsx
+│   │   ├── inbox.tsx
+│   │   ├── wallet.tsx
+│   │   └── profile.tsx
+│   ├── bounty/[id].tsx           # Bounty detail (submissions + settle / refund / cancel)
+│   ├── bounty/[id]/submit.tsx    # Submission composer
+│   ├── notifications.tsx
+│   ├── wallet/activity.tsx       # Recent on-chain activity
+│   └── settings/                 # account, profile, notifications, about, index
+├── _layout.tsx                   # Root: ErrorBoundary → GestureHandlerRootView → PrivyProvider → QueryProvider → ThemeProvider → AuthProvider → UserProvider
 ├── +not-found.tsx
-└── index.tsx                     # Three-state routing: no-user → sign-in, no-role → role-select, has-role → browse
+└── index.tsx                     # Two-state routing: no-user → sign-in; user → browse
 
 components/
-├── base/                         # ThemedText, ThemedView, ScreenHeader, ErrorBoundary, OfflineBanner, SectionLabel, LoadingScreen, InitialLoadingScreen, LoadingMotive
-├── ui/                           # Generic primitives (Button, Card, BottomSheet, Skeleton, NumberInput, TextInput, Avatar, Dropdown, Alert, EmptyState, ErrorState, FadeTransition, ScreenFadeIn, HapticRefreshControl, PopoverMenu, ProgressBar, SegmentedToggle, ToastConfig, UnderlineTabBar, AdlerTabBar)
-│   ├── charts/                   # Skia-based: BarChart, DonutChart, CalendarHeatmap (+ primitives, hooks, utils)
-│   └── icons/                    # ArrowProgress (only)
+├── base/                         # ThemedText, ThemedView, ScreenHeader, ErrorBoundary, OfflineBanner, SectionLabel, LoadingScreen, InitialLoadingScreen
+├── ui/                           # Generic primitives — Button, Card, BottomSheet, Skeleton, NumberInput, TextInput, Avatar, Dropdown, Alert, EmptyState, ErrorState, PopoverMenu, Pill, ProgressBar, SegmentedToggle, ToastConfig, TabBar, ActionTile, CircleIconButton, AdlerEagleLogo, EagleLoader, Icon, SolanaIcon
+│   └── icons/                    # ArrowProgress
 └── features/
-    └── home/AdlerHomeHeader.tsx  # Greeting + role chip + live SOL balance pill (Browse top)
+    ├── account/                  # DeleteAccountSheet, SignOutSheet
+    ├── bounty/                   # BountyItemCard, BountyStatusIcon, BountyTags, PostBountySheet
+    ├── groups/                   # GroupsSearchSheet
+    ├── home/                     # AdlerHomeHeader (greeting + wallet pill on Browse)
+    ├── notifications/            # PushPermissionPrompt
+    └── wallet/                   # ConnectivitySheet, ReceiveSheet, SendSheet
 
 contexts/
-├── AuthContext.tsx               # Privy ↔ Firebase orchestration, runIfOnline, NetInfo debounce
-├── UserContext.tsx               # Profile loader, hasRole helper, SWR cache via AsyncStorage
-├── ThemeContext.tsx              # Theme palette + dark mode (mono ↔ inverted)
+├── AuthContext.tsx               # Privy ↔ Firebase orchestration, walletAddress, runIfOnline, NetInfo debounce
+├── UserContext.tsx               # Profile loader, SWR cache via AsyncStorage, profile bootstrap on first sign-in
+├── ThemeContext.tsx              # Theme palette + light/dark mode
+├── OverlaySheetsContext.tsx      # Imperative open/close for shared bottom sheets
 └── QueryProvider.tsx             # TanStack Query client
 
 hooks/
-├── useAsyncState.ts
-├── useDebounce.ts
-└── useSolanaPayment.ts           # Wraps payForListing with the Privy embedded wallet provider
+├── useBounty.ts                  # Single-bounty query
+├── useBountyEscrow.ts            # post / settleManual / refund / cancel — wraps Firestore service + on-chain escrow call
+└── useDebounce.ts
 
 lib/
-├── firebase/config.ts            # Firebase Auth + Firestore + Storage + Functions singleton
+├── firebase/config.ts            # Firebase Auth + Firestore + Storage + Functions + App Check singleton
 ├── solana/
-│   ├── connection.ts             # devnet `Connection` + lamport↔SOL helpers + explorer URLs
-│   └── transferSol.ts            # Build, sign, send a SystemProgram.transfer via Privy wallet provider
+│   ├── connection.ts             # `Connection` + lamport↔SOL helpers + explorer URL builders
+│   └── transferSol.ts            # Build, sign, send a SystemProgram.transfer via Privy wallet provider (used by Send sheet)
+├── anchor/
+│   ├── idl.ts                    # Auto-generated IDL (sync via adler-program/scripts/sync-idl.sh)
+│   ├── idl-types.ts              # Matching TS types
+│   ├── program.ts                # `getProgram()` — anchor Program<AdlerEscrow> bound to current connection
+│   └── useFeeTreasury.ts         # Fetch protocol_config.fee_treasury (cached)
+├── escrow/
+│   ├── _send.ts                  # Sign + send raw instruction batch via Privy embedded wallet provider
+│   ├── pda.ts                    # deriveBountyEscrowPda, deriveProtocolConfigPda, contractIdFromHex
+│   ├── createBounty.ts           # `create_bounty` instruction
+│   ├── settleManualBounty.ts     # `settle_manual_bounty` instruction (manual mode)
+│   ├── refundBounty.ts           # `refund_bounty` (post-expiry, anyone can call)
+│   └── cancelBounty.ts           # `cancel_bounty` (poster only, before submissions)
 ├── services/
 │   ├── privyAuthService.ts       # Privy JWT → Firebase custom token + signInWithCustomToken
-│   ├── profileService.ts         # ensureProfileExists (transactional), setRole, updateProfile, setWalletAddress
-│   ├── packageService.ts         # CRUD + listActivePackages / listPackagesBySeller
-│   ├── gigService.ts             # CRUD + listOpenGigs / listGigsByBrand
-│   ├── applicationService.ts     # applyToGig + status updates (pending/shortlisted/awarded/rejected)
-│   ├── orderService.ts           # createPendingOrder → markOrderPaid (atomic with on-chain settle)
-│   ├── paymentService.ts         # End-to-end pay flow (resolve seller wallet, write pending order, transfer, mark paid)
+│   ├── profileService.ts         # ensureProfileExists (transactional), updates, walletAddress, pushToken
+│   ├── bountyService.ts          # CRUD + listPublic / listByPoster / listByGroup + draftBounty / persistBounty / markManualSettled / start|finish|abortCancel
+│   ├── bountyMediaUploadService.ts # Bounty cover / brief media uploads
+│   ├── submissionService.ts      # Submit + report + winner marking
+│   ├── groupService.ts           # Group CRUD + join requests + memberships
+│   ├── reportService.ts          # Submission reports
+│   ├── notificationsService.ts   # In-app inbox feed
+│   ├── preferencesService.ts     # User preferences doc
+│   ├── pushService.ts            # Expo push token registration + foreground handler
 │   └── imageUploadService.ts     # Generic Firebase Storage upload + image compression
 ├── constants/
-│   ├── queryKeys.ts              # PROFILE / PACKAGE / GIG / APPLICATION / ORDER / FEED key factories
-│   ├── storageKeys.ts            # CACHED_PROFILE, ACCENT_COLOR, COLOR_SCHEME
-│   └── featureGates.ts           # SOLANA_NETWORK, SOLANA_RPC_URL, SOLANA_EXPLORER_BASE
+│   ├── queryKeys.ts              # Centralized TanStack key factory under `qk` (bounties / submissions / groups / profiles / wallet / notifications / preferences)
+│   ├── storageKeys.ts            # AsyncStorage keys
+│   ├── featureGates.ts           # SOLANA_NETWORK / SOLANA_RPC_URL / SOLANA_EXPLORER_BASE / IS_DEVNET_LIKE / PROTOCOL_FEE_BPS / computeFeeLamports / computeFeeSol / SOLANA_CHAIN_ID
+│   └── escrow.ts                 # V1_PROGRAM_ID, SUBMISSION_WINDOW_* (3d/7d/30d), REVIEW_WINDOW_SECS, MAX_SUBMISSIONS_PER_USER, BountyMode
+├── types/
+│   ├── bounty.ts                 # Bounty, BountyStatus, BountyMode, BountySubmissionKind
+│   ├── submission.ts             # Submission, SubmissionStatus
+│   ├── group.ts                  # Group, GroupMember, JoinRequest
+│   ├── profile.ts                # Profile, location, push prefs
+│   ├── notification.ts
+│   └── preferences.ts
 └── utils/
     ├── cn.ts                     # Tailwind class merger
-    ├── dates.ts                  # Date formatting helpers
-    ├── formatNumber.ts           # Number formatting
+    ├── dates.ts · formatNumber.ts · firestoreTimestamp.ts · firestore.ts · array.ts
     ├── withTimeout.ts            # Promise timeout wrapper
-    ├── toast.ts                  # Toast API
-    ├── haptic.ts                 # Haptic vocabulary (light / medium / heavy / etc.)
-    ├── firestore.ts              # Firestore helpers
-    ├── array.ts                  # Array utilities
-    ├── avatars.ts                # Avatar URL resolver (passthrough)
-    ├── chartNarrative.ts         # Accessibility narrative stubs (no-op for v1)
+    ├── toast.ts                  # Centralized toast API
+    ├── haptic.ts                 # Haptic vocabulary
+    ├── avatars.ts                # Avatar URL resolver
     └── copy.ts                   # Centralized empty-state strings
 
-types/
-├── marketplace.ts                # Profile, PackageListing, Gig, GigApplication, Order, Review, FeedItem
-├── components.ts                 # ComponentSize / Variant / Status helpers
-├── navigation.ts                 # BottomTabDescriptor + Expo Router types
-└── svg.d.ts
-
 constants/                        # Top-level theme / layout tokens
-├── ThemePalettes.ts              # THEME_COLORS + invertPalette + SIGNAL_COLORS slots
+├── ThemePalettes.ts              # MONO_PALETTE + invertPalette + Accent palette
 ├── ThemeColors.ts                # Semantic tokens
+├── NeutralColors.ts              # Theme-invariant white/black/whiteSoft/blackSoft
+├── StatusColors.ts               # success / error / warning / info
 ├── LayoutConstants.ts            # TAB_BAR_HEIGHT, BottomInset, AnimationDuration
-├── ComponentTheme.ts
 ├── TailwindColors.ts             # Tailwind palette references
 └── Colors.ts
 
 functions/
-├── index.js                      # mintFirebaseToken (Privy → Firebase custom token bridge)
-└── package.json                  # `@privy-io/server-auth`, firebase-admin, firebase-functions
+├── index.js                      # mintFirebaseToken, solanaRpcProxyDevnet/Mainnet, expireBounties, push fan-out
+├── idl.json                      # IDL mirror for server-side escrow reconciliation
+└── package.json
 ```
 
 ## Firestore Collections
 
 | Collection | Purpose |
 |-----------|---------|
-| `profiles/{userId}` | Profile (role, username, displayName, bio, avatarUrl, walletAddress) — userId == Privy user id == Firebase auth uid |
-| `packages/{id}` | Creator-listed content packages (sellerId, title, description, priceSol, deliverables, mediaUrls, category, status) |
-| `gigs/{id}` | Brand-posted gigs (brandId, title, description, budgetSol, deadline, requirements, category, status) |
-| `gigApplications/{id}` | Creator applications to gigs (gigId, creatorId, message, sampleUrls, status) |
-| `orders/{id}` | Settled marketplace transactions (type, referenceId, buyerId, sellerId, amountSol, txSignature, status) |
-| `reviews/{id}` | Post-order reviews (orderId, reviewerId, revieweeId, rating, comment) |
+| `profiles/{userId}` | Profile (username, displayName, bio, avatarUrl, walletAddress, location, dmContact, pushToken) — userId == Privy user id == Firebase auth uid |
+| `usernames/{slug}` | Unique-username sentinel (transactional reservation on profile create) |
+| `bounties/{id}` | Poster-funded bounties (posterId, contractIdHex, amountLamports, mode (manual/auto), submissionKind, scope (public/group), groupId, submissionEndsAt, expiresAt, status (open/cancelling/refunded/settled/cancelled)) |
+| `submissions/{id}` | Submissions to bounties (bountyId, submitterId, mediaUrls, status) — `MAX_SUBMISSIONS_PER_USER = 1` |
+| `reports/{id}` | Moderator reports against submissions |
+| `groups/{id}` | Curated audience groups (host posts bounties scoped to a group) |
+| `groupMembers/{compoundId}` | Membership join-table (`<groupId>_<userId>`) |
+| `joinRequests/{id}` | Pending requests to join groups |
+| `groupCreationRequests/{id}` | Pending requests to create new groups |
+| `notifications/{id}` | In-app inbox feed |
+| `preferences/{uid}` | Per-user preferences |
 
 ## Navigation
 
-**4 bottom tabs**: Browse, Inbox, Create, Profile — rendered by the custom `AdlerTabBar` (3 standard tabs + an oversized circular center action for Create).
+**4 bottom tabs** rendered by the custom `TabBar` (`components/ui/TabBar.tsx`): **Browse**, **Inbox**, **Wallet**, **Profile**. No oversized center action — "Create bounty" is launched via the `PostBountySheet` opened from Browse / FAB.
 
-**Three-state routing** (`app/index.tsx`):
+**Two-state routing** (`app/index.tsx`):
 - No Privy user → `/(auth)/sign-in`
-- Privy user, no `profile.role` → `/(auth)/role-select`
-- Privy user with role → `/(home)/(tabs)/browse`
+- Privy user → `/(home)/(tabs)/browse`
 
-`AuthContext` debounces routing via `previousUserRef` / `hasRoutedRef` — extend the comparison key to `${user?.id}:${profile?.role ?? 'none'}` if you add a fourth state.
+Profile bootstrap happens inside `UserContext` on first sign-in (default `location: 'global'`). There is no `role-select` step — bounties have a single role model (anyone can post and anyone can submit).
 
 ## Provider Tree
 
@@ -174,29 +201,32 @@ ErrorBoundary
 ## State Management
 
 **TanStack Query** (server state):
-- Query key factory: `lib/constants/queryKeys.ts` (`PROFILE_KEYS`, `PACKAGE_KEYS`, `GIG_KEYS`, `APPLICATION_KEYS`, `ORDER_KEYS`, `FEED_KEYS`)
-- Wallet balance: refetched every 30s, staleTime 15s
-- Mixed Browse feed: parallel `getDocs` on `packages` + `gigs`, merge-sorted by `createdAt`
+- Query key factory: `lib/constants/queryKeys.ts` (centralized under `qk`)
+- Wallet balance: refetched every 30s
+- Browse feed: `qk.bounties.listPublic(status)` / `qk.bounties.listGroup(groupIds, status)`
 
 **React Context** (global):
 - `AuthContext` — Privy + Firebase auth state, `walletAddress`, `runIfOnline`, NetInfo debounce
-- `UserContext` — cached profile + `hasRole`, manual `refreshProfile`
-- `ThemeContext` — theme name + light/dark + invertable palette
+- `UserContext` — cached profile, manual `refreshProfile`
+- `ThemeContext` — theme name + light/dark palette
+- `OverlaySheetsContext` — shared bottom-sheet handles
 
 **Local state** (component): useState for forms, sheets, transient UI.
 
-## Payment Flow (Solana, devnet, SOL only)
+## Bounty Lifecycle (Solana, devnet, SOL only)
 
-Direct transfer at purchase — no escrow in v1.
+Funds live in a PDA-derived escrow account; no separate "order" doc.
 
-1. UI calls `useSolanaPayment().pay({ type, referenceId, sellerId, amountSol })`.
-2. `paymentService.payForListing` resolves the seller's `walletAddress` from their profile.
-3. **Order doc written first** with `status: 'pending'` and `txSignature: null` (so we have a record of intent even if the app crashes mid-tx).
-4. `transferSol` builds a `SystemProgram.transfer`, requests Privy's `EmbeddedSolanaWalletProvider` to sign + send, returns the signature.
-5. On success, the order is updated to `status: 'paid'` with the signature.
-6. On failure, the order remains `pending` for a future reconciler (out of scope for v1).
+1. **Create**: UI calls `useBountyEscrow().post(input)`.
+   - `bountyService.draftBounty` reserves a Firestore doc id + generates `contractIdHex` + computes `submissionEndsAt = now + submissionWindowSecs` and `expiresAt = submissionEndsAt + REVIEW_WINDOW_SECS`.
+   - `escrow.createBounty` builds the `create_bounty` instruction (config PDA, escrow PDA, poster pubkey) and submits via Privy's embedded wallet provider.
+   - On success, `bountyService.persistBounty` writes the bounty doc with `status: 'open'`.
+2. **Submit**: creators upload media → `submissionService.createSubmission` writes the doc. Hard cap: 1 submission per user per bounty.
+3. **Settle (manual)**: poster picks a winner → `useBountyEscrow().settleManual` calls `settle_manual_bounty` (winner gets amount − protocol fee, fee goes to `feeTreasury`) → `bountyService.markManualSettled` updates the doc.
+4. **Cancel**: poster, while bounty has no submissions → `useBountyEscrow().cancel` flips Firestore to `cancelling`, runs `cancel_bounty`, finalizes to `cancelled`. On failure, status is reverted via `abortCancel` or swept by the `expireBounties` Cloud Function.
+5. **Refund**: anyone, after `expiresAt`, no winner → `refund_bounty` returns funds to poster.
 
-For Gigs: payment fires when a brand awards an applicant (`updateApplicationStatus(applicationId, 'awarded')` + `updateGigStatus(gigId, 'awarded')`).
+Protocol fee: **0.5%** (`PROTOCOL_FEE_BPS = 50`) — computed on-chain at settlement; client estimates via `computeFeeLamports` / `computeFeeSol` for receipts.
 
 ## Settings Screen Conventions
 

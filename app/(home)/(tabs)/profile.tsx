@@ -9,13 +9,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { ThemedView } from '@/components/base/ThemedView';
 import { ThemedText } from '@/components/base/ThemedText';
 import { Avatar } from '@/components/ui/Avatar';
-import { Icon } from '@/components/ui/Icon';
 import { CircleIconButton } from '@/components/ui/CircleIconButton';
-import { TailwindColors } from '@/constants/TailwindColors';
 import { haptic } from '@/lib/utils/haptic';
 import { AdlerHomeHeader } from '@/components/features/home/AdlerHomeHeader';
 import EmptyState from '@/components/ui/EmptyState';
-import { ProfileBountyRow } from '@/components/features/profile/ProfileBountyRow';
+import {
+    BountyCardForBounty,
+    BountyCardForSubmission,
+} from '@/components/features/bounty/BountyItemCard';
 import { TAB_BAR_HEIGHT } from '@/constants/LayoutConstants';
 import { qk } from '@/lib/constants/queryKeys';
 import { getBounty, listMyPostedBounties } from '@/lib/services/bountyService';
@@ -97,7 +98,7 @@ export default function ProfileScreen() {
                         initial={profile.displayName.charAt(0)}
                     />
                     <View style={{ alignItems: 'center' }}>
-                        <ThemedText type="h2" style={{ color: theme[950], textAlign: 'center' }}>
+                        <ThemedText type="h3" style={{ color: theme[950], textAlign: 'center' }}>
                             {profile.displayName}
                         </ThemedText>
                         <ThemedText
@@ -118,9 +119,7 @@ export default function ProfileScreen() {
                     ) : null}
                 </View>
 
-                <RatingRow />
-
-                <View style={{ marginTop: 16 }}>
+                <View style={{ marginTop: 24 }}>
                     <FullWidthUnderlineTabs tabs={TABS} active={tab} onChange={setTab} />
                 </View>
 
@@ -134,27 +133,6 @@ export default function ProfileScreen() {
                 </View>
             </ScrollView>
         </ThemedView>
-    );
-}
-
-function RatingRow() {
-    const { theme } = useTheme();
-    return (
-        <View
-            style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 12,
-                paddingTop: 20,
-                paddingHorizontal: 24,
-            }}
-        >
-            <Icon name="medal.fill" size={20} color={TailwindColors.amber[400]} weight="semibold" />
-            <ThemedText type="h3" style={{ color: theme[950] }}>
-                0
-            </ThemedText>
-        </View>
     );
 }
 
@@ -224,12 +202,7 @@ function BountyList({
         return (
             <View>
                 {items.map((b) => (
-                    <ProfileBountyRow
-                        key={b.id}
-                        kind="created"
-                        bounty={b}
-                        onPress={() => router.push(`/bounty/${b.id}`)}
-                    />
+                    <BountyCardForBounty key={b.id} bounty={b} />
                 ))}
             </View>
         );
@@ -251,12 +224,10 @@ function BountyList({
     return (
         <View>
             {items.map((s) => (
-                <ProfileBountyRow
+                <BountyCardForSubmission
                     key={s.id}
-                    kind={tab === 'Won' ? 'won' : 'participated'}
                     submission={s}
                     bounty={bountyById[s.bountyId]}
-                    onPress={() => router.push(`/bounty/${s.bountyId}`)}
                 />
             ))}
         </View>

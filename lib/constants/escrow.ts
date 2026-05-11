@@ -4,20 +4,23 @@ import { SOLANA_NETWORK, type SolanaNetwork } from './featureGates';
 // Adler bounty escrow program. Devnet only on v1; mainnet entry holds the
 // same id pending audit + Squads multisig upgrade authority.
 const PROGRAM_IDS: Record<SolanaNetwork, string> = {
-  devnet: 'BArnn6qEM45LMxntW2eBKc5icsZGGqaLiDFCSTFx1uZr',
-  'mainnet-beta': 'BArnn6qEM45LMxntW2eBKc5icsZGGqaLiDFCSTFx1uZr',
-  testnet: 'BArnn6qEM45LMxntW2eBKc5icsZGGqaLiDFCSTFx1uZr',
+    devnet: 'BArnn6qEM45LMxntW2eBKc5icsZGGqaLiDFCSTFx1uZr',
+    'mainnet-beta': 'BArnn6qEM45LMxntW2eBKc5icsZGGqaLiDFCSTFx1uZr',
+    testnet: 'BArnn6qEM45LMxntW2eBKc5icsZGGqaLiDFCSTFx1uZr',
 };
 
 export const V1_PROGRAM_ID = new PublicKey(PROGRAM_IDS[SOLANA_NETWORK]);
 
-/** 30 days. Mirrors `BOUNTY_EXPIRY_SECS` in the on-chain program. */
-export const BOUNTY_EXPIRY_SECS = 30 * 24 * 60 * 60;
+/** Fixed 30-day submission window. */
+export const SUBMISSION_WINDOW_SECS = 30 * 24 * 60 * 60;
 
-/** Per [spec] auto-mode submission cap. Enforced client + server. */
-export const MAX_AUTO_SUBMISSIONS_PER_USER = 3;
+/** Fixed 90-day review window after submissions close. Mirrors the
+ *  `REVIEW_WINDOW_SECS` Rust constant in the on-chain program — changing
+ *  this requires a program redeploy. */
+export const REVIEW_WINDOW_SECS = 90 * 24 * 60 * 60;
 
-export const BountyMode = {
-  Manual: 0,
-  Auto: 1,
-} as const;
+/** Hard cap: one submission per user per bounty. */
+export const MAX_SUBMISSIONS_PER_USER = 1;
+
+/** Mode byte passed to the on-chain `create_bounty` ix. Manual only in v1. */
+export const BOUNTY_MODE_MANUAL = 0;

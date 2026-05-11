@@ -26,7 +26,7 @@ export function PushPermissionPrompt({
             visible={visible}
             onClose={onSkip}
             title="Notifications"
-            height={330}
+            height={420}
             dismissible={!loading}
         >
             <View style={{ flex: 1, justifyContent: 'space-between', gap: 24 }}>

@@ -1,20 +1,53 @@
-import React, { useEffect, useState } from 'react';
-import { View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Pressable, View } from 'react-native';
+import Animated, {
+    Easing,
+    useAnimatedStyle,
+    useSharedValue,
+    withTiming,
+} from 'react-native-reanimated';
 import { router } from 'expo-router';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js';
 import { BottomSheet } from '@/components/ui/BottomSheet';
-import { Button } from '@/components/ui/Button';
+import { Icon } from '@/components/ui/Icon';
+import { PopoverMenu } from '@/components/ui/PopoverMenu';
 import { SegmentedToggle } from '@/components/ui/SegmentedToggle';
 import { NumberInput } from '@/components/ui/NumberInput';
 import { SolanaIcon } from '@/components/ui/SolanaIcon';
 import TextInput from '@/components/ui/TextInput';
+import { ThemedText } from '@/components/base/ThemedText';
+import { Neutral } from '@/constants/NeutralColors';
+import { Status } from '@/constants/StatusColors';
+import { TailwindColors } from '@/constants/TailwindColors';
+import { useTheme } from '@/contexts/ThemeContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useBountyEscrow } from '@/hooks/useBountyEscrow';
 import { qk } from '@/lib/constants/queryKeys';
-import { toast } from '@/lib/utils/toast';
+import { getGroup, listMyMemberships } from '@/lib/services/groupService';
 import { haptic } from '@/lib/utils/haptic';
 import { parseSolAmount, formatSol } from '@/lib/utils/formatNumber';
-import { solToLamports } from '@/lib/solana/connection';
-import type { BountyMode } from '@/lib/types/bounty';
+import { getConnection, lamportsToSol, solToLamports } from '@/lib/solana/connection';
+import type { BountySubmissionKind } from '@/lib/types/bounty';
+import type { Group } from '@/lib/types/group';
+
+// Reserve to cover the ~5,000-lamport tx fee plus the escrow PDA rent
+// (small Anchor account: ~890k lamports). 2× margin keeps headroom for
+// small priority-fee surprises.
+const BOUNTY_FEE_RESERVE_LAMPORTS = 2_000_000;
+const BOUNTY_FEE_RESERVE_SOL = BOUNTY_FEE_RESERVE_LAMPORTS / LAMPORTS_PER_SOL;
+const INSUFFICIENT_FUNDS_RE = /insufficient.*(fund|lamport|fee)|fee.*lamport/i;
+
+const KIND_TABS = ['Photo', 'Video', 'Link'] as const;
+const KIND_ICONS = ['photo', 'video.fill', 'link'] as const;
+type KindTab = (typeof KIND_TABS)[number];
+
+function tabToKind(t: KindTab): BountySubmissionKind {
+    return t === 'Photo' ? 'photo' : t === 'Video' ? 'video' : 'link';
+}
+function kindToTab(k: BountySubmissionKind): KindTab {
+    return k === 'photo' ? 'Photo' : k === 'video' ? 'Video' : 'Link';
+}
 
 interface PostBountySheetProps {
     visible: boolean;
@@ -23,24 +56,68 @@ interface PostBountySheetProps {
 
 export function PostBountySheet({ visible, onClose }: PostBountySheetProps) {
     const queryClient = useQueryClient();
+    const { theme } = useTheme();
+    const { user, walletAddress } = useAuth();
     const { post, pending } = useBountyEscrow();
-    const [mode, setMode] = useState<BountyMode>('manual');
+    const [kind, setKind] = useState<BountySubmissionKind>('photo');
     const [title, setTitle] = useState('');
     const [prompt, setPrompt] = useState('');
     const [amountText, setAmountText] = useState('');
+    const [scopeGroupId, setScopeGroupId] = useState<string | null>(null);
+    const [submitState, setSubmitState] = useState<'idle' | 'success' | 'error'>('idle');
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-    // Reset on every open. The amount NumberInput auto-focuses below.
+    const membershipsQuery = useQuery({
+        queryKey: user ? qk.groups.myMemberships(user.id) : ['groups', 'myMemberships', 'anon'],
+        queryFn: () => (user ? listMyMemberships(user.id) : Promise.resolve([])),
+        staleTime: 60_000,
+        enabled: !!user && visible,
+    });
+    const myGroupIds = useMemo(
+        () => (membershipsQuery.data ?? []).map((m) => m.groupId),
+        [membershipsQuery.data],
+    );
+    const myGroupsQuery = useQuery({
+        queryKey: ['groups', 'byIds', [...myGroupIds].sort()],
+        queryFn: async () => {
+            const groups = await Promise.all(myGroupIds.map((id) => getGroup(id)));
+            return groups.filter((g): g is Group => !!g);
+        },
+        staleTime: 60_000,
+        enabled: visible && myGroupIds.length > 0,
+    });
+    const myGroups = myGroupsQuery.data ?? [];
+    const canPickGroup = myGroups.length > 0;
+    const selectedGroup = scopeGroupId ? myGroups.find((g) => g.id === scopeGroupId) ?? null : null;
+
+    const balanceQuery = useQuery({
+        queryKey: walletAddress ? qk.wallet.balance(walletAddress) : ['wallet', 'balance', 'none'],
+        enabled: !!walletAddress && visible,
+        queryFn: async () => {
+            if (!walletAddress) return 0;
+            const lamports = await getConnection().getBalance(new PublicKey(walletAddress));
+            return lamportsToSol(lamports);
+        },
+        staleTime: 15_000,
+    });
+    const balanceLoaded = balanceQuery.data !== undefined && !balanceQuery.isLoading;
+    const balanceSol = balanceQuery.data ?? 0;
+    const maxBountySol = Math.max(0, balanceSol - BOUNTY_FEE_RESERVE_SOL);
+
+    // Reset on every open.
     useEffect(() => {
         if (!visible) return;
-        setMode('manual');
+        setKind('photo');
         setTitle('');
         setPrompt('');
         setAmountText('');
+        setScopeGroupId(null);
+        setSubmitState('idle');
+        setErrorMessage(null);
     }, [visible]);
 
     const amountSol = parseSolAmount(amountText);
     // Auto-shrink the KPI digits so long numbers never clip horizontally.
-    // Geist digits at 56pt run ~33pt wide; the sheet body is ~360pt minus icon+gap.
     const amountFontSize = (() => {
         const len = Math.max(amountText.length || 1, 1);
         if (len <= 4) return 56;
@@ -48,36 +125,73 @@ export function PostBountySheet({ visible, onClose }: PostBountySheetProps) {
         if (len <= 7) return 40;
         return 32;
     })();
+    const exceedsBalance =
+        balanceLoaded && amountSol !== null && amountSol > 0 && amountSol > maxBountySol;
     const canSubmit =
         !pending &&
         title.trim().length > 0 &&
         prompt.trim().length > 0 &&
         amountSol !== null &&
-        amountSol > 0;
+        amountSol > 0 &&
+        !exceedsBalance;
+
+    const fail = (msg: string) => {
+        haptic('error');
+        setErrorMessage(msg);
+        setSubmitState('error');
+        setTimeout(() => {
+            setSubmitState('idle');
+            setErrorMessage(null);
+        }, 2500);
+    };
 
     const onSubmit = async (close: (cb?: () => void) => void) => {
         if (!canSubmit || amountSol === null) return;
         try {
+            if (walletAddress) {
+                await queryClient.refetchQueries({ queryKey: qk.wallet.balance(walletAddress) });
+                const fresh = queryClient.getQueryData<number>(qk.wallet.balance(walletAddress)) ?? 0;
+                const maxFresh = Math.max(0, fresh - BOUNTY_FEE_RESERVE_SOL);
+                if (amountSol > maxFresh) {
+                    fail('Not enough funds');
+                    return;
+                }
+            }
             haptic('medium');
             const bounty = await post({
                 title: title.trim(),
                 prompt: prompt.trim(),
-                mode,
                 bountyLamports: solToLamports(amountSol),
-                scope: 'public',
-                groupId: null,
+                scope: scopeGroupId ? 'group' : 'public',
+                groupId: scopeGroupId,
+                submissionKind: kind,
             });
             haptic('heavy');
             await queryClient.invalidateQueries({ queryKey: qk.bounties.all() });
-            close(() => {
-                toast.success('Bounty posted');
-                router.push(`/bounty/${bounty.id}`);
-            });
+            setSubmitState('success');
+            // Hold the green confirmation briefly so users can register it
+            // before we close the sheet and navigate to the new bounty.
+            setTimeout(() => {
+                close(() => {
+                    router.push(`/bounty/${bounty.id}`);
+                });
+            }, 900);
         } catch (err) {
-            haptic('error');
-            toast.error(err instanceof Error ? err.message : 'Could not post bounty');
+            const msg = err instanceof Error ? err.message : String(err);
+            if (INSUFFICIENT_FUNDS_RE.test(msg)) {
+                fail('Not enough funds');
+            } else {
+                fail(msg || "Couldn't publish bounty");
+            }
         }
     };
+
+    const promptPlaceholder =
+        kind === 'link'
+            ? 'What link should submitters send? (e.g. a GitHub repo)'
+            : kind === 'video'
+              ? 'What does a winning video show?'
+              : 'What counts as a valid submission?';
 
     return (
         <BottomSheet
@@ -88,7 +202,7 @@ export function PostBountySheet({ visible, onClose }: PostBountySheetProps) {
             keyboardAware
         >
             {({ close }) => (
-                <View style={{ flex: 1, paddingHorizontal: 16, paddingTop: 16, gap: 16 }}>
+                <View style={{ flex: 1, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 16, gap: 16 }}>
                     {/* Reward KPI — single horizontal group, auto-shrinks */}
                     <View
                         style={{
@@ -117,12 +231,77 @@ export function PostBountySheet({ visible, onClose }: PostBountySheetProps) {
                         <SolanaIcon size={Math.round(amountFontSize * 0.46)} />
                     </View>
 
-                    <SegmentedToggle
-                        tabs={['Manual', 'Auto'] as const}
-                        activeTab={mode === 'manual' ? 'Manual' : 'Auto'}
-                        onTabChange={(t) => setMode(t === 'Manual' ? 'manual' : 'auto')}
-                        size="md"
-                    />
+                    {exceedsBalance ? (
+                        <ThemedText
+                            type="body-sm"
+                            style={{ color: theme[500], textAlign: 'center', marginTop: -8 }}
+                        >
+                            {`Reserve ~${BOUNTY_FEE_RESERVE_SOL.toFixed(3)} SOL for the network fee.`}
+                        </ThemedText>
+                    ) : null}
+
+                    <View style={{ gap: 8 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                            <ThemedText type="body-sm-semibold" style={{ color: theme[950], flex: 1 }}>
+                                Where should it be posted?
+                            </ThemedText>
+                            {canPickGroup ? (
+                                <PopoverMenu
+                                    items={[
+                                        {
+                                            label: 'Public',
+                                            icon: ({ size, color }) => (
+                                                <Icon name="globe" size={size} color={color} />
+                                            ),
+                                            selected: scopeGroupId === null,
+                                            onPress: () => setScopeGroupId(null),
+                                        },
+                                        ...myGroups.map((g) => ({
+                                            label: g.name,
+                                            icon: ({ size, color }: { size: number; color: string }) => (
+                                                <Icon name="person.2.fill" size={size} color={color} />
+                                            ),
+                                            selected: scopeGroupId === g.id,
+                                            onPress: () => setScopeGroupId(g.id),
+                                        })),
+                                    ]}
+                                >
+                                    <ScopeChip
+                                        label={selectedGroup ? selectedGroup.name : 'Public'}
+                                        iconName={selectedGroup ? 'person.2.fill' : 'globe'}
+                                        trailingIcon="chevron.down"
+                                        theme={theme}
+                                    />
+                                </PopoverMenu>
+                            ) : (
+                                <ScopeChip
+                                    label="Public"
+                                    iconName="globe"
+                                    trailingIcon="lock.fill"
+                                    locked
+                                    theme={theme}
+                                />
+                            )}
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                            <ThemedText type="body-sm-semibold" style={{ color: theme[950], flex: 1 }}>
+                                What’s the format of the submission?
+                            </ThemedText>
+                            <View style={{ width: 96 }}>
+                                <SegmentedToggle
+                                    tabs={KIND_TABS}
+                                    icons={KIND_ICONS}
+                                    activeTab={kindToTab(kind)}
+                                    onTabChange={(t) => setKind(tabToKind(t))}
+                                    size="xs"
+                                    backgroundColor={theme[200]}
+                                    activeColor={theme[50]}
+                                    activeForegroundColor={TailwindColors.sky[500]}
+                                    inactiveForegroundColor={theme[300]}
+                                />
+                            </View>
+                        </View>
+                    </View>
 
                     <TextInput
                         value={title}
@@ -136,27 +315,23 @@ export function PostBountySheet({ visible, onClose }: PostBountySheetProps) {
                     <TextInput
                         value={prompt}
                         onChangeText={setPrompt}
-                        placeholder={
-                            mode === 'auto'
-                                ? 'What does a winning photo show?'
-                                : 'What counts as a valid submission?'
-                        }
+                        placeholder={promptPlaceholder}
                         multiline
                         maxLength={300}
                         style={{ height: 88, textAlignVertical: 'top' }}
                     />
 
                     <View style={{ marginTop: 'auto' }}>
-                        <Button
-                            size="lg"
-                            variant="primary"
-                            title={
+                        <SubmitButton
+                            idleLabel={
                                 pending
                                     ? 'Posting…'
                                     : amountSol && amountSol > 0
                                       ? `Post ${formatSol(amountSol)} SOL`
                                       : 'Post bounty'
                             }
+                            state={submitState}
+                            errorMessage={errorMessage}
                             loading={pending}
                             disabled={!canSubmit}
                             onPress={() => onSubmit(close)}
@@ -165,5 +340,129 @@ export function PostBountySheet({ visible, onClose }: PostBountySheetProps) {
                 </View>
             )}
         </BottomSheet>
+    );
+}
+
+interface SubmitButtonProps {
+    idleLabel: string;
+    state: 'idle' | 'success' | 'error';
+    errorMessage: string | null;
+    loading: boolean;
+    disabled: boolean;
+    onPress: () => void;
+}
+
+function SubmitButton({
+    idleLabel,
+    state,
+    errorMessage,
+    loading,
+    disabled,
+    onPress,
+}: SubmitButtonProps) {
+    const { theme } = useTheme();
+
+    const idleBg = disabled ? theme[300] : theme[950];
+    const bg = state === 'success' ? Status.success : state === 'error' ? Status.error : idleBg;
+
+    const bgStyle = useAnimatedStyle(() => ({
+        backgroundColor: withTiming(bg, { duration: 220, easing: Easing.out(Easing.cubic) }),
+    }), [bg]);
+
+    const idleOpacity = useSharedValue(1);
+    const successOpacity = useSharedValue(0);
+    const errorOpacity = useSharedValue(0);
+    useEffect(() => {
+        const t = { duration: 200, easing: Easing.out(Easing.cubic) };
+        idleOpacity.value = withTiming(state === 'idle' ? 1 : 0, t);
+        successOpacity.value = withTiming(state === 'success' ? 1 : 0, t);
+        errorOpacity.value = withTiming(state === 'error' ? 1 : 0, t);
+    }, [state, idleOpacity, successOpacity, errorOpacity]);
+
+    const idleStyle = useAnimatedStyle(() => ({ opacity: idleOpacity.value }));
+    const successStyle = useAnimatedStyle(() => ({ opacity: successOpacity.value }));
+    const errorStyle = useAnimatedStyle(() => ({ opacity: errorOpacity.value }));
+
+    const isInteractive = state === 'idle' && !disabled && !loading;
+
+    return (
+        <Pressable onPress={isInteractive ? onPress : undefined} disabled={!isInteractive}>
+            <Animated.View
+                style={[
+                    {
+                        height: 56,
+                        borderRadius: 16,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        overflow: 'hidden',
+                    },
+                    bgStyle,
+                ]}
+            >
+                <Animated.View style={[StyleAbsoluteCenter, idleStyle]}>
+                    <ThemedText type="body-md-semibold" style={{ color: theme[50] }} numberOfLines={1}>
+                        {loading ? 'Posting…' : idleLabel}
+                    </ThemedText>
+                </Animated.View>
+                <Animated.View style={[StyleAbsoluteCenter, successStyle]}>
+                    <ThemedText type="body-md-semibold" style={{ color: Neutral.white }} numberOfLines={1}>
+                        Bounty posted
+                    </ThemedText>
+                </Animated.View>
+                <Animated.View style={[StyleAbsoluteCenter, errorStyle]}>
+                    <ThemedText type="body-md-semibold" style={{ color: Neutral.white }} numberOfLines={1}>
+                        {errorMessage ?? "Couldn't publish bounty"}
+                    </ThemedText>
+                </Animated.View>
+            </Animated.View>
+        </Pressable>
+    );
+}
+
+const StyleAbsoluteCenter = {
+    position: 'absolute' as const,
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    paddingHorizontal: 16,
+};
+
+interface ScopeChipProps {
+    label: string;
+    iconName: 'globe' | 'person.2.fill';
+    trailingIcon: 'chevron.down' | 'lock.fill';
+    locked?: boolean;
+    theme: ReturnType<typeof useTheme>['theme'];
+}
+
+function ScopeChip({ label, iconName, trailingIcon, locked, theme }: ScopeChipProps) {
+    return (
+        <View
+            pointerEvents="none"
+            style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+                paddingHorizontal: 10,
+                paddingVertical: 6,
+                borderRadius: 9999,
+                backgroundColor: theme[200],
+                opacity: locked ? 0.7 : 1,
+                maxWidth: 160,
+            }}
+        >
+            <Icon name={iconName} size={13} color={theme[700]} />
+            <ThemedText
+                type="caption-semibold"
+                style={{ color: theme[900] }}
+                numberOfLines={1}
+            >
+                {label}
+            </ThemedText>
+            <Icon name={trailingIcon} size={11} color={theme[500]} />
+        </View>
     );
 }

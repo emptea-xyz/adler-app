@@ -1,6 +1,3 @@
-/** Use mock data in development. Set to false to use real Firebase in dev. */
-export const USE_DEV_DATA = false;
-
 /**
  * Solana network + RPC. Driven by env so the same JS bundle ships to both
  * devnet (preview) and mainnet (production) builds via separate EAS profiles.

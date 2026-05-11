@@ -32,7 +32,7 @@ export const Screen = {
 // ─────────────────────────────────────────────────────────────────
 
 /** Height of the tab bar (excluding safe-area inset) */
-export const TAB_BAR_HEIGHT = 60;
+export const TAB_BAR_HEIGHT = 80;
 
 // ─────────────────────────────────────────────────────────────────
 // COMPONENT SIZING

@@ -8,9 +8,9 @@ Compressed ruleset for the submission push. Long reference docs (`ux-principles.
 - NativeWind 4 · `cn()` helper · theme tokens via `useTheme()` from `ThemeContext`
 - TanStack Query 5 (server) + Context (global) + useState (local)
 - Privy embedded Solana wallets → Firebase Auth bridge via `mintFirebaseToken` Cloud Function
-- Solana **devnet** · `@solana/web3.js` · direct SOL transfers (escrow lands in Step 4 of docs/PORT_PLAN.md)
-- Firestore + Storage + Functions · no analytics/Sentry-only
-- Skia for charts · Reanimated 4 · Lucide icons · Geist font
+- Solana **devnet** · `@solana/web3.js` + `@coral-xyz/anchor` · **Anchor escrow program** (`adler-escrow`, id in `lib/constants/escrow.ts`) — funded bounties, manual / auto settlement, refund + cancel paths
+- Firestore + Storage + Functions + App Check · no analytics/Sentry on v1
+- Skia for TabBar / ProgressBar / EagleLoader / ArrowProgress · Reanimated 4 · Lucide icons · Geist font
 
 ## iOS-only (hard rule)
 Never reintroduce Android: no `Platform.OS === 'android'` branches, no Android deps, no `npm run android`, no `android/` folder. `app.json` is `["ios", "web"]`.
@@ -29,23 +29,29 @@ Each role has exactly one source of truth. Do not cross the streams.
 - Layout numbers: `LayoutConstants` (`TAB_BAR_HEIGHT`, `BottomInset`, `AnimationDuration`). Add to constants if missing — never inline a magic number.
 - Safe areas: `useSafeAreaInsets()`. Never hardcode `59` or `34`.
 
-## Routing (three-state)
+## Routing (two-state)
 1. No Privy user → `/(auth)/sign-in`
-2. Privy user, no profile side set up → `<ProfileGate>` blocks (tabs); old `role-select.tsx` is being deleted in Step 2
-3. Has at least one side → `/(home)/(tabs)/browse`
+2. Privy user → `/(home)/(tabs)/browse`
 
-Tabs: Browse · Inbox · Create (oversized center) · Profile via `AdlerTabBar`.
+Profile bootstrap happens inside `UserContext` on first sign-in. No `role-select` step — bounties have a single role model (anyone can post, anyone can submit).
 
-## Firestore (v1 schema — already migrated)
-- `profiles/{uid}` — `creatorProfile`/`brandProfile` sub-objects, `isCreator`/`isBrand` denorm flags, `dmContact`, `country`
-- `services/{id}` (was `packages`) · `gigs/{id}` · `gigApplications/{id}` (deterministic id) · `orders/{id}` · `reviews/{id}` (deterministic id)
+Tabs: Browse · Inbox · Wallet · Profile via `TabBar` (`components/ui/TabBar.tsx`). "Create bounty" is launched via the `PostBountySheet` from Browse.
+
+## Firestore (v1 schema)
+- `profiles/{uid}` — username, displayName, bio, avatarUrl, walletAddress, location, dmContact, pushToken (Privy user id == Firebase auth uid)
+- `usernames/{slug}` — unique-username sentinel (transactional reservation)
+- `bounties/{id}` — poster-funded bounties (posterId, contractIdHex, amountLamports, mode `manual`/`auto`, submissionKind, scope `public`/`group`, groupId, submissionEndsAt, expiresAt, status `open`/`cancelling`/`refunded`/`settled`/`cancelled`)
+- `submissions/{id}` · `reports/{id}` · `groups/{id}` · `groupMembers/{compoundId}` (`<groupId>_<userId>`) · `joinRequests/{id}` · `groupCreationRequests/{id}` · `notifications/{id}` · `preferences/{uid}`
 - Backend rules + Cloud Functions are the contract — **never redeploy backend from mobile**
 
-## Payment flow (current — direct transfer; escrow is Step 4)
-1. Order doc written first as `pending` (intent record)
-2. `transferSol` via Privy `EmbeddedSolanaWalletProvider`
-3. On success → flip to `paid` with `txSignature`
-4. On failure → leave `pending` for future reconciler
+## Bounty lifecycle (on-chain escrow)
+1. `useBountyEscrow().post` → `bountyService.draftBounty` reserves doc id + `contractIdHex` → `escrow.createBounty` runs `create_bounty` → `bountyService.persistBounty` writes the doc as `open`
+2. Submitters call `submissionService.createSubmission` (hard cap `MAX_SUBMISSIONS_PER_USER = 1`)
+3. **Manual**: `useBountyEscrow().settleManual` → `settle_manual_bounty` (winner gets amount − 0.5% fee, fee to `feeTreasury`) → `markManualSettled`
+4. **Cancel** (no submissions): flips Firestore to `cancelling` → `cancel_bounty` → `finishCancel`; on failure `abortCancel` reverts, otherwise swept by `expireBounties` Cloud Function
+5. **Refund** (post-`expiresAt`, no winner): anyone calls `refund_bounty` — funds return to poster
+
+Protocol fee `PROTOCOL_FEE_BPS = 50` (0.5%) — computed on-chain; client estimates via `computeFeeLamports` / `computeFeeSol` for receipts.
 
 ## Buttons
 - Exactly one primary per screen (full-width, solid). Secondary = ghost. Tertiary = text-only. Destructive = `#DC143C`.

@@ -26,7 +26,7 @@ interface AlertProps {
   cancelText?: string;
   /** Color for the confirm button text (default: theme text color) */
   confirmColor?: string;
-  /** Height of the alert (default: 200) */
+  /** Height of the alert (default: 260) */
   height?: number;
   /** Whether the confirm action is destructive (renders red background) */
   isDestructive?: boolean;
@@ -45,7 +45,7 @@ export function Alert({
   confirmText = "Confirm",
   cancelText = "Cancel",
   confirmColor,
-  height = 200,
+  height = 260,
   isDestructive = false,
 }: AlertProps) {
   const { theme } = useTheme();

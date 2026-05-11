@@ -1,17 +1,21 @@
 import {
-    addDoc,
     collection,
+    doc,
     getDocs,
     limit,
     orderBy,
     query,
     serverTimestamp,
+    setDoc,
     where,
 } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase/config';
 import { tsMs } from '@/lib/utils/firestoreTimestamp';
-import { uploadBountySubmissionPhoto } from '@/lib/services/bountyMediaUploadService';
-import type { AiVerdict, Submission } from '@/lib/types/submission';
+import {
+    uploadBountySubmissionPhoto,
+    uploadBountySubmissionVideo,
+} from '@/lib/services/bountyMediaUploadService';
+import type { Submission } from '@/lib/types/submission';
 
 const SUBMISSIONS = 'submissions';
 
@@ -22,10 +26,10 @@ function rowToSubmission(id: string, data: Record<string, unknown>): Submission 
         submitterId: (data.submitterId as string) ?? '',
         photoUrl: (data.photoUrl as string) ?? '',
         photoStoragePath: (data.photoStoragePath as string) ?? '',
+        videoUrl: (data.videoUrl as string) ?? '',
+        videoStoragePath: (data.videoStoragePath as string) ?? '',
+        linkUrl: (data.linkUrl as string | null) ?? null,
         submittedAt: tsMs(data.submittedAt) || Date.now(),
-        aiVerdict: (data.aiVerdict as AiVerdict | null) ?? null,
-        aiConfidence: typeof data.aiConfidence === 'number' ? data.aiConfidence : null,
-        aiReasoning: (data.aiReasoning as string | null) ?? null,
         isWinner: data.isWinner === true,
     };
 }
@@ -36,35 +40,116 @@ export interface CreateSubmissionInput {
 }
 
 /**
- * Upload the photo to Firebase Storage, then write the submission doc.
- * Cloud Function `verifyBountySubmission` picks it up, runs Gemini, and
- * (auto mode) lands the on-chain settle if it passes.
+ * Upload a photo, then write the submission doc. Reviewed manually by
+ * the bounty poster.
  */
 export async function createSubmission(input: CreateSubmissionInput): Promise<Submission> {
     const uid = auth.currentUser?.uid;
     if (!uid) throw new Error('Sign-in required');
     const { url, path } = await uploadBountySubmissionPhoto(input.photoUri);
-    const ref = await addDoc(collection(db, SUBMISSIONS), {
+    const id = `${input.bountyId}_${uid}`;
+    const ref = doc(db, SUBMISSIONS, id);
+    const payload = {
         bountyId: input.bountyId,
         submitterId: uid,
         photoUrl: url,
         photoStoragePath: path,
+        videoUrl: '',
+        videoStoragePath: '',
+        linkUrl: null,
         submittedAt: serverTimestamp(),
-        aiVerdict: null,
-        aiConfidence: null,
-        aiReasoning: null,
         isWinner: false,
-    });
+    };
+    await setDoc(ref, payload);
     return {
-        id: ref.id,
+        id,
         bountyId: input.bountyId,
         submitterId: uid,
         photoUrl: url,
         photoStoragePath: path,
+        videoUrl: '',
+        videoStoragePath: '',
+        linkUrl: null,
         submittedAt: Date.now(),
-        aiVerdict: null,
-        aiConfidence: null,
-        aiReasoning: null,
+        isWinner: false,
+    };
+}
+
+export interface CreateVideoSubmissionInput {
+    bountyId: string;
+    videoUri: string;
+    mimeType?: string;
+}
+
+/**
+ * Upload a video, then write the submission doc. Reviewed manually by
+ * the bounty poster.
+ */
+export async function createVideoSubmission(
+    input: CreateVideoSubmissionInput,
+): Promise<Submission> {
+    const uid = auth.currentUser?.uid;
+    if (!uid) throw new Error('Sign-in required');
+    const { url, path } = await uploadBountySubmissionVideo(input.videoUri, input.mimeType);
+    const id = `${input.bountyId}_${uid}`;
+    const ref = doc(db, SUBMISSIONS, id);
+    const payload = {
+        bountyId: input.bountyId,
+        submitterId: uid,
+        photoUrl: '',
+        photoStoragePath: '',
+        videoUrl: url,
+        videoStoragePath: path,
+        linkUrl: null,
+        submittedAt: serverTimestamp(),
+        isWinner: false,
+    };
+    await setDoc(ref, payload);
+    return {
+        id,
+        bountyId: input.bountyId,
+        submitterId: uid,
+        photoUrl: '',
+        photoStoragePath: '',
+        videoUrl: url,
+        videoStoragePath: path,
+        linkUrl: null,
+        submittedAt: Date.now(),
+        isWinner: false,
+    };
+}
+
+/** Submit a link-style entry (no upload, e.g. a GitHub repo URL). */
+export async function createLinkSubmission(input: {
+    bountyId: string;
+    linkUrl: string;
+}): Promise<Submission> {
+    const uid = auth.currentUser?.uid;
+    if (!uid) throw new Error('Sign-in required');
+    const id = `${input.bountyId}_${uid}`;
+    const ref = doc(db, SUBMISSIONS, id);
+    const payload = {
+        bountyId: input.bountyId,
+        submitterId: uid,
+        photoUrl: '',
+        photoStoragePath: '',
+        videoUrl: '',
+        videoStoragePath: '',
+        linkUrl: input.linkUrl.trim(),
+        submittedAt: serverTimestamp(),
+        isWinner: false,
+    };
+    await setDoc(ref, payload);
+    return {
+        id,
+        bountyId: input.bountyId,
+        submitterId: uid,
+        photoUrl: '',
+        photoStoragePath: '',
+        videoUrl: '',
+        videoStoragePath: '',
+        linkUrl: input.linkUrl.trim(),
+        submittedAt: Date.now(),
         isWinner: false,
     };
 }

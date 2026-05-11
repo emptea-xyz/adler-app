@@ -1,7 +1,8 @@
 import React, { useCallback } from 'react';
-import { View, Pressable, StyleSheet } from 'react-native';
+import { View, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import { Canvas, Rect, LinearGradient, vec } from '@shopify/react-native-skia';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useOverlaySheets } from '@/contexts/OverlaySheetsContext';
@@ -27,12 +28,17 @@ const LABELS: Record<string, string> = {
 
 // `create` is a virtual slot — it does not have a Tabs.Screen route. It
 // opens the post-bounty bottom sheet directly.
-const TAB_ORDER = ['browse', 'inbox', 'create', 'profile', 'wallet'] as const;
+const TAB_ORDER = ['browse', 'inbox', 'create', 'wallet', 'profile'] as const;
 
-export function AdlerTabBar({ state, navigation }: BottomTabBarProps) {
+const FADE_ZONE = 28;
+
+export function TabBar({ state, navigation }: BottomTabBarProps) {
     const { theme } = useTheme();
     const insets = useSafeAreaInsets();
+    const { width } = useWindowDimensions();
     const { openPostBounty } = useOverlaySheets();
+
+    const totalHeight = TAB_BAR_HEIGHT + insets.bottom;
 
     const onTabPress = useCallback(
         (routeName: string) => {
@@ -64,12 +70,29 @@ export function AdlerTabBar({ state, navigation }: BottomTabBarProps) {
             style={[
                 styles.container,
                 {
-                    backgroundColor: theme[50],
                     paddingBottom: insets.bottom,
-                    height: TAB_BAR_HEIGHT + insets.bottom,
+                    height: totalHeight,
+
                 },
             ]}
+            pointerEvents="box-none"
         >
+            <Canvas style={StyleSheet.absoluteFill} pointerEvents="none">
+                <Rect x={0} y={0} width={width} height={totalHeight}>
+                    <LinearGradient
+                        start={vec(0, 0)}
+                        end={vec(0, totalHeight)}
+                        colors={[
+                            `${theme[50]}00`,
+                            `${theme[50]}`,
+                            `${theme[50]}`,
+                            `${theme[50]}`,
+                            theme[50],
+                        ]}
+                   
+                    />
+                </Rect>
+            </Canvas>
             <Pressable
                 key="browse"
                 onPress={() => onTabPress('browse')}
@@ -81,7 +104,7 @@ export function AdlerTabBar({ state, navigation }: BottomTabBarProps) {
                 <Icon
                     name={ICONS['browse']}
                     size={28}
-                    color={focusedRouteName === 'browse' ? theme[950] : theme[100]}
+                    color={focusedRouteName === 'browse' ? theme[950] : theme[200]}
                 />
             </Pressable>
             <Pressable
@@ -95,7 +118,7 @@ export function AdlerTabBar({ state, navigation }: BottomTabBarProps) {
                 <Icon
                     name={ICONS['inbox']}
                     size={28}
-                    color={focusedRouteName === 'inbox' ? theme[950] : theme[100]}
+                    color={focusedRouteName === 'inbox' ? theme[950] : theme[200]}
                 />
             </Pressable>
             <Pressable
@@ -113,20 +136,6 @@ export function AdlerTabBar({ state, navigation }: BottomTabBarProps) {
                 />
             </Pressable>
             <Pressable
-                key="profile"
-                onPress={() => onTabPress('profile')}
-                style={styles.tabSlot}
-                accessibilityRole="button"
-                accessibilityState={focusedRouteName === 'profile' ? { selected: true } : {}}
-                accessibilityLabel={LABELS['profile']}
-            >
-                <Icon
-                    name={ICONS['profile']}
-                    size={28}
-                    color={focusedRouteName === 'profile' ? theme[950] : theme[100]}
-                />
-            </Pressable>
-            <Pressable
                 key="wallet"
                 onPress={() => onTabPress('wallet')}
                 style={styles.tabSlot}
@@ -137,19 +146,37 @@ export function AdlerTabBar({ state, navigation }: BottomTabBarProps) {
                 <Icon
                     name={ICONS['wallet']}
                     size={28}
-                    color={focusedRouteName === 'wallet' ? theme[950] : theme[100]}
+                    color={focusedRouteName === 'wallet' ? theme[950] : theme[200]}
                 />
             </Pressable>
-  
+            <Pressable
+                key="profile"
+                onPress={() => onTabPress('profile')}
+                style={styles.tabSlot}
+                accessibilityRole="button"
+                accessibilityState={focusedRouteName === 'profile' ? { selected: true } : {}}
+                accessibilityLabel={LABELS['profile']}
+            >
+                <Icon
+                    name={ICONS['profile']}
+                    size={28}
+                    color={focusedRouteName === 'profile' ? theme[950] : theme[200]}
+                />
+            </Pressable>
+
         </View>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        bottom: 0,
         flexDirection: 'row',
         alignItems: 'flex-start',
-        paddingTop: 8,
+        paddingTop: 18,
         paddingHorizontal: 16,
     },
     tabSlot: {

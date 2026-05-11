@@ -1,9 +1,9 @@
 import React from 'react';
-import Svg, { Defs, LinearGradient, Stop, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 
-// Canonical Solana logo — three slanted bars with the brand gradient
-// (#00FFA3 → #DC1FFF). Paths copied verbatim from the Solana brand kit
-// SVG export (per Rule Zero of design-code-migration.md).
+// Canonical Solana logo — three slanted bars in a single solid fill.
+// Paths copied verbatim from the Solana brand kit SVG export
+// (per Rule Zero of design-code-migration.md).
 //
 // Source viewBox: 397.7 x 311.7. Three paths in z-order:
 //   1. Top bar
@@ -23,30 +23,19 @@ const BOT =
 interface SolanaIconProps {
     /** Rendered height in dp; width follows the canonical 397.7:311.7 ratio. */
     size?: number;
+    /** Fill color. Defaults to solid black. */
+    color?: string;
 }
 
-export function SolanaIcon({ size = 24 }: SolanaIconProps) {
+export function SolanaIcon({ size = 24, color = '#000000' }: SolanaIconProps) {
     const aspect = VB_W / VB_H;
     const width = size * aspect;
 
     return (
         <Svg width={width} height={size} viewBox={`0 0 ${VB_W} ${VB_H}`}>
-            <Defs>
-                <LinearGradient
-                    id="solanaGradient"
-                    x1="360.879"
-                    y1="351.455"
-                    x2="141.213"
-                    y2="-69.294"
-                    gradientUnits="userSpaceOnUse"
-                >
-                    <Stop offset="0" stopColor="#00FFA3" />
-                    <Stop offset="1" stopColor="#DC1FFF" />
-                </LinearGradient>
-            </Defs>
-            <Path d={TOP} fill="url(#solanaGradient)" />
-            <Path d={MID} fill="url(#solanaGradient)" />
-            <Path d={BOT} fill="url(#solanaGradient)" />
+            <Path d={TOP} fill={color} />
+            <Path d={MID} fill={color} />
+            <Path d={BOT} fill={color} />
         </Svg>
     );
 }

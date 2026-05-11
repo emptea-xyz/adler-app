@@ -3,7 +3,7 @@ import { Slot, useRouter } from "expo-router";
 import { useFonts } from "expo-font";
 import { Geist_400Regular, Geist_600SemiBold } from "@expo-google-fonts/geist";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { View, StatusBar, useColorScheme } from "react-native";
+import { View, StatusBar } from "react-native";
 import ToastManager from "toastify-react-native";
 import * as SplashScreen from "expo-splash-screen";
 import { PrivyProvider } from "@privy-io/expo";
@@ -38,7 +38,6 @@ const PRIVY_APP_ID = process.env.EXPO_PUBLIC_PRIVY_APP_ID || "";
 const PRIVY_CLIENT_ID = process.env.EXPO_PUBLIC_PRIVY_CLIENT_ID;
 
 function RootLayoutContent() {
-  const systemScheme = useColorScheme();
   const router = useRouter();
 
   useEffect(() => {
@@ -68,7 +67,7 @@ function RootLayoutContent() {
         },
       }}
     >
-      <View style={{ flex: 1, backgroundColor: systemScheme === 'dark' ? MONO_PALETTE[950] : MONO_PALETTE[50] }}>
+      <View style={{ flex: 1, backgroundColor: MONO_PALETTE[50] }}>
         <QueryProvider>
           <ThemeProvider>
             <DynamicStatusBar />
@@ -111,7 +110,7 @@ function RootLayout() {
 
   return (
     <ErrorBoundary>
-      <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
+      <GestureHandlerRootView style={{ flex: 1, backgroundColor: MONO_PALETTE[50] }} onLayout={onLayoutRootView}>
         <RootLayoutContent />
       </GestureHandlerRootView>
     </ErrorBoundary>

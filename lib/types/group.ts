@@ -19,6 +19,8 @@ export interface Group {
   /** Sum of bountyLamports across open group bounties. Maintained by
    *  Cloud Function; clients display only. */
   openBountyTotalLamports: number;
+  /** Optional avatar/logo URL; falls back to an initial circle in the UI. */
+  logoUrl?: string | null;
 }
 
 export interface GroupMember {

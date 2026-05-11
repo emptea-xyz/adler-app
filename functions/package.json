@@ -1,6 +1,7 @@
 {
   "name": "adler-functions",
   "private": true,
+  "_packageManager": "Use npm here, NOT pnpm. The `overrides` block pins uuid@9.0.1 to keep rpc-websockets (transitive via @solana/web3.js) on a CommonJS-compatible uuid. pnpm v11 doesn't honour the override for that transitive and bumps uuid to 14 (ESM-only), which crashes the Functions runtime with ERR_REQUIRE_ESM. functions/pnpm-lock.yaml is gitignored.",
   "main": "index.js",
   "type": "module",
   "scripts": {
@@ -11,7 +12,6 @@
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.31.1",
-    "@google/generative-ai": "^0.24.1",
     "@privy-io/node": "^0.16.0",
     "@solana/web3.js": "1.95.8",
     "bs58": "^6.0.0",

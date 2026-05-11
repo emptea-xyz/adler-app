@@ -133,7 +133,7 @@ Goal: creators record + publish videos as services, apply to gigs; brands post g
 | Creator | Browse · Inbox · **Create (oversized arrow)** · Profile |
 | Brand | Browse · Inbox · Profile |
 
-`AdlerTabBar` reads `viewMode` and renders accordingly. Routes stay registered for deep-link stability; only the visual button is conditional. Brand gig creation surfaces via:
+`TabBar` reads `viewMode` and renders accordingly. Routes stay registered for deep-link stability; only the visual button is conditional. Brand gig creation surfaces via:
 1. Header chip on Browse: `+ Post gig`
 2. FAB on Profile → My gigs
 

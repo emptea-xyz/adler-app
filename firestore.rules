@@ -23,10 +23,9 @@ service cloud.firestore {
       return v is string && v.size() <= 280;
     }
     function validLocation(v) {
-      return v is map && v.kind in ['city', 'global'] &&
+      return v is map && v.kind in ['country', 'global'] &&
              (v.kind == 'global'
-                || (v.city is string && v.city.size() > 0 && v.city.size() <= 60 &&
-                    v.country is string && v.country.size() == 2));
+                || (v.country is string && v.country.size() == 2));
     }
 
     match /profiles/{userId} {
@@ -43,9 +42,29 @@ service cloud.firestore {
                     && validUsername(request.resource.data.username)
                     && validDisplayName(request.resource.data.displayName)
                     && validBio(request.resource.data.bio)
-                    && validLocation(request.resource.data.location)
-                    // groupCount + latestActivityAt are server-only fields.
-                    && (request.resource.data.groupCount == resource.data.get('groupCount', 0));
+                    // Location is optional on legacy profiles. If present, must validate.
+                    && (request.resource.data.get('location', null) == null
+                        || validLocation(request.resource.data.location))
+                    // groupCount + latestActivityAt are server-only fields — must
+                    // not change on a client update. .get() tolerates legacy
+                    // profiles where the field never existed.
+                    && (request.resource.data.get('groupCount', 0)
+                        == resource.data.get('groupCount', 0))
+                    // Username change: rate-limited to once every 30 days
+                    // (2_592_000_000 ms). lastUsernameChangeAt must equal
+                    // request.time so clients can't backdate it.
+                    && (
+                      // (a) Username preserved → no cooldown bookkeeping required.
+                      request.resource.data.username == resource.data.username
+                      // (b) Username changed → cooldown elapsed (or never set)
+                      //     AND new lastUsernameChangeAt is the server clock.
+                      || (
+                        (resource.data.get('lastUsernameChangeAt', null) == null
+                          || request.time.toMillis()
+                              - resource.data.lastUsernameChangeAt.toMillis() >= 2592000000)
+                        && request.resource.data.lastUsernameChangeAt == request.time
+                      )
+                    );
       allow delete: if false;
     }
 
@@ -59,15 +78,22 @@ service cloud.firestore {
     }
 
     // ── Bounties ────────────────────────────────────────────────────────
+    // Single-mode (manual), single-window (30d submissions + 90d review).
+    // Total lifetime: 120 days before refund unlocks.
     function bountyValidShape(d) {
       return d.posterId is string
              && d.title is string && d.title.size() > 0 && d.title.size() <= 80
              && d.prompt is string && d.prompt.size() > 0 && d.prompt.size() <= 500
-             && d.mode in ['manual', 'auto']
              && d.bountyLamports is int && d.bountyLamports > 0
              && d.scope in ['public', 'group']
-             && d.contractIdHex is string && d.contractIdHex.size() == 64
-             && d.posterWalletAddress is string;
+             && d.contractIdHex is string && d.contractIdHex.matches('^[0-9a-f]{64}$')
+             && d.posterWalletAddress is string
+             && d.submissionKind in ['photo', 'video', 'link']
+             && d.submissionEndsAt is int
+             && d.expiresAt is int
+             // Timestamps are unix-ms. 90 days review = 7_776_000_000 ms.
+             && d.expiresAt == d.submissionEndsAt + 7776000000
+             && d.submissionCount is int && d.submissionCount == 0;
     }
 
     match /bounties/{id} {
@@ -83,39 +109,73 @@ service cloud.firestore {
                             && request.resource.data.groupId is string));
       // Owner update paths:
       //   (a) status preserved: e.g. flipping `escrowFunded` from false to true.
-      //   (b) open → settled via manual mode: poster signed `settle_manual_bounty`
+      //   (b) open|in_review → settled: poster signed `settle_manual_bounty`
       //       on-chain and writes the on-chain tx signature + winner refs.
-      // Auto-mode settle, refund, hidden flips are Cloud-Function-only.
+      // Refund + hidden flips are Cloud-Function-only.
       allow update: if isOwner(resource.data.posterId)
                     && request.resource.data.posterId == resource.data.posterId
                     && request.resource.data.bountyLamports == resource.data.bountyLamports
                     && request.resource.data.contractIdHex == resource.data.contractIdHex
                     && request.resource.data.reportCount == resource.data.reportCount
+                    && request.resource.data.submissionEndsAt == resource.data.submissionEndsAt
+                    && request.resource.data.expiresAt == resource.data.expiresAt
+                    && request.resource.data.get('submissionCount', 0)
+                        == resource.data.get('submissionCount', 0)
                     && (
-                      (resource.data.status == 'open' && request.resource.data.status == 'open')
-                      || (resource.data.status == 'open'
+                      // (a) Status preserved (e.g. flipping `escrowFunded` from false to true).
+                      (resource.data.status == request.resource.data.status
+                       && request.resource.data.status in ['open', 'in_review'])
+                      // (b) Manual settle: poster picks a winner in either `open` (early)
+                      //     or `in_review` (after submission window). Must be before
+                      //     refund-unlock (`expiresAt`).
+                      || ((resource.data.status == 'open' || resource.data.status == 'in_review')
                           && request.resource.data.status == 'settled'
-                          && resource.data.mode == 'manual'
                           && request.resource.data.winnerId is string
                           && request.resource.data.winningSubmissionId is string
+                          && request.resource.data.txSignature is string
+                          && request.time.toMillis() < resource.data.expiresAt)
+                      // (c) Cancel — step 1: poster claims the lock. Atomic with
+                      //     `enforceSubmissionCap` so a racing submitter can't
+                      //     slip in. Must record `cancellingFromStatus` so the
+                      //     revert path (e) knows what to restore.
+                      //     .get() tolerates legacy docs where submissionCount was never set.
+                      || ((resource.data.status == 'open' || resource.data.status == 'in_review')
+                          && request.resource.data.status == 'cancelling'
+                          && resource.data.get('submissionCount', 0) == 0
+                          && request.resource.data.cancellingFromStatus == resource.data.status)
+                      // (d) Cancel — step 2 (success): on-chain ix landed, write
+                      //     the tx signature and finalise as refunded. Same
+                      //     terminal as the auto-expire path so downstream
+                      //     consumers stay simple.
+                      || (resource.data.status == 'cancelling'
+                          && request.resource.data.status == 'refunded'
                           && request.resource.data.txSignature is string)
+                      // (e) Cancel — step 2 (abort): on-chain ix failed; roll back
+                      //     to whichever status we recorded at step 1.
+                      || (resource.data.status == 'cancelling'
+                          && request.resource.data.status == resource.data.cancellingFromStatus)
                     );
       allow delete: if false;
     }
 
     // ── Submissions ─────────────────────────────────────────────────────
+    // One submission per user per bounty. The deterministic doc id
+    // `${bountyId}_${submitterId}` is the hard gate — a second create
+    // from the same user collides and is rejected. The
+    // `enforceSubmissionCap` Cloud Function is a defensive backstop.
     match /submissions/{id} {
       allow read: if true;
       allow create: if isOwner(request.resource.data.submitterId)
                     && request.resource.data.bountyId is string
                     && request.resource.data.photoUrl is string
-                    && request.resource.data.aiVerdict == null
-                    && request.resource.data.isWinner == false;
-      // Submitter can delete their own submission only before a verdict
-      // lands (i.e. before the verifier writes aiVerdict).
+                    && request.resource.data.videoUrl is string
+                    && request.resource.data.isWinner == false
+                    && id == request.resource.data.bountyId + '_' + request.auth.uid;
+      // Submitter can withdraw their own submission until the poster
+      // marks them the winner.
       allow update: if false;
       allow delete: if isOwner(resource.data.submitterId)
-                    && resource.data.aiVerdict == null;
+                    && resource.data.isWinner == false;
     }
 
     // ── Reports ─────────────────────────────────────────────────────────
