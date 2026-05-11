@@ -2,27 +2,32 @@ import React, { useCallback } from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { Compass, Inbox, User } from 'lucide-react-native';
+import { Icon, type IconName } from '@/components/ui/Icon';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useOverlaySheets } from '@/contexts/OverlaySheetsContext';
 import { haptic } from '@/lib/utils/haptic';
 import { TAB_BAR_HEIGHT } from '@/constants/LayoutConstants';
-import { SolanaUploadArrow } from '@/components/ui/SolanaUploadArrow';
+import { TailwindColors } from '@/constants/TailwindColors';
+import { Neutral } from '@/constants/NeutralColors';
 
-const ICONS: Record<string, React.ComponentType<{ size: number; color: string; strokeWidth?: number }>> = {
-    browse: Compass,
-    inbox: Inbox,
-    profile: User,
+const ICONS: Record<string, IconName> = {
+    browse: 'safari.fill',
+    inbox: 'tray.fill',
+    profile: 'person.fill',
+    wallet: 'wallet.bifold.fill',
 };
 
 const LABELS: Record<string, string> = {
     browse: 'Browse',
     inbox: 'Inbox',
-    create: 'Create',
     profile: 'Profile',
+    wallet: 'Wallet',
 };
 
-const TAB_ORDER = ['browse', 'create', 'inbox', 'profile'] as const;
+const TAB_ORDER = ['browse', 'inbox', 'profile', 'wallet'] as const;
+
+const FAB_SIZE = 56;
+const FAB_RAISE = 12;
 
 export function AdlerTabBar({ state, navigation }: BottomTabBarProps) {
     const { theme } = useTheme();
@@ -62,46 +67,59 @@ export function AdlerTabBar({ state, navigation }: BottomTabBarProps) {
                     backgroundColor: theme[50],
                     paddingBottom: insets.bottom,
                     height: TAB_BAR_HEIGHT + insets.bottom,
+                    overflow: 'visible',
                 },
             ]}
         >
-            {TAB_ORDER.map((name) => {
-                const isCenter = name === 'create';
+            {TAB_ORDER.map((name, index) => {
                 const isFocused = focusedRouteName === name;
-
-                if (isCenter) {
-                    return (
-                        <Pressable
-                            key={name}
-                            onPress={onCreatePress}
-                            style={styles.centerSlot}
-                            hitSlop={8}
-                            accessibilityRole="button"
-                            accessibilityLabel={LABELS[name]}
-                        >
-                            <SolanaUploadArrow size={52} />
-                        </Pressable>
-                    );
-                }
-
-                const Icon = ICONS[name];
+                // Push the two inner tabs (index 1 and 2) outward so they
+                // don't visually collide with the centered FAB.
+                const innerSpacing =
+                    index === 1
+                        ? { paddingRight: FAB_SIZE / 2 + 8 }
+                        : index === 2
+                          ? { paddingLeft: FAB_SIZE / 2 + 8 }
+                          : null;
                 return (
                     <Pressable
                         key={name}
                         onPress={() => onPress(name)}
-                        style={styles.tabSlot}
+                        style={[styles.tabSlot, innerSpacing]}
                         accessibilityRole="button"
                         accessibilityState={isFocused ? { selected: true } : {}}
                         accessibilityLabel={LABELS[name]}
                     >
                         <Icon
-                            size={22}
+                            name={ICONS[name]}
+                            size={28}
                             color={isFocused ? theme[950] : theme[400]}
-                            strokeWidth={2}
                         />
                     </Pressable>
                 );
             })}
+
+            <View
+                pointerEvents="box-none"
+                style={[styles.fabWrap, { bottom: insets.bottom + FAB_RAISE }]}
+            >
+                <Pressable
+                    onPress={onCreatePress}
+                    hitSlop={12}
+                    accessibilityRole="button"
+                    accessibilityLabel="Create"
+                    style={({ pressed }) => [
+                        styles.fab,
+                        {
+                            backgroundColor: TailwindColors.sky[500],
+                            opacity: pressed ? 0.9 : 1,
+                            transform: [{ scale: pressed ? 0.96 : 1 }],
+                        },
+                    ]}
+                >
+                    <Icon name="plus" size={28} color={Neutral.white} weight="bold" />
+                </Pressable>
+            </View>
         </View>
     );
 }
@@ -119,10 +137,24 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
-    centerSlot: {
-        flex: 1,
-        height: TAB_BAR_HEIGHT - 8,
+    fabWrap: {
+        position: 'absolute',
+        left: '50%',
+        marginLeft: -FAB_SIZE / 2,
+        width: FAB_SIZE,
+        height: FAB_SIZE,
+        zIndex: 10,
+    },
+    fab: {
+        width: FAB_SIZE,
+        height: FAB_SIZE,
+        borderRadius: FAB_SIZE / 2,
         alignItems: 'center',
         justifyContent: 'center',
+        shadowColor: Neutral.black,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.18,
+        shadowRadius: 10,
+        elevation: 8,
     },
 });
