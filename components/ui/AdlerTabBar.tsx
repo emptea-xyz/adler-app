@@ -108,16 +108,14 @@ export function AdlerTabBar({ state, navigation }: BottomTabBarProps) {
                     hitSlop={12}
                     accessibilityRole="button"
                     accessibilityLabel="Create"
-                    style={({ pressed }) => [
-                        styles.fab,
-                        {
-                            backgroundColor: TailwindColors.sky[500],
-                            opacity: pressed ? 0.9 : 1,
-                            transform: [{ scale: pressed ? 0.96 : 1 }],
-                        },
-                    ]}
+                    style={({ pressed }) => ({
+                        opacity: pressed ? 0.9 : 1,
+                        transform: [{ scale: pressed ? 0.96 : 1 }],
+                    })}
                 >
-                    <Icon name="plus" size={28} color={Neutral.white} weight="bold" />
+                    <View style={[styles.fab, { backgroundColor: TailwindColors.sky[500] }]}>
+                        <Icon name="plus" size={28} color={Neutral.white} weight="bold" />
+                    </View>
                 </Pressable>
             </View>
         </View>
