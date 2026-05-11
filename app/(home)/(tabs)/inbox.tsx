@@ -31,16 +31,16 @@ function SubmissionRow({ submission }: { submission: Submission }) {
         haptic('light');
         router.push(`/bounty/${submission.bountyId}`);
     };
-    let intent: 'lime' | 'orange' | 'cyan' | 'neutral' = 'neutral';
+    let intent: 'success' | 'error' | 'info' | 'neutral' = 'neutral';
     let label = 'Pending';
     if (submission.isWinner) {
-        intent = 'cyan';
+        intent = 'info';
         label = 'WON';
     } else if (submission.aiVerdict === 'pass') {
-        intent = 'lime';
+        intent = 'success';
         label = 'PASS';
     } else if (submission.aiVerdict === 'fail') {
-        intent = 'orange';
+        intent = 'error';
         label = 'FAIL';
     }
     return (

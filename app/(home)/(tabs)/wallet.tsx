@@ -10,13 +10,15 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { ThemedView } from '@/components/base/ThemedView';
 import { ThemedText } from '@/components/base/ThemedText';
 import { ActionTile } from '@/components/ui/ActionTile';
+import { AdlerHomeHeader } from '@/components/features/home/AdlerHomeHeader';
+import { CircleIconButton } from '@/components/ui/CircleIconButton';
 import { SendSheet } from '@/components/features/wallet/SendSheet';
 import { ReceiveSheet } from '@/components/features/wallet/ReceiveSheet';
+import { ConnectivitySheet } from '@/components/features/wallet/ConnectivitySheet';
 import { getConnection, lamportsToSol, explorerAddressUrl } from '@/lib/solana/connection';
 import { qk } from '@/lib/constants/queryKeys';
-import { SOLANA_NETWORK } from '@/lib/constants/featureGates';
 import { TAB_BAR_HEIGHT } from '@/constants/LayoutConstants';
-import { Accent } from '@/constants/ThemePalettes';
+import { TailwindColors } from '@/constants/TailwindColors';
 import { Neutral } from '@/constants/NeutralColors';
 import { haptic } from '@/lib/utils/haptic';
 import { formatSolParts } from '@/lib/utils/formatNumber';
@@ -30,6 +32,7 @@ export default function WalletScreen() {
     const queryClient = useQueryClient();
     const [sendOpen, setSendOpen] = useState(false);
     const [receiveOpen, setReceiveOpen] = useState(false);
+    const [connectivityOpen, setConnectivityOpen] = useState(false);
 
     const balanceQuery = useQuery({
         queryKey: walletAddress ? qk.wallet.balance(walletAddress) : ['wallet', 'balance', 'none'],
@@ -65,10 +68,17 @@ export default function WalletScreen() {
 
     return (
         <ThemedView style={{ flex: 1 }}>
-            <View style={{ paddingTop: insets.top + 8, paddingHorizontal: 16, paddingBottom: 8 }}>
-                <ThemedText type="h3" style={{ color: theme[950] }}>
-                    Wallet
-                </ThemedText>
+            <View style={{ paddingTop: insets.top }}>
+                <AdlerHomeHeader
+                    title="Wallet"
+                    rightSlot={
+                        <CircleIconButton
+                            icon="antenna.radiowaves.left.and.right"
+                            onPress={() => setConnectivityOpen(true)}
+                            accessibilityLabel="Solana connectivity"
+                        />
+                    }
+                />
             </View>
 
             <ScrollView
@@ -80,27 +90,6 @@ export default function WalletScreen() {
                 }}
             >
                 <View style={{ gap: 4 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <ThemedText type="caption-semibold" style={{ color: theme[500] }}>
-                            Total Balance
-                        </ThemedText>
-                        <View
-                            style={{
-                                paddingHorizontal: 8,
-                                paddingVertical: 3,
-                                borderRadius: 9999,
-                                backgroundColor: theme[100],
-                            }}
-                        >
-                            <ThemedText
-                                type="caption-semibold"
-                                style={{ color: theme[600], letterSpacing: 0.6, textTransform: 'uppercase' }}
-                            >
-                                {SOLANA_NETWORK}
-                            </ThemedText>
-                        </View>
-                    </View>
-
                     {balanceQuery.isLoading || balanceQuery.data === undefined ? (
                         <View style={{ height: 56, justifyContent: 'center' }}>
                             <ActivityIndicator color={theme[500]} />
@@ -154,9 +143,9 @@ export default function WalletScreen() {
                                 flexDirection: 'row',
                                 alignItems: 'center',
                                 gap: 8,
-                                height: 56,
                                 paddingHorizontal: 28,
-                                borderRadius: 9999,
+                                paddingVertical: 12,
+                                borderRadius: 100,
                                 backgroundColor: theme[950],
                             }}
                         >
@@ -172,7 +161,8 @@ export default function WalletScreen() {
                     <View style={{ flexBasis: '48%', flexGrow: 1 }}>
                         <ActionTile
                             icon="arrow.up"
-                            iconBgColor={Accent.cyan}
+                            iconBgColor={TailwindColors.sky[500]}
+                            iconPosition="bottom-right"
                             title="Send"
                             subtitle="Send SOL"
                             onPress={() => setSendOpen(true)}
@@ -182,7 +172,8 @@ export default function WalletScreen() {
                     <View style={{ flexBasis: '48%', flexGrow: 1 }}>
                         <ActionTile
                             icon="clock.arrow.circlepath"
-                            iconBgColor={Accent.pink}
+                            iconBgColor={TailwindColors.rose[500]}
+                            iconPosition="bottom-left"
                             title="Activity"
                             subtitle="On-chain history"
                             onPress={() => router.push('/wallet/activity')}
@@ -191,7 +182,8 @@ export default function WalletScreen() {
                     <View style={{ flexBasis: '48%', flexGrow: 1 }}>
                         <ActionTile
                             icon="plus"
-                            iconBgColor={Accent.lime}
+                            iconBgColor={TailwindColors.emerald[500]}
+                            iconPosition="top-right"
                             title="Buy SOL"
                             subtitle="Devnet faucet"
                             onPress={openFaucet}
@@ -201,7 +193,7 @@ export default function WalletScreen() {
                     <View style={{ flexBasis: '48%', flexGrow: 1 }}>
                         <ActionTile
                             icon="arrow.up.right.square"
-                            iconBgColor={Neutral.blackSoft}
+                            iconBgColor={TailwindColors.yellow[500]}
                             title="Explorer"
                             subtitle="View on-chain"
                             onPress={openExplorer}
@@ -216,6 +208,10 @@ export default function WalletScreen() {
                 visible={receiveOpen}
                 onClose={() => setReceiveOpen(false)}
                 walletAddress={walletAddress}
+            />
+            <ConnectivitySheet
+                visible={connectivityOpen}
+                onClose={() => setConnectivityOpen(false)}
             />
         </ThemedView>
     );

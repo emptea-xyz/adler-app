@@ -14,9 +14,9 @@ interface BountyRowProps {
     bounty: Bounty;
 }
 
-const STATUS_INTENT: Record<Bounty['status'], 'pink' | 'orange' | 'cyan' | 'lime' | 'neutral' | 'dark'> = {
-    open: 'lime',
-    settled: 'cyan',
+const STATUS_INTENT: Record<Bounty['status'], 'success' | 'info' | 'neutral' | 'dark'> = {
+    open: 'success',
+    settled: 'info',
     refunded: 'neutral',
     hidden: 'dark',
 };

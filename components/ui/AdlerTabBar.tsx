@@ -7,6 +7,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useOverlaySheets } from '@/contexts/OverlaySheetsContext';
 import { haptic } from '@/lib/utils/haptic';
 import { TAB_BAR_HEIGHT } from '@/constants/LayoutConstants';
+import { TailwindColors } from '@/constants/TailwindColors';
 
 const ICONS: Record<string, IconName> = {
     browse: 'safari.fill',
@@ -69,31 +70,77 @@ export function AdlerTabBar({ state, navigation }: BottomTabBarProps) {
                 },
             ]}
         >
-            {TAB_ORDER.map((name) => {
-                const isCreate = name === 'create';
-                const isFocused = !isCreate && focusedRouteName === name;
-                // `plus.circle.fill` is a solid SF Symbol — tinting it dark
-                // gives a filled dark circle with a light plus cutout. Always
-                // dark so Create stays the visual anchor regardless of which
-                // tab is focused.
-                const color = isCreate
-                    ? theme[950]
-                    : isFocused
-                      ? theme[950]
-                      : theme[100];
-                return (
-                    <Pressable
-                        key={name}
-                        onPress={() => (isCreate ? onCreatePress() : onTabPress(name))}
-                        style={styles.tabSlot}
-                        accessibilityRole="button"
-                        accessibilityState={isFocused ? { selected: true } : {}}
-                        accessibilityLabel={LABELS[name]}
-                    >
-                        <Icon name={ICONS[name]} size={28} color={color} />
-                    </Pressable>
-                );
-            })}
+            <Pressable
+                key="browse"
+                onPress={() => onTabPress('browse')}
+                style={styles.tabSlot}
+                accessibilityRole="button"
+                accessibilityState={focusedRouteName === 'browse' ? { selected: true } : {}}
+                accessibilityLabel={LABELS['browse']}
+            >
+                <Icon
+                    name={ICONS['browse']}
+                    size={28}
+                    color={focusedRouteName === 'browse' ? theme[950] : theme[100]}
+                />
+            </Pressable>
+            <Pressable
+                key="inbox"
+                onPress={() => onTabPress('inbox')}
+                style={styles.tabSlot}
+                accessibilityRole="button"
+                accessibilityState={focusedRouteName === 'inbox' ? { selected: true } : {}}
+                accessibilityLabel={LABELS['inbox']}
+            >
+                <Icon
+                    name={ICONS['inbox']}
+                    size={28}
+                    color={focusedRouteName === 'inbox' ? theme[950] : theme[100]}
+                />
+            </Pressable>
+            <Pressable
+                key="create"
+                onPress={onCreatePress}
+                style={styles.tabSlot}
+                accessibilityRole="button"
+                accessibilityState={{}}
+                accessibilityLabel={LABELS['create']}
+            >
+                <Icon
+                    name={ICONS['create']}
+                    size={28}
+                    color={TailwindColors.sky[500]}
+                />
+            </Pressable>
+            <Pressable
+                key="profile"
+                onPress={() => onTabPress('profile')}
+                style={styles.tabSlot}
+                accessibilityRole="button"
+                accessibilityState={focusedRouteName === 'profile' ? { selected: true } : {}}
+                accessibilityLabel={LABELS['profile']}
+            >
+                <Icon
+                    name={ICONS['profile']}
+                    size={28}
+                    color={focusedRouteName === 'profile' ? theme[950] : theme[100]}
+                />
+            </Pressable>
+            <Pressable
+                key="wallet"
+                onPress={() => onTabPress('wallet')}
+                style={styles.tabSlot}
+                accessibilityRole="button"
+                accessibilityState={focusedRouteName === 'wallet' ? { selected: true } : {}}
+                accessibilityLabel={LABELS['wallet']}
+            >
+                <Icon
+                    name={ICONS['wallet']}
+                    size={28}
+                    color={focusedRouteName === 'wallet' ? theme[950] : theme[100]}
+                />
+            </Pressable>
+  
         </View>
     );
 }

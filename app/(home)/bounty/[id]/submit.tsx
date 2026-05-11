@@ -4,7 +4,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
-import { Camera, Image as ImageIcon, X } from 'lucide-react-native';
+import { Icon } from '@/components/ui/Icon';
 import { useTheme } from '@/contexts/ThemeContext';
 import { ThemedView } from '@/components/base/ThemedView';
 import { ThemedText } from '@/components/base/ThemedText';
@@ -124,7 +124,7 @@ export default function SubmitScreen() {
                                 justifyContent: 'center',
                             }}
                         >
-                            <X size={16} color={theme[50]} />
+                            <Icon name="xmark" size={16} color={theme[50]} weight="semibold" />
                         </Pressable>
                     </View>
                 ) : (
@@ -137,14 +137,14 @@ export default function SubmitScreen() {
                                 variant="primary"
                                 size="lg"
                                 title="Open camera"
-                                leftIcon={<Camera size={18} color={theme[50]} />}
+                                leftIcon={<Icon name="camera.fill" size={22} color={theme[50]} />}
                                 onPress={retake}
                             />
                             <Button
                                 variant="secondary"
                                 size="lg"
                                 title="Library"
-                                leftIcon={<ImageIcon size={18} color={theme[950]} />}
+                                leftIcon={<Icon name="photo.fill" size={22} color={theme[950]} />}
                                 onPress={pickFromLibrary}
                             />
                         </View>

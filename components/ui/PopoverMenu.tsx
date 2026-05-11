@@ -8,9 +8,9 @@ import {
 } from "react-native";
 import { ThemedText } from "@/components/base/ThemedText";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Check } from "lucide-react-native";
-import { ThemeColors } from "@/constants/ThemeColors";
-import { Neutral } from "@/constants/NeutralColors";
+import { Icon } from "@/components/ui/Icon";
+import { Status } from "@/constants/StatusColors";
+import { Shadow } from "@/constants/LayoutConstants";
 import { haptic } from "@/lib/utils/haptic";
 
 const MENU_ITEM_HEIGHT = 40;
@@ -97,18 +97,15 @@ export function PopoverMenu({ items, children }: PopoverMenuProps) {
                                 borderRadius: 8,
                                 borderWidth: 1,
                                 borderColor: theme[200],
-                                shadowColor: Neutral.black,
-                                shadowOffset: { width: 0, height: 4 },
-                                shadowOpacity: 0.12,
-                                shadowRadius: 12,
-                                elevation: 8,
+                                shadowColor: theme[950],
+                                ...Shadow.md,
                                 overflow: "hidden",
                             }}
                         >
                             {items.map((item, index) => {
                                 const isLast = index === items.length - 1;
                                 const color = item.destructive
-                                    ? ThemeColors.status.error.solid
+                                    ? Status.error
                                     : theme[900];
 
                                 return (
@@ -137,7 +134,7 @@ export function PopoverMenu({ items, children }: PopoverMenuProps) {
                                             {item.label}
                                         </ThemedText>
                                         {item.selected && (
-                                            <Check size={14} color={theme[500]} />
+                                            <Icon name="checkmark" size={14} color={theme[500]} weight="semibold" />
                                         )}
                                     </Pressable>
                                 );

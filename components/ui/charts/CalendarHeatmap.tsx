@@ -15,7 +15,7 @@ import { haptic } from "@/lib/utils/haptic";
 import { ThemedText } from "@/components/base/ThemedText";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Pressable } from "react-native";
-import { ChevronRight } from "lucide-react-native";
+import { Icon } from "@/components/ui/Icon";
 import Card, { type CardVariant } from "@/components/ui/Card";
 import { generateHeatmapNarrative } from "@/lib/utils/chartNarrative";
 
@@ -189,7 +189,7 @@ export function CalendarHeatmap({ activeDates, variant = "outline", className, o
               <ThemedText type="body-xs-semibold" style={{ color: theme[400] }}>
                 {currentSpanData.activeCount}/{currentSpanData.totalDays}
               </ThemedText>
-              <ChevronRight size={14} color={theme[400]} />
+              <Icon name="chevron.right" size={14} color={theme[400]} />
             </Pressable>
           ) : (
             <ThemedText type="body-xs-semibold" style={{ color: theme[400] }}>

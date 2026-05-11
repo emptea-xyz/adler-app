@@ -37,7 +37,7 @@ type Variant = HeadingVariant | BodyVariant | UIVariant;
  */
 const variantClasses: Record<Variant, string> = {
   // Headings (Geist SemiBold) — h1 largest, h6 smallest. -3% tracking everywhere.
-  h1: 'font-geist-semibold text-[48px] leading-[56px] tracking-adler',
+  h1: 'font-geist-semibold text-[48px] leading-[60px] tracking-adler',
   h2: 'font-geist-semibold text-[36px] leading-[44px] tracking-adler',
   h3: 'font-geist-semibold text-[28px] leading-[36px] tracking-adler',
   h4: 'font-geist-semibold text-[24px] leading-[32px] tracking-adler',

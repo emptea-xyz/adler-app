@@ -35,6 +35,54 @@ export const Screen = {
 export const TAB_BAR_HEIGHT = 60;
 
 // ─────────────────────────────────────────────────────────────────
+// COMPONENT SIZING
+// ─────────────────────────────────────────────────────────────────
+
+/** Standard 36×36 circular icon button (header bell, settings gear, etc.) */
+export const ICON_BUTTON_SIZE = 36;
+/** Half of ICON_BUTTON_SIZE for full-circle radius */
+export const ICON_BUTTON_RADIUS = ICON_BUTTON_SIZE / 2;
+/** Large avatar (profile header) */
+export const AVATAR_LG = 96;
+
+// ─────────────────────────────────────────────────────────────────
+// CORNER RADII
+// ─────────────────────────────────────────────────────────────────
+
+export const Radius = {
+    /** Cards, dropdowns, popovers */
+    sm: 8,
+    /** Buttons, sheet inputs */
+    md: 12,
+    /** Avatars (square-ish) */
+    lg: 16,
+    /** Pills, fully-rounded badges, circle buttons */
+    full: 9999,
+} as const;
+
+// ─────────────────────────────────────────────────────────────────
+// SHADOWS (RN style)
+// ─────────────────────────────────────────────────────────────────
+
+export const Shadow = {
+    /** Soft popover/dropdown elevation */
+    md: {
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.12,
+        shadowRadius: 12,
+        elevation: 8,
+    },
+} as const;
+
+/** Universally-used opacity/alpha-channel literals. Pair with `theme[N]`. */
+export const Overlay = {
+    /** Bottom-sheet backdrop tint */
+    backdrop: 0.2,
+    /** Disabled button / disabled control */
+    disabled: 0.5,
+} as const;
+
+// ─────────────────────────────────────────────────────────────────
 // BOTTOM INSETS (for scrollable content inside (home) tab screens)
 // ─────────────────────────────────────────────────────────────────
 

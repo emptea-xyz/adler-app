@@ -2,7 +2,7 @@ import React from 'react';
 import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Check } from 'lucide-react-native';
+import { Icon } from '@/components/ui/Icon';
 import { ThemedText } from '@/components/base/ThemedText';
 import { ThemedView } from '@/components/base/ThemedView';
 import { ScreenHeader } from '@/components/base/ScreenHeader';
@@ -53,7 +53,7 @@ export default function AppearanceScreen() {
                                         {opt.description}
                                     </ThemedText>
                                 </View>
-                                {selected ? <Check color={theme[950]} size={18} /> : null}
+                                {selected ? <Icon name="checkmark" color={theme[950]} size={18} weight="semibold" /> : null}
                             </Card>
                         );
                     })}

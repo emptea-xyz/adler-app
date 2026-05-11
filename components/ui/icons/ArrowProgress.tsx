@@ -4,8 +4,10 @@ import {
     useDerivedValue,
     type SharedValue,
 } from "react-native-reanimated";
+import { Status } from "@/constants/StatusColors";
 
 const ARROW_PATH = "M0 23.5355H300M280 3.53552L300 23.5355L280 43.5355";
+const ERROR_FLASH_COLOR = `${Status.error}E6`; // Status.error at 90% alpha
 
 const SRC_W = 305;
 const SRC_H = 48;
@@ -60,7 +62,7 @@ export function ArrowProgress({
         const c = interpolateColor(
             errorFlash.value,
             [0, 1],
-            ["rgba(0,0,0,0.8)", "rgba(225,68,68,0.9)"]
+            ["rgba(0,0,0,0.8)", ERROR_FLASH_COLOR]
         );
         return Skia.Color(c as unknown as string);
     });

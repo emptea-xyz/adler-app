@@ -9,6 +9,8 @@ import { haptic } from '@/lib/utils/haptic';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
+export type ActionTileIconPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+
 interface ActionTileProps {
     icon: IconName;
     iconBgColor: ColorValue;
@@ -17,6 +19,7 @@ interface ActionTileProps {
     subtitle: string;
     onPress: () => void;
     disabled?: boolean;
+    iconPosition?: ActionTileIconPosition;
 }
 
 export function ActionTile({
@@ -27,6 +30,7 @@ export function ActionTile({
     subtitle,
     onPress,
     disabled = false,
+    iconPosition = 'top-left',
 }: ActionTileProps) {
     const { theme } = useTheme();
     const scale = useSharedValue(1);
@@ -61,7 +65,6 @@ export function ActionTile({
                     borderColor: theme[200],
                     backgroundColor: theme[50],
                     padding: 16,
-                    justifyContent: 'space-between',
                     opacity: disabled ? 0.5 : 1,
                 },
                 scaleStyle,
@@ -69,6 +72,11 @@ export function ActionTile({
         >
             <View
                 style={{
+                    position: 'absolute',
+                    top: iconPosition.startsWith('top') ? 16 : undefined,
+                    bottom: iconPosition.startsWith('bottom') ? 16 : undefined,
+                    left: iconPosition.endsWith('left') ? 16 : undefined,
+                    right: iconPosition.endsWith('right') ? 16 : undefined,
                     width: 44,
                     height: 44,
                     borderRadius: 12,
@@ -79,11 +87,34 @@ export function ActionTile({
             >
                 <Icon name={icon} size={22} color={iconColor} weight="semibold" />
             </View>
-            <View style={{ gap: 2 }}>
-                <ThemedText type="body-md-semibold" style={{ color: theme[950] }}>
+            <View
+                style={{
+                    position: 'absolute',
+                    top: iconPosition.startsWith('bottom') ? 16 : undefined,
+                    bottom: iconPosition.startsWith('top') ? 16 : undefined,
+                    left: iconPosition.endsWith('right') ? 16 : undefined,
+                    right: iconPosition.endsWith('left') ? 16 : undefined,
+                    maxWidth: '70%',
+                    gap: 2,
+                    alignItems: iconPosition.endsWith('left') ? 'flex-end' : 'flex-start',
+                }}
+            >
+                <ThemedText
+                    type="body-md-semibold"
+                    style={{
+                        color: theme[950],
+                        textAlign: iconPosition.endsWith('left') ? 'right' : 'left',
+                    }}
+                >
                     {title}
                 </ThemedText>
-                <ThemedText type="caption" style={{ color: theme[500] }}>
+                <ThemedText
+                    type="caption"
+                    style={{
+                        color: theme[500],
+                        textAlign: iconPosition.endsWith('left') ? 'right' : 'left',
+                    }}
+                >
                     {subtitle}
                 </ThemedText>
             </View>

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ScrollView, View, Pressable, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Camera, MapPin } from 'lucide-react-native';
+import { Icon } from '@/components/ui/Icon';
 import { ThemedText } from '@/components/base/ThemedText';
 import { ThemedView } from '@/components/base/ThemedView';
 import { ScreenHeader } from '@/components/base/ScreenHeader';
@@ -102,7 +102,7 @@ export default function SettingsProfileScreen() {
                                         backgroundColor: theme[100],
                                     }}
                                 >
-                                    <Camera size={32} color={theme[500]} />
+                                    <Icon name="camera.fill" size={32} color={theme[500]} />
                                 </View>
                             )}
                         </Pressable>
@@ -138,7 +138,7 @@ export default function SettingsProfileScreen() {
                         <SectionLabel label="LOCATION" />
                         <Card variant="filled">
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                                <MapPin size={16} color={theme[700]} />
+                                <Icon name="mappin.circle.fill" size={20} color={theme[700]} />
                                 <ThemedText type="body-sm" style={{ color: theme[700] }}>
                                     Leave blank to set Global
                                 </ThemedText>

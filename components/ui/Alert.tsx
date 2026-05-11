@@ -4,6 +4,7 @@ import { ThemedText } from "@/components/base/ThemedText";
 import { haptic } from "@/lib/utils/haptic";
 import { BottomSheet } from "./BottomSheet";
 import { useTheme } from "@/contexts/ThemeContext";
+import { DESTRUCTIVE } from "@/constants/StatusColors";
 
 /**
  * Props for the Alert component
@@ -112,7 +113,7 @@ export function Alert({
             <Pressable
               onPress={() => handleConfirm(close)}
               className="flex-1 py-3 px-4 rounded-card"
-              style={{ backgroundColor: isDestructive ? '#DC143C' : theme[950] }}
+              style={{ backgroundColor: isDestructive ? DESTRUCTIVE : theme[950] }}
             >
               <ThemedText
                 type="body-lg-semibold"

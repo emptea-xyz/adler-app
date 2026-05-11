@@ -9,12 +9,12 @@ import {
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
-import { Accent } from '@/constants/ThemePalettes';
+import { TailwindColors } from '@/constants/TailwindColors';
 import { Neutral } from '@/constants/NeutralColors';
 import { A, D, EAGLE_VIEWBOX } from './EagleLoader.paths';
 
 // Animated Adler eagle. The silhouette stays Neutral.whiteSoft; the accent
-// layer cycles through Accent — pink → cyan → lime → orange → pink — driven
+// layer cycles through Tailwind sky shades — 300 → 500 → 700 → 500 — driven
 // by a single Reanimated shared value that loops every `duration` ms.
 //
 // Path data is sourced from assets/images/eagle-compact.svg (visually
@@ -24,10 +24,10 @@ import { A, D, EAGLE_VIEWBOX } from './EagleLoader.paths';
 const SILHOUETTE_COLOR = Neutral.whiteSoft;
 
 const CYCLE_COLORS = [
-  Accent.pink,
-  Accent.cyan,
-  Accent.lime,
-  Accent.orange,
+  TailwindColors.sky[300],
+  TailwindColors.sky[500],
+  TailwindColors.sky[700],
+  TailwindColors.sky[500],
 ];
 
 const CYCLE_STOPS = [0, 0.25, 0.5, 0.75, 1];

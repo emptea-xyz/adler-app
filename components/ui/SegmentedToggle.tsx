@@ -27,14 +27,14 @@ const sizeConfig = {
         container: "flex-row rounded-lg p-0.5",
         pill: "absolute top-0.5 bottom-0.5 rounded-md",
         pressable: "flex-1 py-2 items-center",
-        text: "caption" as const,
+        text: "caption-semibold" as const,
     },
     md: {
         pad: 4,
         container: "flex-row rounded-card p-1",
         pill: "absolute top-1 bottom-1 rounded-card",
         pressable: "flex-1 py-2 items-center",
-        text: "body-sm" as const,
+        text: "body-sm-semibold" as const,
     },
 };
 

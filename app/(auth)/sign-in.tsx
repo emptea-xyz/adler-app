@@ -7,7 +7,6 @@ import { ThemedText } from '@/components/base/ThemedText';
 import { ThemedView } from '@/components/base/ThemedView';
 import { AdlerEagleLogo } from '@/components/ui/AdlerEagleLogo';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Accent } from '@/constants/ThemePalettes';
 import { Neutral } from '@/constants/NeutralColors';
 import { TailwindColors } from '@/constants/TailwindColors';
 import { toast } from '@/lib/utils/toast';
@@ -15,21 +14,19 @@ import { haptic } from '@/lib/utils/haptic';
 
 type Provider = 'google';
 
-// Figma node 56:236 — sign-in bottom radial halo. Hot pink center fading to
-// transparent at the edges. Center is below the visible bounds so we see only
-// the upper portion.
-function PinkHalo() {
-  // Center pushed well below the visible band so only the soft upper arc of
-  // the halo bleeds onto the screen — never the saturated core.
+// Sign-in bottom radial halo. Sky-blue center fading to transparent at the
+// edges. Center is below the visible bounds so only the soft upper arc of
+// the halo bleeds onto the screen — never the saturated core.
+function SkyHalo() {
   return (
     <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 280, pointerEvents: 'none' as const }}>
       <Svg width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 393 280">
         <Defs>
           <RadialGradient id="halo" cx="196" cy="460" rx="260" ry="360" gradientUnits="userSpaceOnUse">
-            <Stop offset="0" stopColor={Accent.pink} stopOpacity="1" />
-            <Stop offset="0.35" stopColor="#ff40a6" stopOpacity="0.7" />
-            <Stop offset="0.65" stopColor="#ff80c4" stopOpacity="0.35" />
-            <Stop offset="1" stopColor={Accent.pink} stopOpacity="0" />
+            <Stop offset="0" stopColor={TailwindColors.sky[500]} stopOpacity="1" />
+            <Stop offset="0.35" stopColor={TailwindColors.sky[400]} stopOpacity="0.7" />
+            <Stop offset="0.65" stopColor={TailwindColors.sky[300]} stopOpacity="0.35" />
+            <Stop offset="1" stopColor={TailwindColors.sky[500]} stopOpacity="0" />
           </RadialGradient>
         </Defs>
         <Rect x="0" y="0" width="393" height="280" fill="url(#halo)" />
@@ -73,7 +70,7 @@ export default function SignInScreen() {
 
   return (
     <ThemedView className="flex-1">
-      <PinkHalo />
+      <SkyHalo />
       <SafeAreaView edges={['top', 'bottom']} className="flex-1">
         <View className="flex-1 px-4 justify-between" style={{ paddingTop: 24, paddingBottom: 24 }}>
           {/* Hero */}

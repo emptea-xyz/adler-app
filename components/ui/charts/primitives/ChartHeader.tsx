@@ -5,7 +5,7 @@ import React from "react";
 import { View } from "react-native";
 import { ThemedText } from "@/components/base/ThemedText";
 import { useTheme } from "@/contexts/ThemeContext";
-import { ChevronRight } from "lucide-react-native";
+import { Icon } from "@/components/ui/Icon";
 
 interface ChartHeaderProps {
   title: string;
@@ -46,7 +46,7 @@ export function ChartHeader({
           >
             {title}
           </ThemedText>
-          {showChevron && <ChevronRight size={14} color={theme[400]} />}
+          {showChevron && <Icon name="chevron.right" size={14} color={theme[400]} />}
         </View>
         {label ? (
           <ThemedText type="body-xs" style={{ color: theme[400] }}>

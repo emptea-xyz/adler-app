@@ -12,7 +12,6 @@ import {
     ThemePalette,
     MONO_PALETTE,
     SIGNAL_COLORS,
-    SIGNAL_PALETTE,
     invertPalette,
 } from '@/constants/ThemePalettes';
 
@@ -22,10 +21,8 @@ const DEFAULT_SCHEME: ColorScheme = 'system';
 interface ThemeContextType {
     /** Resolved palette (inverted when dark mode is active) */
     theme: ThemePalette;
-    /** Static signal colors (accent + ramp) */
+    /** Static signal colors (accent only) */
     signalColors: typeof SIGNAL_COLORS;
-    /** Reusable Tailwind-sourced accent palette */
-    signalPalette: typeof SIGNAL_PALETTE;
     /** Whether the current appearance is dark */
     isDark: boolean;
     /** Current color scheme preference */
@@ -77,7 +74,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         return {
             theme,
             signalColors: SIGNAL_COLORS,
-            signalPalette: SIGNAL_PALETTE,
             isDark,
             colorScheme,
             setColorScheme,

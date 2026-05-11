@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Pressable } from 'react-native';
 import { ThemedText } from '@/components/base/ThemedText';
-import { AlertCircle, RefreshCw, Copy, Check } from 'lucide-react-native';
+import { Icon } from '@/components/ui/Icon';
 import { Status } from '@/constants/StatusColors';
 import { useTheme } from '@/contexts/ThemeContext';
 import * as Clipboard from 'expo-clipboard';
@@ -28,10 +28,10 @@ export function ErrorState({
 
     return (
         <View className="flex-1 items-center justify-center p-8">
-            <AlertCircle
+            <Icon
+                name="exclamationmark.circle.fill"
                 size={48}
                 color={Status.error}
-                strokeWidth={1.5}
             />
             <ThemedText type="body-md" align="center" className="mt-4" style={{ color: theme[500] }}>
                 {message}
@@ -43,7 +43,8 @@ export function ErrorState({
                         className="flex-row items-center gap-2 px-4 py-2 rounded-lg"
                         style={{ backgroundColor: theme[100] }}
                     >
-                        <RefreshCw
+                        <Icon
+                            name="arrow.clockwise"
                             size={16}
                             color={theme[700]}
                         />
@@ -56,9 +57,9 @@ export function ErrorState({
                     style={{ backgroundColor: theme[100] }}
                 >
                     {copied ? (
-                        <Check size={16} color={theme[700]} />
+                        <Icon name="checkmark" size={16} color={theme[700]} weight="semibold" />
                     ) : (
-                        <Copy size={16} color={theme[700]} />
+                        <Icon name="doc.on.doc" size={16} color={theme[700]} />
                     )}
                     <ThemedText type="body-sm-semibold">{copied ? 'Copied' : 'Copy Error'}</ThemedText>
                 </Pressable>

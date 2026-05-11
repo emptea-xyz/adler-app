@@ -12,7 +12,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { transferSol } from '@/lib/solana/transferSol';
 import { qk } from '@/lib/constants/queryKeys';
 import { SOLANA_NETWORK } from '@/lib/constants/featureGates';
-import { ACCENT_COLORS } from '@/constants/ThemePalettes';
+import { Status } from '@/constants/StatusColors';
 import { toast } from '@/lib/utils/toast';
 import { haptic } from '@/lib/utils/haptic';
 import { formatSol, parseSolAmount } from '@/lib/utils/formatNumber';
@@ -123,7 +123,7 @@ export function SendSheet({ visible, onClose }: Props) {
         <View style={{ gap: 16 }}>
           <ThemedText
             type="body-sm"
-            style={{ color: isDevnet ? ACCENT_COLORS.pink : theme[500] }}
+            style={{ color: isDevnet ? Status.warning : theme[500] }}
           >
             {isDevnet
               ? 'Devnet · this is test SOL, not real funds.'

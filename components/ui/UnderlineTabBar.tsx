@@ -3,9 +3,9 @@ import { View, Pressable } from "react-native";
 import { ThemedText } from "@/components/base/ThemedText";
 import { useTheme } from "@/contexts/ThemeContext";
 import { haptic } from "@/lib/utils/haptic";
-import { ACCENT_COLORS } from "@/constants/ThemePalettes";
+import { TailwindColors } from "@/constants/TailwindColors";
 
-// Figma frame 12:33 — left-aligned label tabs with a 32×2 pink indicator under
+// Figma frame 12:33 — left-aligned label tabs with a 32×2 sky indicator under
 // the active label. No full-width track.
 
 interface UnderlineTabBarProps<T extends string> {
@@ -21,7 +21,7 @@ export function UnderlineTabBar<T extends string>({
     activeTab,
     onTabChange,
     className,
-    indicatorColor = ACCENT_COLORS.pink,
+    indicatorColor = TailwindColors.sky[500],
 }: UnderlineTabBarProps<T>) {
     const { theme } = useTheme();
 

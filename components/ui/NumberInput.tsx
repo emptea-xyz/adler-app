@@ -24,13 +24,21 @@ export function NumberInput({
   return (
     <RNTextInput
       keyboardType="decimal-pad"
-      className={cn(
-        "text-7xl font-geist text-center min-w-[100px] bg-transparent border-0 p-0 h-[96px]",
-        className
-      )}
-      style={[{ lineHeight: 96, color: theme[900] }, inputStyle]}
+      className={cn("font-geist bg-transparent border-0 p-0", className)}
+      style={[
+        {
+          fontSize: 72,
+          lineHeight: 88,
+          height: 96,
+          paddingVertical: 0,
+          color: theme[900],
+          textAlign: 'right',
+          includeFontPadding: false,
+        },
+        inputStyle,
+      ]}
       placeholder="0"
-      placeholderTextColor={theme[500]}
+      placeholderTextColor={theme[300]}
       {...props}
     />
   );

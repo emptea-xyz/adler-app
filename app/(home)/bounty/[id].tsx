@@ -3,7 +3,7 @@ import { ScrollView, View, Pressable, Linking, Image, RefreshControl } from 'rea
 import { router, useLocalSearchParams } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Flag, ExternalLink, Trophy } from 'lucide-react-native';
+import { Icon } from '@/components/ui/Icon';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { ThemedView } from '@/components/base/ThemedView';
@@ -106,7 +106,7 @@ export default function BountyDetailScreen() {
 
     const headerActions = !isPoster
         ? {
-              icon: Flag,
+              icon: 'flag.fill' as const,
               onPress: () => setReportOpen(true),
               accessibilityLabel: 'Report bounty',
           }
@@ -125,18 +125,18 @@ export default function BountyDetailScreen() {
                 }
             >
                 <View>
-                    <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                         <ThemedText type="h1" style={{ color: theme[950] }}>
                             {formatSol(bounty.bountyLamports / 1e9)} SOL
                         </ThemedText>
                         <View style={{ flexDirection: 'row', gap: 6 }}>
-                            <Pill intent={bounty.mode === 'auto' ? 'cyan' : 'pink'} label={bounty.mode === 'auto' ? 'AUTO' : 'MANUAL'} />
+                            <Pill intent={bounty.mode === 'auto' ? 'accent' : 'neutral'} label={bounty.mode === 'auto' ? 'AUTO' : 'MANUAL'} />
                             <Pill
                                 intent={
                                     bounty.status === 'open'
-                                        ? 'lime'
+                                        ? 'success'
                                         : bounty.status === 'settled'
-                                          ? 'cyan'
+                                          ? 'info'
                                           : bounty.status === 'refunded'
                                             ? 'neutral'
                                             : 'dark'
@@ -166,7 +166,7 @@ export default function BountyDetailScreen() {
                         <Card variant="border-bottom">
                             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                                    <Trophy size={18} color={theme[700]} />
+                                    <Icon name="trophy.fill" size={22} color={theme[700]} />
                                     <View>
                                         <SectionLabel label={bounty.status === 'refunded' ? 'REFUNDED' : 'SETTLED'} />
                                         <ThemedText type="body-md-semibold" style={{ color: theme[950] }}>
@@ -174,7 +174,7 @@ export default function BountyDetailScreen() {
                                         </ThemedText>
                                     </View>
                                 </View>
-                                <ExternalLink size={16} color={theme[400]} />
+                                <Icon name="arrow.up.forward.square" size={16} color={theme[400]} />
                             </View>
                         </Card>
                     </Pressable>
@@ -263,16 +263,16 @@ function SubmissionCard({
     onPickWinner: () => void;
 }) {
     const { theme } = useTheme();
-    let intent: 'cyan' | 'lime' | 'orange' | 'neutral' = 'neutral';
+    let intent: 'info' | 'success' | 'error' | 'neutral' = 'neutral';
     let label = 'PENDING';
     if (submission.isWinner) {
-        intent = 'cyan';
+        intent = 'info';
         label = 'WINNER';
     } else if (submission.aiVerdict === 'pass') {
-        intent = 'lime';
+        intent = 'success';
         label = 'PASS';
     } else if (submission.aiVerdict === 'fail') {
-        intent = 'orange';
+        intent = 'error';
         label = 'FAIL';
     }
     return (

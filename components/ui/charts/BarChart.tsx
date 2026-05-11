@@ -10,7 +10,7 @@
  */
 import React, { useCallback, useMemo } from "react";
 import { View } from "react-native";
-import { BarChart2 as BarChart2Icon } from "lucide-react-native";
+import { Icon } from "@/components/ui/Icon";
 import {
   Path,
   vec,
@@ -181,7 +181,7 @@ export function BarChart({
   if (data.length === 0) {
     return (
       <View className="w-full p-4 items-center justify-center gap-2" style={{ height }}>
-        <BarChart2Icon size={28} color={CHART_TOKENS.colors.emptyState(theme)} />
+        <Icon name="chart.bar.fill" size={32} color={CHART_TOKENS.colors.emptyState(theme)} />
         <ThemedText type="body-sm" style={{ color: CHART_TOKENS.colors.emptyState(theme) }}>
           No data yet
         </ThemedText>

@@ -6,7 +6,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 
 // Figma node 119:128 — avatar with initial fallback. Three discrete sizes.
 
-export type AvatarSize = 'sm' | 'md' | 'lg';
+export type AvatarSize = 'sm' | 'md' | 'lg' | 'xl';
 
 interface AvatarProps {
   avatarUrl?: string | null;
@@ -14,11 +14,12 @@ interface AvatarProps {
   initial?: string;
 }
 
-const PX: Record<AvatarSize, number> = { sm: 32, md: 44, lg: 56 };
-const TEXT: Record<AvatarSize, 'body-md-semibold' | 'body-xl-semibold' | 'h4'> = {
+const PX: Record<AvatarSize, number> = { sm: 32, md: 44, lg: 56, xl: 96 };
+const TEXT: Record<AvatarSize, 'body-md-semibold' | 'body-xl-semibold' | 'h4' | 'h2'> = {
   sm: 'body-md-semibold',
   md: 'body-xl-semibold',
   lg: 'h4',
+  xl: 'h2',
 };
 
 export function Avatar({ avatarUrl, size = 'sm', initial }: AvatarProps) {
