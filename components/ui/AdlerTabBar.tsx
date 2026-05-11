@@ -80,7 +80,7 @@ export function AdlerTabBar({ state, navigation }: BottomTabBarProps) {
                     ? theme[950]
                     : isFocused
                       ? theme[950]
-                      : theme[400];
+                      : theme[100];
                 return (
                     <Pressable
                         key={name}
