@@ -17,6 +17,7 @@ import { auth, db } from '@/lib/firebase/config';
 import { tsMs } from '@/lib/utils/firestoreTimestamp';
 import { deriveBountyId } from '@/lib/escrow/pda';
 import { REVIEW_WINDOW_SECS, SUBMISSION_WINDOW_SECS } from '@/lib/constants/escrow';
+import { getProfile } from '@/lib/services/profileService';
 import type {
     Bounty,
     BountyScope,
@@ -84,7 +85,6 @@ export interface DraftBountyInput {
     title: string;
     prompt: string;
     bountyLamports: number;
-    posterWalletAddress: string;
     scope: BountyScope;
     groupId?: string | null;
     submissionKind: BountySubmissionKind;
@@ -98,11 +98,12 @@ export interface DraftBountyArtifact {
 }
 
 /**
- * Generate a Firestore-friendly doc id + its sha256 contractIdHex without
- * yet writing the doc. Used by `useBountyEscrow` to (1) precompute the
- * on-chain id, (2) sign + send `create_bounty`, (3) only THEN write the
- * Firestore doc with `escrowFunded: true`. Avoids ghost docs from failed
- * on-chain transactions.
+ * Generate a Firestore-friendly doc id client-side and derive the
+ * sha256 contractIdHex used as the on-chain bounty id. No Firestore
+ * write — `useBountyEscrow.post` writes the doc via `persistBounty`
+ * BEFORE the on-chain `create_bounty` runs, so a failed on-chain
+ * ix leaves a doc with `escrowFunded: false` that the
+ * `expireBounties` sweep can reconcile (no ghost-escrow).
  */
 export async function draftBounty(): Promise<DraftBountyArtifact> {
     assertCurrentUser();
@@ -127,18 +128,24 @@ export interface PersistBountyInput extends DraftBountyInput {
 }
 
 /**
- * Write the Firestore bounty doc after the on-chain create_bounty has
- * landed. Sets `escrowFunded: true`. Browse + Inbox queries surface
- * `status: 'open'` rows; if this write fails (e.g. network), the on-chain
- * SOL is still escrowed and `refund_bounty` after expiresAt recovers it.
+ * Write the Firestore bounty doc as `escrowFunded: false`. Called
+ * BEFORE the on-chain `create_bounty` runs so a doc always exists if
+ * funds are on-chain. `posterWalletAddress` is derived from the
+ * authenticated profile (M1) — clients can't claim someone else's
+ * wallet. After the on-chain call lands, `markEscrowFunded` flips
+ * the flag to `true`.
  */
 export async function persistBounty(input: PersistBountyInput): Promise<Bounty> {
     const uid = assertCurrentUser();
+    const profile = await getProfile(uid);
+    if (!profile?.walletAddress) {
+        throw new Error('Profile wallet not set — sign in again');
+    }
     const ref = doc(db, BOUNTIES, input.docId);
     const payload = {
         id: input.docId,
         posterId: uid,
-        posterWalletAddress: input.posterWalletAddress,
+        posterWalletAddress: profile.walletAddress,
         title: input.title.trim(),
         prompt: input.prompt.trim(),
         bountyLamports: input.bountyLamports,
@@ -153,12 +160,26 @@ export async function persistBounty(input: PersistBountyInput): Promise<Bounty> 
         txSignature: null,
         reportCount: 0,
         contractIdHex: input.contractIdHex,
-        escrowFunded: true,
+        escrowFunded: false,
         submissionCount: 0,
         submissionKind: input.submissionKind,
     };
     await setDoc(ref, payload);
     return rowToBounty(input.docId, { ...payload, createdAt: Date.now() });
+}
+
+/**
+ * Flip `escrowFunded: true` once the on-chain `create_bounty` has
+ * landed. If this update fails (network, App Check), the doc remains
+ * `escrowFunded: false` and the `expireBounties` Pass 0 reconcile
+ * picks it up: PDA exists on-chain → flip to true; PDA missing →
+ * mark `cancelled` (no funds to refund).
+ */
+export async function markEscrowFunded(bountyId: string): Promise<void> {
+    assertCurrentUser();
+    await updateDoc(doc(db, BOUNTIES, bountyId), {
+        escrowFunded: true,
+    });
 }
 
 export async function getBounty(id: string): Promise<Bounty | null> {

@@ -126,6 +126,15 @@ export async function createLinkSubmission(input: {
 }): Promise<Submission> {
     const uid = auth.currentUser?.uid;
     if (!uid) throw new Error('Sign-in required');
+    // L19 / M4: mirror the rule check so non-UI callers get a clean
+    // client-side error instead of an opaque permission-denied.
+    const trimmedLink = input.linkUrl.trim();
+    if (!/^https?:\/\/.+/.test(trimmedLink)) {
+        throw new Error('Link must start with http:// or https://');
+    }
+    if (trimmedLink.length > 2048) {
+        throw new Error('Link is too long (max 2048 chars).');
+    }
     const id = `${input.bountyId}_${uid}`;
     const ref = doc(db, SUBMISSIONS, id);
     const payload = {
@@ -135,7 +144,7 @@ export async function createLinkSubmission(input: {
         photoStoragePath: '',
         videoUrl: '',
         videoStoragePath: '',
-        linkUrl: input.linkUrl.trim(),
+        linkUrl: trimmedLink,
         submittedAt: serverTimestamp(),
         isWinner: false,
     };
@@ -148,7 +157,7 @@ export async function createLinkSubmission(input: {
         photoStoragePath: '',
         videoUrl: '',
         videoStoragePath: '',
-        linkUrl: input.linkUrl.trim(),
+        linkUrl: trimmedLink,
         submittedAt: Date.now(),
         isWinner: false,
     };

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Image, Pressable, View } from 'react-native';
+import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { ThemedText } from '@/components/base/ThemedText';
@@ -36,6 +37,8 @@ interface TagDescriptor {
     description: string;
     /** When set, replaces the chip with the group's avatar (logo or initial). */
     groupAvatar?: { name: string; logoUrl: string | null };
+    /** When set, the BountyTagSheet shows a "View group" CTA navigating to /(home)/group/{id}. */
+    groupHref?: string;
 }
 
 function kindTag(b: Bounty): TagDescriptor {
@@ -91,6 +94,7 @@ export function BountyTags({ bounty }: { bounty: Bounty }) {
                   groupAvatar: group
                       ? { name: group.name, logoUrl: group.logoUrl ?? null }
                       : undefined,
+                  groupHref: bounty.groupId ? `/(home)/group/${bounty.groupId}` : undefined,
               }
             : {
                   id: 'scope',
@@ -232,6 +236,33 @@ function BountyTagSheet({ tag, onClose }: { tag: TagDescriptor | null; onClose: 
                     <ThemedText type="body-md" style={{ color: theme[700], lineHeight: 22 }}>
                         {tag?.description ?? ''}
                     </ThemedText>
+                    {tag?.groupHref ? (
+                        <Pressable
+                            onPress={() => {
+                                const href = tag.groupHref;
+                                onClose();
+                                if (href) {
+                                    // Defer to next tick so the sheet's close animation
+                                    // doesn't race the navigation push.
+                                    setTimeout(() => router.push(href as never), 50);
+                                }
+                            }}
+                            style={{
+                                marginTop: 4,
+                                paddingVertical: 12,
+                                paddingHorizontal: 14,
+                                borderRadius: 12,
+                                backgroundColor: theme[950],
+                                alignItems: 'center',
+                            }}
+                            accessibilityRole="button"
+                            accessibilityLabel="View group"
+                        >
+                            <ThemedText type="body-md-semibold" style={{ color: theme[50] }}>
+                                View group
+                            </ThemedText>
+                        </Pressable>
+                    ) : null}
                 </View>
             )}
         </BottomSheet>

@@ -184,8 +184,12 @@ export function bountyStatusToCard(b: Bounty): BountyItemStatus {
  */
 export function submissionStatusToCard(s: Submission, b?: Bounty): BountyItemStatus {
     if (s.isWinner) return 'won';
-    if (b?.status === 'settled' || b?.status === 'refunded') return 'lost';
-    if (b?.status === 'hidden' || b?.status === 'cancelling') return 'closed';
+    // L3: 'lost' is reserved for "poster picked someone else." A refund
+    // means nobody won, so it's just 'closed' to the submitter.
+    if (b?.status === 'settled') return 'lost';
+    if (b?.status === 'refunded' || b?.status === 'hidden' || b?.status === 'cancelling') {
+        return 'closed';
+    }
     return 'pending';
 }
 

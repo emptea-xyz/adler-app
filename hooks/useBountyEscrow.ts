@@ -7,11 +7,14 @@ import { cancelBounty as escrowCancel } from '@/lib/escrow/cancelBounty';
 import {
     draftBounty,
     persistBounty,
+    markEscrowFunded,
     markManualSettled,
     startCancel,
     finishCancel,
     abortCancel,
 } from '@/lib/services/bountyService';
+import { getProfile } from '@/lib/services/profileService';
+import { auth } from '@/lib/firebase/config';
 import type {
     Bounty,
     BountyStatus,
@@ -81,15 +84,24 @@ export function useBountyEscrow(): UseBountyEscrowReturn {
     const post = useCallback(
         (input: PostBountyInput) => runMutation(async () => {
             if (!posterWalletAddress) throw new Error('Wallet not ready');
+            // M16: profile.walletAddress is the authoritative snapshot; if
+            // Privy rotated the embedded wallet between mount and now, the
+            // on-chain signer would mismatch the profile and the bounty doc
+            // would carry a wallet the user can't sign for. Reject early.
+            const uid = auth.currentUser?.uid;
+            if (!uid) throw new Error('Sign-in required');
+            const profile = await getProfile(uid);
+            if (!profile?.walletAddress) {
+                throw new Error('Profile wallet not set — sign in again');
+            }
+            if (profile.walletAddress !== posterWalletAddress) {
+                throw new Error('Wallet changed — reopen this sheet');
+            }
             const draft = await draftBounty();
-            const p = await provider();
-            await escrowCreateBounty({
-                bountyIdHex: draft.contractIdHex,
-                posterWalletAddress,
-                amountLamports: input.bountyLamports,
-                provider: p,
-            });
-            return persistBounty({
+            // H5: write the Firestore doc FIRST with escrowFunded:false so
+            // a failed on-chain ix doesn't leave funds orphaned. The
+            // expireBounties Pass 0 sweep reconciles either direction.
+            const bounty = await persistBounty({
                 docId: draft.docId,
                 contractIdHex: draft.contractIdHex,
                 submissionEndsAt: draft.submissionEndsAt,
@@ -97,11 +109,19 @@ export function useBountyEscrow(): UseBountyEscrowReturn {
                 title: input.title,
                 prompt: input.prompt,
                 bountyLamports: input.bountyLamports,
-                posterWalletAddress,
                 scope: input.scope,
                 groupId: input.groupId ?? null,
                 submissionKind: input.submissionKind,
             });
+            const p = await provider();
+            await escrowCreateBounty({
+                bountyIdHex: draft.contractIdHex,
+                posterWalletAddress,
+                amountLamports: input.bountyLamports,
+                provider: p,
+            });
+            await markEscrowFunded(bounty.id);
+            return { ...bounty, escrowFunded: true };
         }),
         [posterWalletAddress, provider, runMutation],
     );

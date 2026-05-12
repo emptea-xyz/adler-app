@@ -1,11 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, View } from 'react-native';
-import Animated, {
-    Easing,
-    useAnimatedStyle,
-    useSharedValue,
-    withTiming,
-} from 'react-native-reanimated';
+import { View } from 'react-native';
 import { router } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { LAMPORTS_PER_SOL, PublicKey } from '@solana/web3.js';
@@ -16,10 +10,10 @@ import { SegmentedToggle } from '@/components/ui/SegmentedToggle';
 import { NumberInput } from '@/components/ui/NumberInput';
 import { SolanaIcon } from '@/components/ui/SolanaIcon';
 import TextInput from '@/components/ui/TextInput';
+import { SubmitButton } from '@/components/ui/SubmitButton';
 import { ThemedText } from '@/components/base/ThemedText';
-import { Neutral } from '@/constants/NeutralColors';
-import { Status } from '@/constants/StatusColors';
 import { TailwindColors } from '@/constants/TailwindColors';
+import { Radius } from '@/constants/LayoutConstants';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBountyEscrow } from '@/hooks/useBountyEscrow';
@@ -86,7 +80,13 @@ export function PostBountySheet({ visible, onClose }: PostBountySheetProps) {
         staleTime: 60_000,
         enabled: visible && myGroupIds.length > 0,
     });
-    const myGroups = myGroupsQuery.data ?? [];
+    // Only `active` groups can host new bounties. Pending groups (newly
+    // provisioned but not yet activated by the Adler team) are excluded
+    // from the scope picker so the admin can't accidentally post into one.
+    const myGroups = useMemo(
+        () => (myGroupsQuery.data ?? []).filter((g) => g.status === 'active'),
+        [myGroupsQuery.data],
+    );
     const canPickGroup = myGroups.length > 0;
     const selectedGroup = scopeGroupId ? myGroups.find((g) => g.id === scopeGroupId) ?? null : null;
 
@@ -324,14 +324,14 @@ export function PostBountySheet({ visible, onClose }: PostBountySheetProps) {
                     <View style={{ marginTop: 'auto' }}>
                         <SubmitButton
                             idleLabel={
-                                pending
-                                    ? 'Posting…'
-                                    : amountSol && amountSol > 0
-                                      ? `Post ${formatSol(amountSol)} SOL`
-                                      : 'Post bounty'
+                                amountSol && amountSol > 0
+                                    ? `Post ${formatSol(amountSol)} SOL`
+                                    : 'Post bounty'
                             }
+                            loadingLabel="Posting…"
+                            successLabel="Bounty posted"
+                            errorLabel={errorMessage ?? "Couldn't publish bounty"}
                             state={submitState}
-                            errorMessage={errorMessage}
                             loading={pending}
                             disabled={!canSubmit}
                             onPress={() => onSubmit(close)}
@@ -342,93 +342,6 @@ export function PostBountySheet({ visible, onClose }: PostBountySheetProps) {
         </BottomSheet>
     );
 }
-
-interface SubmitButtonProps {
-    idleLabel: string;
-    state: 'idle' | 'success' | 'error';
-    errorMessage: string | null;
-    loading: boolean;
-    disabled: boolean;
-    onPress: () => void;
-}
-
-function SubmitButton({
-    idleLabel,
-    state,
-    errorMessage,
-    loading,
-    disabled,
-    onPress,
-}: SubmitButtonProps) {
-    const { theme } = useTheme();
-
-    const idleBg = disabled ? theme[300] : theme[950];
-    const bg = state === 'success' ? Status.success : state === 'error' ? Status.error : idleBg;
-
-    const bgStyle = useAnimatedStyle(() => ({
-        backgroundColor: withTiming(bg, { duration: 220, easing: Easing.out(Easing.cubic) }),
-    }), [bg]);
-
-    const idleOpacity = useSharedValue(1);
-    const successOpacity = useSharedValue(0);
-    const errorOpacity = useSharedValue(0);
-    useEffect(() => {
-        const t = { duration: 200, easing: Easing.out(Easing.cubic) };
-        idleOpacity.value = withTiming(state === 'idle' ? 1 : 0, t);
-        successOpacity.value = withTiming(state === 'success' ? 1 : 0, t);
-        errorOpacity.value = withTiming(state === 'error' ? 1 : 0, t);
-    }, [state, idleOpacity, successOpacity, errorOpacity]);
-
-    const idleStyle = useAnimatedStyle(() => ({ opacity: idleOpacity.value }));
-    const successStyle = useAnimatedStyle(() => ({ opacity: successOpacity.value }));
-    const errorStyle = useAnimatedStyle(() => ({ opacity: errorOpacity.value }));
-
-    const isInteractive = state === 'idle' && !disabled && !loading;
-
-    return (
-        <Pressable onPress={isInteractive ? onPress : undefined} disabled={!isInteractive}>
-            <Animated.View
-                style={[
-                    {
-                        height: 56,
-                        borderRadius: 16,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        overflow: 'hidden',
-                    },
-                    bgStyle,
-                ]}
-            >
-                <Animated.View style={[StyleAbsoluteCenter, idleStyle]}>
-                    <ThemedText type="body-md-semibold" style={{ color: theme[50] }} numberOfLines={1}>
-                        {loading ? 'Posting…' : idleLabel}
-                    </ThemedText>
-                </Animated.View>
-                <Animated.View style={[StyleAbsoluteCenter, successStyle]}>
-                    <ThemedText type="body-md-semibold" style={{ color: Neutral.white }} numberOfLines={1}>
-                        Bounty posted
-                    </ThemedText>
-                </Animated.View>
-                <Animated.View style={[StyleAbsoluteCenter, errorStyle]}>
-                    <ThemedText type="body-md-semibold" style={{ color: Neutral.white }} numberOfLines={1}>
-                        {errorMessage ?? "Couldn't publish bounty"}
-                    </ThemedText>
-                </Animated.View>
-            </Animated.View>
-        </Pressable>
-    );
-}
-
-const StyleAbsoluteCenter = {
-    position: 'absolute' as const,
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    alignItems: 'center' as const,
-    justifyContent: 'center' as const,
-    paddingHorizontal: 16,
-};
 
 interface ScopeChipProps {
     label: string;
@@ -448,7 +361,7 @@ function ScopeChip({ label, iconName, trailingIcon, locked, theme }: ScopeChipPr
                 gap: 6,
                 paddingHorizontal: 10,
                 paddingVertical: 6,
-                borderRadius: 9999,
+                borderRadius: Radius.full,
                 backgroundColor: theme[200],
                 opacity: locked ? 0.7 : 1,
                 maxWidth: 160,

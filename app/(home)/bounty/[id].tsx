@@ -3,7 +3,7 @@ import { ScrollView, View, Pressable, Linking, Image, RefreshControl } from 'rea
 import { router, useLocalSearchParams } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Icon } from '@/components/ui/Icon';
+import { Icon, type IconName } from '@/components/ui/Icon';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { ThemedView } from '@/components/base/ThemedView';
@@ -351,6 +351,27 @@ export default function BountyDetailScreen() {
                         onPress={() => router.push(`/bounty/${id}/submit`)}
                     />
                 </View>
+            ) : !isPoster
+                && bounty.status === 'in_review'
+                && mineCount === 0 ? (
+                // M14: surface the "submissions closed" state explicitly
+                // instead of just hiding the submit button silently.
+                <View
+                    style={{
+                        position: 'absolute',
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        padding: 16,
+                        paddingBottom: 16 + insets.bottom,
+                        backgroundColor: theme[50],
+                        alignItems: 'center',
+                    }}
+                >
+                    <ThemedText type="caption" style={{ color: theme[500], textAlign: 'center' }}>
+                        Submissions closed — poster is reviewing.
+                    </ThemedText>
+                </View>
             ) : null}
 
             <Alert
@@ -498,6 +519,7 @@ function SubmissionCard({
     const { theme } = useTheme();
     const intent: 'info' | 'neutral' = submission.isWinner ? 'info' : 'neutral';
     const label = submission.isWinner ? 'WINNER' : 'PENDING';
+    const pillIcon: IconName = submission.isWinner ? 'trophy.fill' : 'clock.fill';
     const isLink = !!submission.linkUrl;
     const isVideo = !!submission.videoUrl;
     return (
@@ -540,7 +562,7 @@ function SubmissionCard({
                         <ThemedText type="body-sm" style={{ color: theme[500] }}>
                             {formatRelative(submission.submittedAt)}
                         </ThemedText>
-                        <Pill intent={intent} label={label} />
+                        <Pill intent={intent} label={label} icon={pillIcon} />
                     </View>
                     {isLink && submission.linkUrl ? (
                         <Pressable onPress={() => Linking.openURL(submission.linkUrl!)} hitSlop={4}>
