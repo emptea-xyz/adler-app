@@ -1,0 +1,10 @@
+appId: com.m2dt.adler
+name: browse
+---
+- launchApp:
+    clearState: false
+- runFlow: boot.yaml
+- tapOn: "Browse"
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: .maestro/screenshots/10-browse

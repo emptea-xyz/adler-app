@@ -1,0 +1,13 @@
+appId: com.m2dt.adler
+name: post-bounty
+---
+- launchApp:
+    clearState: false
+- runFlow: boot.yaml
+- tapOn: "Browse"
+- waitForAnimationToEnd:
+    timeout: 4000
+- tapOn: "Create"
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: .maestro/screenshots/14-post-bounty

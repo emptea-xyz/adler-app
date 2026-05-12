@@ -1,0 +1,10 @@
+appId: com.m2dt.adler
+name: profile
+---
+- launchApp:
+    clearState: false
+- runFlow: boot.yaml
+- tapOn: "Profile"
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: .maestro/screenshots/13-profile

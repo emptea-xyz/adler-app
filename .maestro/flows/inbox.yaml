@@ -1,0 +1,10 @@
+appId: com.m2dt.adler
+name: inbox
+---
+- launchApp:
+    clearState: false
+- runFlow: boot.yaml
+- tapOn: "Inbox"
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: .maestro/screenshots/11-inbox

@@ -58,3 +58,6 @@ functions/pnpm-lock.yaml
 
 # Claude Code worktrees
 .claude/worktrees/
+
+# Maestro screenshot output (flows are tracked, captures are not)
+.maestro/screenshots/

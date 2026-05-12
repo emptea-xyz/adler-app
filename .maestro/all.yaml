@@ -1,0 +1,8 @@
+appId: com.m2dt.adler
+name: all
+---
+- runFlow: flows/browse.yaml
+- runFlow: flows/inbox.yaml
+- runFlow: flows/wallet.yaml
+- runFlow: flows/profile.yaml
+- runFlow: flows/post-bounty.yaml

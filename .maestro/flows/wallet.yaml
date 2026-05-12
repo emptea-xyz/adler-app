@@ -1,0 +1,10 @@
+appId: com.m2dt.adler
+name: wallet
+---
+- launchApp:
+    clearState: false
+- runFlow: boot.yaml
+- tapOn: "Wallet"
+- waitForAnimationToEnd:
+    timeout: 4000
+- takeScreenshot: .maestro/screenshots/12-wallet
