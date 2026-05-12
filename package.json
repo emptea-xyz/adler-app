@@ -53,7 +53,7 @@
     "expo-router": "~55.0.14",
     "expo-secure-store": "~15.0.2",
     "expo-splash-screen": "~55.0.20",
-    "expo-symbols": "~55.0.8",
+    "expo-symbols": "55.0.8",
     "expo-video": "~55.0.16",
     "expo-web-browser": "~55.0.15",
     "fast-text-encoding": "^1.0.6",
