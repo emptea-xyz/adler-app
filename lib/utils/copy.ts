@@ -29,16 +29,6 @@ export const EMPTY_NOTIFICATIONS = {
   description: 'When something happens on a bounty you posted or solved, it lands here.',
 } as const;
 
-export const EMPTY_BOUNTY_SUBMISSIONS = {
-  title: 'No submissions yet',
-  description: 'Be the first to submit a photo.',
-} as const;
-
-export const EMPTY_GROUPS = {
-  title: 'No groups yet',
-  description: 'Groups gate private bounties to a curated audience.',
-} as const;
-
 export const EMPTY_WALLET_BALANCE = {
   title: 'There is nothing here yet',
   description: 'Deposit SOL to your wallet to get started.',

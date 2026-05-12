@@ -52,7 +52,7 @@ export async function getGroup(id: string): Promise<Group | null> {
     return rowToGroup(snap.id, snap.data() as Record<string, unknown>);
 }
 
-export async function listGroups(max = 50): Promise<Group[]> {
+async function listGroups(max = 50): Promise<Group[]> {
     const snap = await getDocs(
         query(
             collection(db, GROUPS),
@@ -133,24 +133,4 @@ export async function removeGroupMember(input: {
 }): Promise<void> {
     const fn = httpsCallable(functions, 'removeGroupMember');
     await fn(input);
-}
-
-// ── Super-admin only ────────────────────────────────────────────────────
-// Provisioning a new group. Defaults to `status: 'pending'` so the assigned
-// admin sees the "not ready yet" banner until super-admin flips to 'active'.
-
-export async function createGroup(input: {
-    name: string;
-    description?: string;
-    ownerId: string;
-    status?: GroupStatus;
-}): Promise<{ groupId: string }> {
-    const fn = httpsCallable<typeof input, { groupId: string }>(functions, 'createGroup');
-    const res = await fn(input);
-    return res.data;
-}
-
-export async function activateGroup(groupId: string): Promise<void> {
-    const fn = httpsCallable(functions, 'activateGroup');
-    await fn({ groupId });
 }

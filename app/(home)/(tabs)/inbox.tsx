@@ -69,9 +69,16 @@ export default function InboxScreen() {
         enabled: !!user && tab === 'activity',
     });
 
-    const submissions = submittedQuery.data ?? [];
+    const submissions = useMemo(() => submittedQuery.data ?? [], [submittedQuery.data]);
     const submissionBountyIds = useMemo(
-        () => Array.from(new Set(submissions.map((s) => s.bountyId))),
+        () =>
+            Array.from(
+                new Set(
+                    submissions
+                        .filter((s) => !s.bountyTitle || s.bountyLamports == null || !s.bountyStatus)
+                        .map((s) => s.bountyId),
+                ),
+            ),
         [submissions],
     );
 

@@ -21,7 +21,7 @@ import type {
     BountySubmissionKind,
 } from '@/lib/types/bounty';
 
-export interface PostBountyInput {
+interface PostBountyInput {
     title: string;
     prompt: string;
     bountyLamports: number;

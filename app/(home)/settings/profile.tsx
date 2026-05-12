@@ -46,22 +46,22 @@ export default function SettingsProfileScreen() {
     const [saving, setSaving] = useState(false);
     const [avatarBusy, setAvatarBusy] = useState(false);
 
-    if (!profile || !user) return <ThemedView style={{ flex: 1 }} />;
-
-    const lastChange = profile.lastUsernameChangeAt;
+    const lastChange = profile?.lastUsernameChangeAt ?? 0;
     const cooldownRemainingMs =
         lastChange > 0 ? Math.max(0, USERNAME_COOLDOWN_MS - (Date.now() - lastChange)) : 0;
     const cooldownDaysLeft = Math.ceil(cooldownRemainingMs / 86400000);
     const cooldownActive = cooldownRemainingMs > 0;
     const trimmedUsername = username.trim().toLowerCase();
-    const usernameChanged = trimmedUsername !== profile.username;
+    const profileUsername = profile?.username ?? '';
+    const usernameChanged = !!profile && trimmedUsername !== profileUsername;
+    const userId = user?.id ?? null;
 
     // M12: debounced live availability check. Mirrors the rule check so
     // taken-username errors surface before Save.
     const debouncedUsername = useDebounce(trimmedUsername, 300);
     const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>('idle');
     useEffect(() => {
-        if (!usernameChanged || !debouncedUsername) {
+        if (!userId || !usernameChanged || !debouncedUsername) {
             setUsernameStatus('idle');
             return;
         }
@@ -71,7 +71,7 @@ export default function SettingsProfileScreen() {
         }
         let cancelled = false;
         setUsernameStatus('checking');
-        isUsernameAvailable(debouncedUsername, user.id)
+        isUsernameAvailable(debouncedUsername, userId)
             .then((available) => {
                 if (cancelled) return;
                 setUsernameStatus(available ? 'available' : 'taken');
@@ -83,7 +83,9 @@ export default function SettingsProfileScreen() {
         return () => {
             cancelled = true;
         };
-    }, [debouncedUsername, usernameChanged, user.id]);
+    }, [debouncedUsername, usernameChanged, userId]);
+
+    if (!profile || !user) return <ThemedView style={{ flex: 1 }} />;
 
     const onPickAvatar = async () => {
         try {

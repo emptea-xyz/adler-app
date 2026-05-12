@@ -26,12 +26,6 @@ const LABELS: Record<string, string> = {
     wallet: 'Wallet',
 };
 
-// `create` is a virtual slot — it does not have a Tabs.Screen route. It
-// opens the post-bounty bottom sheet directly.
-const TAB_ORDER = ['browse', 'inbox', 'create', 'wallet', 'profile'] as const;
-
-const FADE_ZONE = 28;
-
 export function TabBar({ state, navigation }: BottomTabBarProps) {
     const { theme } = useTheme();
     const insets = useSafeAreaInsets();

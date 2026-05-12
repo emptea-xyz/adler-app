@@ -11,6 +11,12 @@ service cloud.firestore {
       return isAuthed() && request.auth.uid == uid;
     }
 
+    function isGroupMember(groupId) {
+      return isAuthed()
+             && groupId is string
+             && exists(/databases/$(database)/documents/groupMembers/$(groupId + '_' + request.auth.uid));
+    }
+
     // ── Profiles ────────────────────────────────────────────────────────
     // Public read; owner-only write with field validation.
     function validUsername(v) {
@@ -47,7 +53,7 @@ service cloud.firestore {
       allow update: if isOwner(userId)
                     && request.resource.data.diff(resource.data).affectedKeys()
                          .hasOnly(['username','displayName','bio','walletAddress',
-                                   'location','avatarUrl','dmContact','pushToken',
+                                   'location','avatarUrl','dmContact',
                                    'lastUsernameChangeAt','updatedAt'])
                     // Append-only walletAddress. First set requires a real
                     // base58 string; subsequent updates must preserve.
@@ -81,6 +87,24 @@ service cloud.firestore {
                         && request.resource.data.lastUsernameChangeAt == request.time
                       )
                     );
+      allow delete: if false;
+    }
+
+    match /profilePrivate/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId)
+                    && request.resource.data.keys().hasOnly(['pushToken','updatedAt'])
+                    && request.resource.data.updatedAt == request.time
+                    && (request.resource.data.get('pushToken', null) == null
+                        || (request.resource.data.pushToken is string
+                            && request.resource.data.pushToken.size() <= 512));
+      allow update: if isOwner(userId)
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['pushToken','updatedAt'])
+                    && request.resource.data.updatedAt == request.time
+                    && (request.resource.data.get('pushToken', null) == null
+                        || (request.resource.data.pushToken is string
+                            && request.resource.data.pushToken.size() <= 512));
       allow delete: if false;
     }
 
@@ -126,10 +150,51 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/bounties/$(bountyId)).data.submissionKind;
     }
 
+    function bountyFor(bountyId) {
+      return get(/databases/$(database)/documents/bounties/$(bountyId)).data;
+    }
+
+    function canReadBountyData(bounty) {
+      return isOwner(bounty.posterId)
+             || (isAuthed()
+                 && bounty.status != 'hidden'
+                 && (bounty.scope == 'public'
+                     || isGroupMember(bounty.groupId)));
+    }
+
+    function canReadBountyId(bountyId) {
+      return canReadBountyData(bountyFor(bountyId));
+    }
+
+    function canSubmitToBounty(bountyId) {
+      let bounty = bountyFor(bountyId);
+      return canReadBountyData(bounty)
+             && bounty.status == 'open'
+             && bounty.get('escrowFunded', false) == true
+             && bounty.submissionEndsAt is int
+             && bounty.submissionEndsAt > request.time.toMillis();
+    }
+
+    function validSubmissionPreview(d) {
+      return d.get('photoStoragePath', '') is string
+             && d.get('photoStoragePath', '').size() <= 512
+             && d.get('videoStoragePath', '') is string
+             && d.get('videoStoragePath', '').size() <= 512
+             && d.get('bountyTitle', '') is string
+             && d.get('bountyTitle', '').size() <= 80
+             && d.get('bountyLamports', 0) is int
+             && d.get('bountyLamports', 0) >= 0
+             && d.get('bountyStatus', 'open') in ['open', 'in_review', 'cancelling', 'hidden', 'settled', 'refunded']
+             && d.get('bountyPosterId', '') is string
+             && d.get('bountyPosterId', '').size() <= 128
+             && d.get('bountySubmissionKind', 'photo') in ['photo', 'video', 'link']
+             && d.get('bountyScope', 'public') in ['public', 'group']
+             && (d.get('bountyGroupId', null) == null || d.bountyGroupId is string);
+    }
+
     match /bounties/{id} {
       // Hidden bounties only visible to poster + super-admin queue (server).
-      allow read: if resource.data.status != 'hidden'
-                  || isOwner(resource.data.posterId);
+      allow read: if canReadBountyData(resource.data);
       allow create: if isOwner(request.resource.data.posterId)
                     && bountyValidShape(request.resource.data)
                     && request.resource.data.status == 'open'
@@ -143,7 +208,8 @@ service cloud.firestore {
                     && ((request.resource.data.scope == 'public'
                          && request.resource.data.get('groupId', null) == null)
                         || (request.resource.data.scope == 'group'
-                            && request.resource.data.groupId is string));
+                            && request.resource.data.groupId is string
+                            && isGroupMember(request.resource.data.groupId)));
       // Owner update paths:
       //   (a) status preserved: flipping `escrowFunded` from false to true
       //       only (one-way; H4 transition guard).
@@ -211,9 +277,15 @@ service cloud.firestore {
     // from the same user collides and is rejected. The
     // `enforceSubmissionCap` Cloud Function is a defensive backstop.
     match /submissions/{id} {
-      allow read: if true;
+      allow read: if canReadBountyId(resource.data.bountyId);
       // M4: cap URL sizes. M5: cross-validate `kind` against parent bounty.
       allow create: if isOwner(request.resource.data.submitterId)
+                    && request.resource.data.keys()
+                         .hasOnly(['bountyId','submitterId','photoUrl','photoStoragePath',
+                                   'videoUrl','videoStoragePath','linkUrl','submittedAt',
+                                   'isWinner','bountyTitle','bountyLamports','bountyStatus',
+                                   'bountyPosterId','bountySubmissionKind','bountyScope',
+                                   'bountyGroupId'])
                     && request.resource.data.bountyId is string
                     && request.resource.data.photoUrl is string
                     && request.resource.data.photoUrl.size() <= 2048
@@ -224,7 +296,10 @@ service cloud.firestore {
                     && (request.resource.data.get('linkUrl', '') == ''
                         || request.resource.data.linkUrl.matches('^https?://.+'))
                     && request.resource.data.isWinner == false
+                    && request.resource.data.submittedAt == request.time
+                    && validSubmissionPreview(request.resource.data)
                     && id == request.resource.data.bountyId + '_' + request.auth.uid
+                    && canSubmitToBounty(request.resource.data.bountyId)
                     && (
                       (bountyKindFor(request.resource.data.bountyId) == 'photo'
                        && request.resource.data.photoUrl != ''
@@ -252,6 +327,7 @@ service cloud.firestore {
       allow read: if isOwner(resource.data.reporterId);
       allow create: if isOwner(request.resource.data.reporterId)
                     && request.resource.data.bountyId is string
+                    && canReadBountyId(request.resource.data.bountyId)
                     && request.resource.data.reason is string
                     && request.resource.data.reason.size() > 0
                     && request.resource.data.reason.size() <= 200

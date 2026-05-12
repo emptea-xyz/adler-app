@@ -78,7 +78,7 @@ interface BountyStatusIconProps {
     size?: number;
 }
 
-export function BountyStatusIcon({ status, size = 14 }: BountyStatusIconProps) {
+function BountyStatusIcon({ status, size = 14 }: BountyStatusIconProps) {
     const { theme } = useTheme();
     const grayFill = theme[300];
 
@@ -191,30 +191,5 @@ export function BountyStatusPill({ status, iconSize = 14 }: BountyStatusPillProp
                 {STATUS_LABEL[status]}
             </ThemedText>
         </View>
-    );
-}
-
-const BOOKMARK =
-    'M0.736177 12C1.0462 12 1.24253 11.8456 1.73408 11.3877L3.95042 9.29524C3.97808 9.26881 4.02661 9.26881 4.04955 9.29524L6.26695 11.3887C6.75949 11.8466 6.95277 12 7.26378 12C7.71942 12 8 11.7067 8 11.2152V1.66011C8 0.573824 7.40747 0 6.28034 0H1.71962C0.591487 0 0 0.573824 0 1.66011V11.2152C0 11.7067 0.28054 12 0.736177 12Z';
-
-export function BookmarkIcon({ height = 12 }: { height?: number }) {
-    const { theme } = useTheme();
-    const width = (height * 8) / 12;
-    return (
-        <Svg width={width} height={height} viewBox="0 0 8 12">
-            <Path d={BOOKMARK} fill={theme[300]} opacity={0.85} />
-        </Svg>
-    );
-}
-
-const ARROW_UP_RIGHT =
-    'M0.68007 5.20901C1.06991 5.20901 1.35503 4.92289 1.35503 4.53338V4.08756L1.22587 2.12804L2.68128 3.66155L4.48003 5.47123C4.6062 5.60351 4.7725 5.66455 4.9524 5.66455C5.37167 5.66455 5.67274 5.38254 5.67274 4.96762C5.67274 4.77591 5.60205 4.60626 5.47078 4.47509L3.66467 2.67676L2.12873 1.22371L4.10177 1.35276H4.57764C4.96748 1.35276 5.25895 1.07299 5.25895 0.67949C5.25895 0.283755 4.97259 0 4.57764 0H1.12365C0.411535 0 0 0.411184 0 1.12157V4.53338C0 4.91778 0.29023 5.20901 0.68007 5.20901ZM7.41724 12H10.8724C11.5834 12 12 11.5888 12 10.8773V7.46547C12 7.08223 11.7098 6.79097 11.3148 6.79097C10.9301 6.79097 10.6399 7.07713 10.6399 7.46547V7.91242L10.7741 9.87081L9.3136 8.3373L7.51995 6.52878C7.39382 6.39651 7.22237 6.33545 7.04249 6.33545C6.62835 6.33545 6.32215 6.61749 6.32215 7.03128C6.32215 7.22299 6.39792 7.39372 6.52922 7.52376L8.33022 9.32214L9.87129 10.7752L7.89821 10.6461H7.41724C7.02851 10.6461 6.73591 10.9259 6.73591 11.3205C6.73591 11.7163 7.02851 12 7.41724 12Z';
-
-export function ArrowUpRightIcon({ size = 12 }: { size?: number }) {
-    const { theme } = useTheme();
-    return (
-        <Svg width={size} height={size} viewBox="0 0 12 12">
-            <Path d={ARROW_UP_RIGHT} fill={theme[300]} />
-        </Svg>
     );
 }

@@ -8,30 +8,9 @@
 // enforces admin-only binding of the resulting URL onto the group doc, so
 // stray uploads by non-admins are harmless garbage.
 
-import * as ImageManipulator from 'expo-image-manipulator';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage, auth } from '@/lib/firebase/config';
-
-async function compressLogo(uri: string): Promise<string> {
-    const context = ImageManipulator.ImageManipulator.manipulate(uri).resize({ width: 400 });
-    const imageRef = await context.renderAsync();
-    const result = await imageRef.saveAsync({
-        compress: 0.7,
-        format: ImageManipulator.SaveFormat.JPEG,
-    });
-    return result.uri;
-}
-
-function uriToBlob(uri: string): Promise<Blob> {
-    return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.onload = () => resolve(xhr.response);
-        xhr.onerror = () => reject(new Error('Failed to convert URI to blob'));
-        xhr.responseType = 'blob';
-        xhr.open('GET', uri, true);
-        xhr.send(null);
-    });
-}
+import { compressImageForUpload, uriToBlob } from '@/lib/utils/mediaUpload';
 
 /**
  * Upload a group logo and return the download URL. Caller is responsible
@@ -43,7 +22,7 @@ function uriToBlob(uri: string): Promise<Blob> {
  */
 export async function uploadGroupLogo(groupId: string, localUri: string): Promise<string> {
     if (!auth.currentUser) throw new Error('Not signed in');
-    const compressedUri = await compressLogo(localUri);
+    const compressedUri = await compressImageForUpload(localUri, 400);
     const blob = await uriToBlob(compressedUri);
     const fileName = `${Date.now()}.jpg`;
     const storageRef = ref(storage, `groupLogos/${groupId}/${fileName}`);

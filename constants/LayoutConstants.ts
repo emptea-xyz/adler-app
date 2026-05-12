@@ -11,26 +11,6 @@
  *   - INSET_*   : Screen edge insets
  */
 
-import { Dimensions } from 'react-native';
-
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-
-// ─────────────────────────────────────────────────────────────────
-// SCREEN DIMENSIONS
-// ─────────────────────────────────────────────────────────────────
-
-export const Screen = {
-    width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT,
-    isSmall: SCREEN_WIDTH < 375, // iPhone SE
-    isMedium: SCREEN_WIDTH >= 375 && SCREEN_WIDTH < 414,
-    isLarge: SCREEN_WIDTH >= 414,
-} as const;
-
-// ─────────────────────────────────────────────────────────────────
-// TAB BAR
-// ─────────────────────────────────────────────────────────────────
-
 /** Height of the tab bar (excluding safe-area inset) */
 export const TAB_BAR_HEIGHT = 80;
 
@@ -42,9 +22,6 @@ export const TAB_BAR_HEIGHT = 80;
 export const ICON_BUTTON_SIZE = 36;
 /** Half of ICON_BUTTON_SIZE for full-circle radius */
 export const ICON_BUTTON_RADIUS = ICON_BUTTON_SIZE / 2;
-/** Large avatar (profile header) */
-export const AVATAR_LG = 96;
-
 // ─────────────────────────────────────────────────────────────────
 // CORNER RADII
 // ─────────────────────────────────────────────────────────────────
@@ -74,35 +51,6 @@ export const Shadow = {
     },
 } as const;
 
-/** Universally-used opacity/alpha-channel literals. Pair with `theme[N]`. */
-export const Overlay = {
-    /** Bottom-sheet backdrop tint */
-    backdrop: 0.2,
-    /** Disabled button / disabled control */
-    disabled: 0.5,
-} as const;
-
-// ─────────────────────────────────────────────────────────────────
-// BOTTOM INSETS (for scrollable content inside (home) tab screens)
-// ─────────────────────────────────────────────────────────────────
-
-export const BottomInset = {
-    /** Tab bar height + safe area buffer */
-    withTabBar: TAB_BAR_HEIGHT + 40,
-
-    /** Standard scroll padding for screens with tab bar */
-    scrollWithTabBar: TAB_BAR_HEIGHT + 60,
-
-    /** Extended scroll padding for screens with FAB or actions */
-    scrollWithActions: TAB_BAR_HEIGHT + 80,
-
-    /** Scroll padding for screens with large bottom actions */
-    scrollWithLargeActions: TAB_BAR_HEIGHT + 100,
-
-    /** Minimal scroll padding for simple screens (20px) */
-    scrollMinimal: 20,
-} as const;
-
 // ─────────────────────────────────────────────────────────────────
 // ANIMATION TIMING
 // ─────────────────────────────────────────────────────────────────
@@ -121,5 +69,4 @@ export const AnimationDuration = {
     /** 800ms - Skeleton pulse */
     pulse: 800,
 } as const;
-
 

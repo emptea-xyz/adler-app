@@ -1,24 +1,6 @@
-import * as ImageManipulator from 'expo-image-manipulator';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { auth, storage } from '@/lib/firebase/config';
-
-async function compress(uri: string): Promise<string> {
-    const ctx = ImageManipulator.ImageManipulator.manipulate(uri).resize({ width: 1600 });
-    const imageRef = await ctx.renderAsync();
-    const result = await imageRef.saveAsync({ compress: 0.7, format: ImageManipulator.SaveFormat.JPEG });
-    return result.uri;
-}
-
-function uriToBlob(uri: string): Promise<Blob> {
-    return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.onload = () => resolve(xhr.response);
-        xhr.onerror = () => reject(new Error('Failed to convert URI to blob'));
-        xhr.responseType = 'blob';
-        xhr.open('GET', uri, true);
-        xhr.send(null);
-    });
-}
+import { compressImageForUpload, uriToBlob } from '@/lib/utils/mediaUpload';
 
 export interface UploadedMedia {
     url: string;
@@ -28,7 +10,7 @@ export interface UploadedMedia {
 export async function uploadBountySubmissionPhoto(localUri: string): Promise<UploadedMedia> {
     const uid = auth.currentUser?.uid;
     if (!uid) throw new Error('Sign-in required');
-    const compressedUri = await compress(localUri);
+    const compressedUri = await compressImageForUpload(localUri, 1600);
     const blob = await uriToBlob(compressedUri);
     const fileName = `${Date.now()}.jpg`;
     const path = `bountySubmissions/${uid}/${fileName}`;

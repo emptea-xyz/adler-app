@@ -6,7 +6,7 @@ import {
 import type { PrivyEmbeddedSolanaWalletProvider } from '@privy-io/expo';
 import { getConnection } from '@/lib/solana/connection';
 
-export interface EscrowError extends Error {
+interface EscrowError extends Error {
     code?: string;
     cause?: unknown;
     signature?: string;

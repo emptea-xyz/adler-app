@@ -45,7 +45,7 @@ interface BountyItemCardProps {
     onLongPress?: () => void;
 }
 
-export function BountyItemCard({
+function BountyItemCard({
     title,
     amountLamports,
     status,
@@ -183,11 +183,12 @@ export function bountyStatusToCard(b: Bounty): BountyItemStatus {
  * Use for Inbox "Submitted", Profile "Won", Profile "Participated".
  */
 export function submissionStatusToCard(s: Submission, b?: Bounty): BountyItemStatus {
+    const status = b?.status ?? s.bountyStatus;
     if (s.isWinner) return 'won';
     // L3: 'lost' is reserved for "poster picked someone else." A refund
     // means nobody won, so it's just 'closed' to the submitter.
-    if (b?.status === 'settled') return 'lost';
-    if (b?.status === 'refunded' || b?.status === 'hidden' || b?.status === 'cancelling') {
+    if (status === 'settled') return 'lost';
+    if (status === 'refunded' || status === 'hidden' || status === 'cancelling') {
         return 'closed';
     }
     return 'pending';
@@ -270,11 +271,17 @@ export function BountyCardForSubmission({
 }) {
     return (
         <BountyItemCard
-            title={bounty?.title ?? 'Bounty'}
-            amountLamports={bounty?.bountyLamports ?? 0}
+            title={bounty?.title ?? submission.bountyTitle ?? 'Bounty'}
+            amountLamports={bounty?.bountyLamports ?? submission.bountyLamports ?? 0}
             status={submissionStatusToCard(submission, bounty)}
-            posterId={bounty?.posterId ?? null}
-            groupId={bounty?.scope === 'group' ? bounty.groupId : null}
+            posterId={bounty?.posterId ?? submission.bountyPosterId ?? null}
+            groupId={
+                bounty?.scope === 'group'
+                    ? bounty.groupId
+                    : submission.bountyScope === 'group'
+                      ? submission.bountyGroupId ?? null
+                      : null
+            }
             onPress={() => {
                 haptic('light');
                 router.push(`/bounty/${submission.bountyId}`);

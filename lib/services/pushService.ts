@@ -4,7 +4,7 @@ import Constants from 'expo-constants';
 
 export type PushPermissionState = 'granted' | 'undetermined' | 'denied';
 
-export function canReceivePushNotifications(): boolean {
+function canReceivePushNotifications(): boolean {
     return Device.isDevice;
 }
 
@@ -97,7 +97,7 @@ function asRecord(value: unknown): Record<string, unknown> {
         : {};
 }
 
-export function hrefFromPushData(payload: unknown): string | null {
+function hrefFromPushData(payload: unknown): string | null {
     const data = asRecord(payload);
     if (typeof data.href === 'string' && data.href.trim().length > 0) {
         const href = data.href.trim();

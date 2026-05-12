@@ -11,9 +11,9 @@
 // `listingMediaUploadService` instead.
 
 import * as ImagePicker from 'expo-image-picker';
-import * as ImageManipulator from 'expo-image-manipulator';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage, auth } from '@/lib/firebase/config';
+import { compressImageForUpload as compressImage, uriToBlob } from '@/lib/utils/mediaUpload';
 
 async function ensureMediaLibraryPermission(): Promise<void> {
     const current = await ImagePicker.getMediaLibraryPermissionsAsync();
@@ -55,25 +55,6 @@ export async function pickImages(opts?: { selectionLimit?: number; quality?: num
 
     if (result.canceled || !result.assets?.length) return [];
     return result.assets.map((a) => a.uri);
-}
-
-async function compressImage(uri: string, maxDim = 1200): Promise<string> {
-    const context = ImageManipulator.ImageManipulator.manipulate(uri)
-        .resize({ width: maxDim });
-    const imageRef = await context.renderAsync();
-    const result = await imageRef.saveAsync({ compress: 0.7, format: ImageManipulator.SaveFormat.JPEG });
-    return result.uri;
-}
-
-function uriToBlob(uri: string): Promise<Blob> {
-    return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.onload = () => resolve(xhr.response);
-        xhr.onerror = () => reject(new Error('Failed to convert URI to blob'));
-        xhr.responseType = 'blob';
-        xhr.open('GET', uri, true);
-        xhr.send(null);
-    });
 }
 
 function requireUid(): string {

@@ -17,7 +17,7 @@ export interface Profile {
   bio: string;
   avatarUrl: string | null;
   walletAddress: string | null;
-  pushToken: string | null;
+  pushToken?: string | null;
   /** Defaults to { kind: 'global', city: null, country: null } until the
    *  user picks a location during onboarding or in settings. */
   location: ProfileLocation;

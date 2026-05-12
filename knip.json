@@ -23,6 +23,7 @@
   "ignoreDependencies": [
     "babel-plugin-transform-remove-console",
     "buffer",
+    "expo-updates",
     "jose"
   ],
   "ignoreBinaries": [

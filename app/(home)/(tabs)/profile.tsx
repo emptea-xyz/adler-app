@@ -46,9 +46,16 @@ export default function ProfileScreen() {
         queryFn: () => listMySubmissions(user!.id),
     });
 
-    const submissions = submissionsQuery.data ?? [];
+    const submissions = useMemo(() => submissionsQuery.data ?? [], [submissionsQuery.data]);
     const bountyIds = useMemo(
-        () => Array.from(new Set(submissions.map((s) => s.bountyId))),
+        () =>
+            Array.from(
+                new Set(
+                    submissions
+                        .filter((s) => !s.bountyTitle || s.bountyLamports == null || !s.bountyStatus)
+                        .map((s) => s.bountyId),
+                ),
+            ),
         [submissions],
     );
 

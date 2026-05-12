@@ -5,8 +5,6 @@
 
 export type GroupStatus = 'pending' | 'active';
 export type GroupRole = 'admin' | 'member';
-export type JoinRequestStatus = 'pending' | 'approved' | 'rejected';
-export type GroupCreationRequestStatus = 'pending' | 'approved' | 'rejected';
 
 export interface Group {
   id: string;
@@ -31,22 +29,4 @@ export interface GroupMember {
   joinedAt: number;
   /** v1: super-admin writes 'admin' directly via Firestore. No in-app flow. */
   role: GroupRole;
-}
-
-export interface JoinRequest {
-  /** Doc id is `${groupId}_${uid}`. */
-  id: string;
-  groupId: string;
-  uid: string;
-  requestedAt: number;
-  status: JoinRequestStatus;
-}
-
-export interface GroupCreationRequest {
-  id: string;
-  name: string;
-  description: string;
-  requesterId: string;
-  status: GroupCreationRequestStatus;
-  createdAt: number;
 }

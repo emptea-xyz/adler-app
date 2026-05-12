@@ -81,7 +81,7 @@ function assertCurrentUser(): string {
     return uid;
 }
 
-export interface DraftBountyInput {
+interface DraftBountyInput {
     title: string;
     prompt: string;
     bountyLamports: number;

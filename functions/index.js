@@ -84,6 +84,10 @@ async function sendExpoPush(messages) {
 
 async function pushTokenFor(userId) {
   if (!userId) return null;
+  const privateSnap = await admin.firestore().collection('profilePrivate').doc(userId).get();
+  if (privateSnap.exists) {
+    return privateSnap.data()?.pushToken ?? null;
+  }
   const snap = await admin.firestore().collection('profiles').doc(userId).get();
   if (!snap.exists) return null;
   return snap.data()?.pushToken ?? null;
@@ -760,8 +764,13 @@ export const notifyBountySettled = onDocumentUpdated(
         .get();
       const seen = new Set();
       const sends = [];
+      const batch = admin.firestore().batch();
       for (const doc of losers.docs) {
         const submitterId = doc.data()?.submitterId;
+        batch.update(doc.ref, {
+          bountyStatus: 'settled',
+          isWinner: doc.id === after.winningSubmissionId || submitterId === winnerId,
+        });
         if (!submitterId || submitterId === winnerId || seen.has(submitterId)) continue;
         seen.add(submitterId);
         sends.push(
@@ -775,6 +784,7 @@ export const notifyBountySettled = onDocumentUpdated(
           }),
         );
       }
+      await batch.commit();
       await Promise.all(sends);
     } catch (err) {
       console.warn(`notifyBountySettled losers fan-out for ${bountyId} failed`, err);

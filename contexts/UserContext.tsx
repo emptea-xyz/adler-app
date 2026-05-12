@@ -80,7 +80,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
                     .then(async (permission) => {
                         if (permission === 'granted') {
                             const token = await registerForPushAsync({ requestPermission: false });
-                            if (!token || token === ensured.pushToken) return;
+                            if (!token) return;
                             await setPushToken(user.id, token);
                             return;
                         }

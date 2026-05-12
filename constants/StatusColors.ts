@@ -17,8 +17,6 @@ export const Status = {
   info: '#0ea5e9',
 } as const;
 
-export type StatusName = keyof typeof Status;
-
 /**
  * Canonical destructive crimson — used for irreversible actions (sign out,
  * delete account, etc.). Intentionally outside `Status` to keep "you are

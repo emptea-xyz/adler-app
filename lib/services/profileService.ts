@@ -25,6 +25,7 @@ import { tsMs } from '@/lib/utils/firestoreTimestamp';
 // the deployed firestore.rules. Any divergence triggers
 // "Missing or insufficient permissions" at write time.
 const COLLECTION = 'profiles';
+const PRIVATE_COLLECTION = 'profilePrivate';
 const USERNAMES_COLLECTION = 'usernames';
 const USERNAME_REGEX = /^[a-z0-9_]{3,20}$/;
 
@@ -77,7 +78,6 @@ function rowToProfile(uid: string, data: Record<string, unknown>): Profile {
         bio: (data.bio as string) ?? '',
         avatarUrl: (data.avatarUrl as string | null) ?? null,
         walletAddress: (data.walletAddress as string | null) ?? null,
-        pushToken: (data.pushToken as string | null) ?? null,
         location: readLocation(data.location),
         groupCount: typeof data.groupCount === 'number' ? data.groupCount : 0,
         latestActivityAt: tsMs(data.latestActivityAt),
@@ -175,7 +175,6 @@ export async function ensureProfileExists(
                     ? { kind: 'country', country: country.toUpperCase() }
                     : DEFAULT_LOCATION;
             }
-            if (typeof data.groupCount !== 'number') patch.groupCount = 0;
             if (Object.keys(patch).length > 0) {
                 tx.update(ref, { ...patch, updatedAt: serverTimestamp() });
             }
@@ -208,12 +207,12 @@ export async function ensureProfileExists(
         const now = Date.now();
         tx.set(slugRef, { userId, createdAt: serverTimestamp() });
         tx.set(ref, {
+            id: userId,
             username,
             displayName,
             bio: '',
             avatarUrl: null,
             walletAddress,
-            pushToken: null,
             location: DEFAULT_LOCATION,
             groupCount: 0,
             createdAt: serverTimestamp(),
@@ -226,7 +225,6 @@ export async function ensureProfileExists(
             bio: '',
             avatarUrl: null,
             walletAddress,
-            pushToken: null,
             location: DEFAULT_LOCATION,
             groupCount: 0,
             latestActivityAt: 0,
@@ -272,22 +270,6 @@ export async function setAvatarUrl(
         avatarUrl,
         updatedAt: serverTimestamp(),
     });
-}
-
-/**
- * Append-only by the rule: walletAddress can flip from null → string but
- * never be overwritten. Clients fall back to the existing value.
- */
-export async function setWalletAddress(
-    userId: string,
-    walletAddress: string,
-): Promise<void> {
-    assertCurrentUser(userId);
-    await setDoc(
-        doc(db, COLLECTION, userId),
-        { walletAddress, updatedAt: serverTimestamp() },
-        { merge: true },
-    );
 }
 
 /**
@@ -344,7 +326,7 @@ export async function changeUsername(userId: string, newUsername: string): Promi
 export async function setPushToken(userId: string, pushToken: string): Promise<void> {
     assertCurrentUser(userId);
     await setDoc(
-        doc(db, COLLECTION, userId),
+        doc(db, PRIVATE_COLLECTION, userId),
         { pushToken, updatedAt: serverTimestamp() },
         { merge: true },
     );
@@ -353,7 +335,7 @@ export async function setPushToken(userId: string, pushToken: string): Promise<v
 export async function clearPushToken(userId: string): Promise<void> {
     assertCurrentUser(userId);
     await setDoc(
-        doc(db, COLLECTION, userId),
+        doc(db, PRIVATE_COLLECTION, userId),
         { pushToken: null, updatedAt: serverTimestamp() },
         { merge: true },
     );

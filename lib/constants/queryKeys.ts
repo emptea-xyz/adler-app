@@ -50,5 +50,3 @@ export const qk = {
       ['wallet', 'activity', address ?? 'none'] as const,
   },
 };
-
-export type QueryKeys = typeof qk;

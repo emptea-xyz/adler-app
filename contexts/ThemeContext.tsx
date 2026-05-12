@@ -15,7 +15,7 @@ import {
     SIGNAL_COLORS,
 } from '@/constants/ThemePalettes';
 
-export type ColorScheme = 'system' | 'light' | 'dark';
+type ColorScheme = 'system' | 'light' | 'dark';
 
 interface ThemeContextType {
     /** Light palette. */

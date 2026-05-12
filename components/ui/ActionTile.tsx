@@ -9,7 +9,7 @@ import { haptic } from '@/lib/utils/haptic';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
-export type ActionTileIconPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+type ActionTileIconPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 
 interface ActionTileProps {
     icon: IconName;

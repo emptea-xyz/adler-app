@@ -44,46 +44,10 @@ export const MONO_PALETTE: ThemePalette = {
 };
 
 /**
- * Inverts a palette for dark mode: swaps light ↔ dark shades. Shade 500
- * (accent midpoint) stays in place.
- */
-export function invertPalette(palette: ThemePalette): ThemePalette {
-    return {
-        50: palette[950],
-        100: palette[900],
-        200: palette[800],
-        300: palette[700],
-        400: palette[600],
-        500: palette[500],
-        600: palette[400],
-        700: palette[300],
-        800: palette[200],
-        900: palette[100],
-        950: palette[50],
-    };
-}
-
-/**
  * Single brand accent — Tailwind sky. Re-exported so chart primitives that
  * want a 300→700 ramp don't have to know the underlying name. For new code,
  * import `TailwindColors.sky` directly.
  */
 export const SIGNAL_COLORS = {
     accent: TailwindColors.sky,
-} as const;
-
-/**
- * Brand accents — illustrative highlights, decorative pops, category chips.
- * These do NOT flip with light/dark mode. Use sparingly and only for
- * "decorative pop" affordances; do not use to communicate status.
- *
- * Pulled 1:1 from Figma's `accent/*` collection.
- */
-export const Accent = {
-    pink: '#ff0088',
-    pinkDark: '#a50057',
-    cyan: '#00d4ff',
-    lime: '#4cd900',
-    orange: '#ff5900',
-    sable: '#f1c917',
 } as const;

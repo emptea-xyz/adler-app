@@ -1,6 +1,8 @@
 // Mirror of the `submissions/{id}` Firestore doc shape. Source of truth:
 // `match /submissions/{id}` in firestore.rules.
 
+import type { BountyScope, BountyStatus, BountySubmissionKind } from './bounty';
+
 export interface Submission {
     id: string;
     bountyId: string;
@@ -17,4 +19,11 @@ export interface Submission {
     linkUrl: string | null;
     submittedAt: number;
     isWinner: boolean;
+    bountyTitle?: string;
+    bountyLamports?: number;
+    bountyStatus?: BountyStatus;
+    bountyPosterId?: string;
+    bountySubmissionKind?: BountySubmissionKind;
+    bountyScope?: BountyScope;
+    bountyGroupId?: string | null;
 }

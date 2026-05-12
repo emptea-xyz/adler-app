@@ -19,7 +19,6 @@ import { getConnection, lamportsToSol, explorerAddressUrl } from '@/lib/solana/c
 import { qk } from '@/lib/constants/queryKeys';
 import { TAB_BAR_HEIGHT } from '@/constants/LayoutConstants';
 import { TailwindColors } from '@/constants/TailwindColors';
-import { Neutral } from '@/constants/NeutralColors';
 import { haptic } from '@/lib/utils/haptic';
 import { formatSolParts } from '@/lib/utils/formatNumber';
 import { EMPTY_WALLET_BALANCE } from '@/lib/utils/copy';

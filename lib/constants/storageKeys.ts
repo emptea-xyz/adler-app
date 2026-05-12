@@ -10,5 +10,3 @@ export const STORAGE_KEYS = {
   /** 24h stale-while-error cache for the SOL/USD price (wallet UI). */
   SOL_USD_CACHE: 'adler.solUsd',
 } as const;
-
-export type StorageKey = typeof STORAGE_KEYS[keyof typeof STORAGE_KEYS];

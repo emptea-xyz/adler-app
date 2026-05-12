@@ -16,7 +16,7 @@ import { Radius } from '@/constants/LayoutConstants';
 //   dark    — inverted high-emphasis (theme[950] bg, theme[50] text)
 //   success / error / warning / info — semantic Status colors
 
-export type PillIntent =
+type PillIntent =
   | 'accent'
   | 'neutral'
   | 'dark'
