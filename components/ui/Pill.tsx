@@ -1,6 +1,7 @@
 import React from 'react';
 import { View } from 'react-native';
 import { ThemedText } from '@/components/base/ThemedText';
+import { Icon, type IconName } from '@/components/ui/Icon';
 import { useTheme } from '@/contexts/ThemeContext';
 import { TailwindColors } from '@/constants/TailwindColors';
 import { Status } from '@/constants/StatusColors';
@@ -27,9 +28,10 @@ export type PillIntent =
 interface PillProps {
   intent: PillIntent;
   label: string;
+  icon?: IconName;
 }
 
-export function Pill({ intent, label }: PillProps) {
+export function Pill({ intent, label, icon }: PillProps) {
   const { theme } = useTheme();
 
   let bg: string;
@@ -71,15 +73,22 @@ export function Pill({ intent, label }: PillProps) {
     <View
       style={{
         backgroundColor: bg,
-        paddingHorizontal: 10,
-        paddingVertical: 5,
+        paddingHorizontal: icon ? 6 : 10,
+        paddingVertical: icon ? 6 : 5,
         borderRadius: Radius.full,
         alignSelf: 'flex-start',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
       }}
     >
-      <ThemedText type="caption-semibold" style={{ color: fg }}>
-        {label}
-      </ThemedText>
+      {icon ? (
+        <Icon name={icon} size={12} color={fg} weight="bold" />
+      ) : (
+        <ThemedText type="caption-semibold" style={{ color: fg }}>
+          {label}
+        </ThemedText>
+      )}
     </View>
   );
 }

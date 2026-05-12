@@ -22,4 +22,9 @@ config.resolver = {
   unstable_conditionNames: ['require', 'import', 'react-native', 'browser'],
 };
 
-module.exports = withNativeWind(config, { input: './global.css' });
+module.exports = withNativeWind(config, {
+  input: './global.css',
+  // Absolute path so the config loads correctly regardless of process.cwd()
+  // (e.g. when expo-doctor evaluates metro.config.js from a subdirectory).
+  configPath: require.resolve('./tailwind.config.js'),
+});

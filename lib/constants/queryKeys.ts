@@ -9,6 +9,7 @@ import type { BountyStatus } from '@/lib/types/bounty';
 export const qk = {
   profiles: {
     detail: (uid: string) => ['profiles', 'detail', uid] as const,
+    search: (q: string) => ['profiles', 'search', q] as const,
   },
   bounties: {
     all: () => ['bounties'] as const,
@@ -32,8 +33,7 @@ export const qk = {
     all: () => ['groups'] as const,
     detail: (id: string) => ['groups', 'detail', id] as const,
     myMemberships: (uid: string) => ['groups', 'myMemberships', uid] as const,
-    joinRequests: (groupId: string) =>
-      ['groups', 'joinRequests', groupId] as const,
+    members: (groupId: string) => ['groups', 'members', groupId] as const,
     list: () => ['groups', 'list'] as const,
     search: (q: string) => ['groups', 'search', q] as const,
   },

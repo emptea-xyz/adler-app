@@ -99,10 +99,22 @@ if (getApps().length === 0) {
         }
     } else if (Platform.OS === 'web') {
         if (!__DEV__) {
-            initializeAppCheck(app, {
-                provider: new ReCaptchaEnterpriseProvider('RECAPTCHA_ENTERPRISE_SITE_KEY'),
-                isTokenAutoRefreshEnabled: true,
-            });
+            // M11: real ReCaptcha Enterprise site key. If unset (or still
+            // the literal placeholder), skip web App Check setup entirely
+            // rather than silently failing-open with a bogus site key.
+            const siteKey = process.env.EXPO_PUBLIC_RECAPTCHA_ENTERPRISE_SITE_KEY;
+            if (!siteKey || siteKey === 'RECAPTCHA_ENTERPRISE_SITE_KEY') {
+                if (__DEV__) {
+                    console.warn(
+                        'App Check (web): EXPO_PUBLIC_RECAPTCHA_ENTERPRISE_SITE_KEY unset; skipping init.',
+                    );
+                }
+            } else {
+                initializeAppCheck(app, {
+                    provider: new ReCaptchaEnterpriseProvider(siteKey),
+                    isTokenAutoRefreshEnabled: true,
+                });
+            }
         } else {
             // @ts-ignore - App Check debug token for local development
             self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
