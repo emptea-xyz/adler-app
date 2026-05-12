@@ -31,13 +31,22 @@ EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=
 EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
 EXPO_PUBLIC_FIREBASE_APP_ID=
 EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID=
+EXPO_PUBLIC_SOLANA_NETWORK=devnet
+EXPO_PUBLIC_SOLANA_RPC_URL=
+EXPO_PUBLIC_SOLANA_RPC_PROXY_URL=
+EXPO_PUBLIC_RECAPTCHA_ENTERPRISE_SITE_KEY=
 ```
+
+`EXPO_PUBLIC_SOLANA_RPC_URL` is required in dev (point at Helius devnet — public RPCs are rate-limited and unsupported). In production builds, set `EXPO_PUBLIC_SOLANA_RPC_PROXY_URL` to the deployed `solanaRpcProxy` Cloud Function URL instead, so the Helius key stays server-side. `EXPO_PUBLIC_RECAPTCHA_ENTERPRISE_SITE_KEY` is web-only (App Check); skip it for iOS dev.
 
 Cloud Function secrets (set via `firebase functions:secrets:set`):
 
 ```
 PRIVY_APP_ID
 PRIVY_APP_SECRET
+HELIUS_RPC_URL_DEVNET
+VERIFIER_KEYPAIR_BASE58
+SUPER_ADMIN_UID
 ```
 
 ## First run
