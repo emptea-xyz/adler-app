@@ -4,8 +4,8 @@
 
 A bounty marketplace built on Solana.
 
-- **Anyone** can post a funded bounty (manual or auto settlement, with a submission window of 3 / 7 / 30 days).
-- **Anyone** can submit to a bounty. The poster picks a winner (manual) or settlement runs automatically.
+- **Anyone** can post a funded bounty. Submission window is 30 days; the poster then has a 90-day review window to pick a winner.
+- **Anyone** can submit. The poster picks the winning submission and the on-chain escrow releases funds (minus a 0.5% protocol fee). If no winner is picked before the review window expires, anyone can trigger a refund back to the poster.
 
 Funds escrow on-chain via the `adler-escrow` Anchor program on **Solana devnet** (mainnet flip is post-MVP). Authentication and embedded wallets are powered by **Privy**. Database, storage, and the auth bridge run on **Firebase**.
 
