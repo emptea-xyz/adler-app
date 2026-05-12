@@ -21,6 +21,7 @@ export default function HomeLayout() {
         <Stack.Screen name="notifications" options={{ presentation: 'card' }} />
         <Stack.Screen name="settings" />
         <Stack.Screen name="wallet/activity" options={{ presentation: 'card' }} />
+        <Stack.Screen name="leaderboard" options={{ presentation: 'card' }} />
       </Stack>
     </OverlaySheetsProvider>
   );

@@ -404,6 +404,10 @@ export const enforceSubmissionCap = onDocumentCreated(
     try {
       outcome = await db.runTransaction(async (tx) => {
         const bountySnap = await tx.get(bountyRef);
+        const participationRef = db
+          .collection('leaderboardParticipation')
+          .doc(`${bountyId}_${submitterId}`);
+        const participationSnap = await tx.get(participationRef);
         if (!bountySnap.exists) return 'no_bounty';
         const bounty = bountySnap.data();
 
@@ -419,6 +423,18 @@ export const enforceSubmissionCap = onDocumentCreated(
         tx.update(bountyRef, {
           submissionCount: admin.firestore.FieldValue.increment(1),
         });
+        if (!participationSnap.exists) {
+          tx.set(participationRef, {
+            bountyId,
+            submitterId,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          });
+          tx.set(
+            db.collection('profiles').doc(submitterId),
+            { bountiesParticipated: admin.firestore.FieldValue.increment(1) },
+            { merge: true },
+          );
+        }
         return 'accepted';
       });
     } catch (err) {
@@ -743,6 +759,42 @@ export const notifyBountySettled = onDocumentUpdated(
 
     const bountyHref = `/(home)/bounty/${bountyId}`;
     const title = after.title ?? 'a bounty';
+
+    // Leaderboard counters — winner only. `PROTOCOL_FEE_BPS = 50` (0.5%)
+    // matches the on-chain settle math; we mirror it client-side so
+    // `lamportsWonFromBounties` reflects what actually hit the wallet.
+    try {
+      const grossLamports =
+        typeof after.bountyLamports === 'number' ? after.bountyLamports : 0;
+      const netLamports = Math.floor((grossLamports * 9950) / 10000);
+      const db = admin.firestore();
+      const awardRef = db.collection('leaderboardAwards').doc(bountyId);
+      const winnerRef = db.collection('profiles').doc(winnerId);
+      await db.runTransaction(async (tx) => {
+        const awardSnap = await tx.get(awardRef);
+        if (awardSnap.exists) return;
+
+        tx.set(awardRef, {
+          bountyId,
+          winnerId,
+          winningSubmissionId: after.winningSubmissionId ?? null,
+          grossLamports,
+          netLamports,
+          creditedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        tx.set(
+          winnerRef,
+          {
+            bountiesWon: admin.firestore.FieldValue.increment(1),
+            lamportsWonFromBounties:
+              admin.firestore.FieldValue.increment(netLamports),
+          },
+          { merge: true },
+        );
+      });
+    } catch (err) {
+      console.warn(`leaderboard counter bump for winner ${winnerId} failed`, err);
+    }
 
     await notifyUser({
       recipientId: winnerId,

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { FlatList, Pressable, View } from 'react-native';
+import { FlatList, Pressable, RefreshControl, View } from 'react-native';
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -46,6 +46,8 @@ const labelFromTab = (tab: InboxTab): TabLabel =>
 export default function InboxScreen() {
     const insets = useSafeAreaInsets();
     const { user } = useAuth();
+    const { theme } = useTheme();
+    const queryClient = useQueryClient();
     const [tab, setTab] = useState<InboxTab>('posted');
 
     const postedQuery = useQuery({
@@ -105,6 +107,28 @@ export default function InboxScreen() {
               ? submittedQuery.isLoading
               : notificationsQuery.isLoading;
 
+    const refreshing =
+        tab === 'posted'
+            ? postedQuery.isFetching
+            : tab === 'submitted'
+              ? submittedQuery.isFetching
+              : notificationsQuery.isFetching;
+
+    const onRefresh = async () => {
+        if (!user) return;
+        if (tab === 'posted') {
+            await queryClient.invalidateQueries({ queryKey: qk.bounties.byPoster(user.id) });
+        } else if (tab === 'submitted') {
+            await queryClient.invalidateQueries({ queryKey: qk.submissions.bySubmitter(user.id) });
+        } else {
+            await queryClient.invalidateQueries({ queryKey: qk.notifications.list(user.id) });
+        }
+    };
+
+    const refreshControl = (
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme[950]} />
+    );
+
     return (
         <ThemedView style={{ flex: 1 }}>
             <View style={{ paddingTop: insets.top }}>
@@ -131,6 +155,7 @@ export default function InboxScreen() {
                     keyExtractor={(item) => item.id}
                     renderItem={({ item }) => <BountyCardForBounty bounty={item} />}
                     contentContainerStyle={{ paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 24 }}
+                    refreshControl={refreshControl}
                     ListEmptyComponent={
                         <EmptyState title={EMPTY_INBOX_POSTED.title} description={EMPTY_INBOX_POSTED.description} />
                     }
@@ -146,6 +171,7 @@ export default function InboxScreen() {
                         />
                     )}
                     contentContainerStyle={{ paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 24 }}
+                    refreshControl={refreshControl}
                     ListEmptyComponent={
                         <EmptyState title={EMPTY_INBOX_SUBMITTED.title} description={EMPTY_INBOX_SUBMITTED.description} />
                     }
@@ -156,6 +182,7 @@ export default function InboxScreen() {
                     keyExtractor={(item) => item.id}
                     renderItem={({ item }) => <NotificationRow notification={item} />}
                     contentContainerStyle={{ paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 24 }}
+                    refreshControl={refreshControl}
                     ListEmptyComponent={
                         <EmptyState title={EMPTY_NOTIFICATIONS.title} description={EMPTY_NOTIFICATIONS.description} />
                     }

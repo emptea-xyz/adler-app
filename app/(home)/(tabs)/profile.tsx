@@ -1,8 +1,8 @@
 import React, { useMemo, useState } from 'react';
-import { View, Pressable, ScrollView } from 'react-native';
+import { View, Pressable, ScrollView, RefreshControl } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useQuery, useQueries } from '@tanstack/react-query';
+import { useQuery, useQueries, useQueryClient } from '@tanstack/react-query';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useUser } from '@/contexts/UserContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,6 +13,8 @@ import { CircleIconButton } from '@/components/ui/CircleIconButton';
 import { haptic } from '@/lib/utils/haptic';
 import { AdlerHomeHeader } from '@/components/features/home/AdlerHomeHeader';
 import EmptyState from '@/components/ui/EmptyState';
+import { Spinner } from '@/components/ui/Spinner';
+import { Status } from '@/constants/StatusColors';
 import {
     BountyCardForBounty,
     BountyCardForSubmission,
@@ -29,9 +31,10 @@ type Tab = (typeof TABS)[number];
 
 export default function ProfileScreen() {
     const { theme } = useTheme();
-    const { profile } = useUser();
+    const { profile, refreshProfile } = useUser();
     const { user } = useAuth();
     const insets = useSafeAreaInsets();
+    const queryClient = useQueryClient();
     const [tab, setTab] = useState<Tab>('Won');
 
     const createdQuery = useQuery({
@@ -87,28 +90,52 @@ export default function ProfileScreen() {
         Participated: participatedCount,
     };
 
-    if (!profile) return <ThemedView style={{ flex: 1 }} />;
-
     return (
         <ThemedView style={{ flex: 1 }}>
             <View style={{ paddingTop: insets.top }}>
                 <AdlerHomeHeader
                     title="Profile"
                     rightSlot={
-                        <CircleIconButton
-                            icon="gearshape.fill"
-                            onPress={() => router.push('/settings')}
-                            accessibilityLabel="Settings"
-                        />
+                        <>
+                            <CircleIconButton
+                                icon="trophy.fill"
+                                onPress={() => router.push('/leaderboard')}
+                                accessibilityLabel="Leaderboard"
+                            />
+                            <CircleIconButton
+                                icon="gearshape.fill"
+                                onPress={() => router.push('/settings')}
+                                accessibilityLabel="Settings"
+                            />
+                        </>
                     }
                 />
             </View>
 
+            {!profile ? (
+                <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                    <Spinner size={32} />
+                </View>
+            ) : (
             <ScrollView
                 contentContainerStyle={{
                     paddingTop: 8,
                     paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 24,
                 }}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={createdQuery.isFetching || submissionsQuery.isFetching}
+                        onRefresh={async () => {
+                            if (!user) return;
+                            await Promise.all([
+                                refreshProfile(),
+                                queryClient.invalidateQueries({ queryKey: qk.bounties.byPoster(user.id) }),
+                                queryClient.invalidateQueries({ queryKey: qk.submissions.bySubmitter(user.id) }),
+                            ]);
+                        }}
+                        tintColor={theme[950]}
+                    />
+                }
             >
                 <View style={{ alignItems: 'center', paddingHorizontal: 24, gap: 12 }}>
                     <Avatar
@@ -155,6 +182,7 @@ export default function ProfileScreen() {
                     />
                 </View>
             </ScrollView>
+            )}
         </ThemedView>
     );
 }
@@ -169,20 +197,38 @@ function WinRateBlock({
     participatedCount: number;
 }) {
     const { theme } = useTheme();
+    const lostCount = Math.max(participatedCount - wonCount, 0);
+
+    const cells: { value: string; label: string; color: string }[] = [
+        { value: String(wonCount), label: 'won', color: Status.success },
+        { value: String(lostCount), label: 'lost', color: Status.error },
+        {
+            value: `${winRatePct ?? 0}%`,
+            label: 'win rate',
+            color: theme[950],
+        },
+    ];
+
     return (
-        <View style={{ alignItems: 'center', gap: 2 }}>
-            <ThemedText
-                type="caption-semibold"
-                style={{ color: theme[400], letterSpacing: 0.6 }}
-            >
-                WIN RATE
-            </ThemedText>
-            <ThemedText type="h1" style={{ color: theme[950] }}>
-                {winRatePct == null ? '—' : `${winRatePct}%`}
-            </ThemedText>
-            <ThemedText type="body-xs" style={{ color: theme[500] }}>
-                {wonCount} won · {participatedCount} submitted
-            </ThemedText>
+        <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'stretch', gap: 16 }}>
+            {cells.map((c, i) => (
+                <React.Fragment key={c.label}>
+                    {i > 0 ? (
+                        <View style={{ width: 1, backgroundColor: theme[100] }} />
+                    ) : null}
+                    <View style={{ alignItems: 'center', gap: 2 }}>
+                        <ThemedText type="body-xl-semibold" style={{ color: c.color }}>
+                            {c.value}
+                        </ThemedText>
+                        <ThemedText
+                            type="caption-semibold"
+                            style={{ color: theme[400], letterSpacing: 0.6 }}
+                        >
+                            {c.label.toUpperCase()}
+                        </ThemedText>
+                    </View>
+                </React.Fragment>
+            ))}
         </View>
     );
 }

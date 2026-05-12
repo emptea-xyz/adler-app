@@ -39,6 +39,11 @@ export const EMPTY_WALLET_ACTIVITY = {
   description: 'On-chain transactions for this wallet will show up here.',
 } as const;
 
+export const EMPTY_LEADERBOARD = {
+  title: 'Nobody on the board yet',
+  description: 'Win or submit to a bounty to land on the leaderboard.',
+} as const;
+
 export const EMPTY_GROUP_BOUNTIES = {
   title: 'No active bounties',
   description: 'When a member posts a group bounty, it shows up here.',

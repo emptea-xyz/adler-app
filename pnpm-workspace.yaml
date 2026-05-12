@@ -8,6 +8,20 @@ allowBuilds:
   utf-8-validate: true
 nodeLinker: hoisted
 shamefullyHoist: true
+overrides:
+  '@expo/fingerprint': 0.16.6
+  expo-symbols: 55.0.8
+  '@expo/log-box': 55.0.10
+  protobufjs: 7.5.5
+  node-forge: 1.4.0
+  picomatch@2.3.1: 2.3.2
+  '@xmldom/xmldom': 0.8.13
+  fast-xml-builder: 1.1.7
+  brace-expansion@1.1.12: 1.1.13
+  brace-expansion@2.0.2: 2.0.3
+  yaml: 2.8.3
+  fast-xml-parser: 5.7.0
+  postcss: 8.5.10
 peerDependencyRules:
   allowedVersions:
     utf-8-validate: '6'

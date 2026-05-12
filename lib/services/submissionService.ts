@@ -16,6 +16,8 @@ import {
     uploadBountySubmissionVideo,
 } from '@/lib/services/bountyMediaUploadService';
 import { getBounty } from '@/lib/services/bountyService';
+import { DEMO_MODE } from '@/lib/mock';
+import { getMySubmissions, getSubmissionsForBounty } from '@/lib/mock/fixtures';
 import type { Submission } from '@/lib/types/submission';
 import type { Bounty } from '@/lib/types/bounty';
 
@@ -219,6 +221,7 @@ export async function listSubmissionsForBounty(
     bountyId: string,
     max = 100,
 ): Promise<Submission[]> {
+    if (DEMO_MODE) return getSubmissionsForBounty(bountyId).slice(0, max);
     const snap = await getDocs(
         query(
             collection(db, SUBMISSIONS),
@@ -231,6 +234,7 @@ export async function listSubmissionsForBounty(
 }
 
 export async function listMySubmissions(uid: string, max = 100): Promise<Submission[]> {
+    if (DEMO_MODE) return getMySubmissions(uid).slice(0, max);
     const snap = await getDocs(
         query(
             collection(db, SUBMISSIONS),
@@ -246,6 +250,9 @@ export async function listMySubmissionsForBounty(
     bountyId: string,
     uid: string,
 ): Promise<Submission[]> {
+    if (DEMO_MODE) {
+        return getMySubmissions(uid).filter((s) => s.bountyId === bountyId);
+    }
     const snap = await getDocs(
         query(
             collection(db, SUBMISSIONS),

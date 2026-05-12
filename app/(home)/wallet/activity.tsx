@@ -14,6 +14,8 @@ import { qk } from '@/lib/constants/queryKeys';
 import { formatRelative } from '@/lib/utils/dates';
 import { EMPTY_WALLET_ACTIVITY } from '@/lib/utils/copy';
 import { haptic } from '@/lib/utils/haptic';
+import { DEMO_MODE } from '@/lib/mock';
+import { MOCK_WALLET_ACTIVITY } from '@/lib/mock/fixtures';
 
 interface ActivityItem {
     signature: string;
@@ -33,6 +35,7 @@ export default function WalletActivityScreen() {
         queryKey: walletAddress ? qk.wallet.activity(walletAddress) : qk.wallet.activity(null),
         enabled: !!walletAddress,
         queryFn: async () => {
+            if (DEMO_MODE) return MOCK_WALLET_ACTIVITY;
             if (!walletAddress) return [];
             const sigs = await getConnection().getSignaturesForAddress(
                 new PublicKey(walletAddress),

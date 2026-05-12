@@ -20,6 +20,8 @@ import {
     type ProfileLocation,
 } from '@/lib/types/profile';
 import { tsMs } from '@/lib/utils/firestoreTimestamp';
+import { DEMO_MODE } from '@/lib/mock';
+import { DEMO_PROFILE, MOCK_PROFILES, LEADERBOARD_PROFILES } from '@/lib/mock/fixtures';
 
 // IMPORTANT: collection name + document shape must stay in lockstep with
 // the deployed firestore.rules. Any divergence triggers
@@ -80,6 +82,11 @@ function rowToProfile(uid: string, data: Record<string, unknown>): Profile {
         walletAddress: (data.walletAddress as string | null) ?? null,
         location: readLocation(data.location),
         groupCount: typeof data.groupCount === 'number' ? data.groupCount : 0,
+        lamportsWonFromBounties:
+            typeof data.lamportsWonFromBounties === 'number' ? data.lamportsWonFromBounties : 0,
+        bountiesWon: typeof data.bountiesWon === 'number' ? data.bountiesWon : 0,
+        bountiesParticipated:
+            typeof data.bountiesParticipated === 'number' ? data.bountiesParticipated : 0,
         latestActivityAt: tsMs(data.latestActivityAt),
         createdAt: tsMs(data.createdAt) || Date.now(),
         updatedAt: tsMs(data.updatedAt) || Date.now(),
@@ -100,6 +107,12 @@ export async function isUsernameAvailable(
 ): Promise<boolean> {
     const slug = username.trim().toLowerCase();
     if (!USERNAME_REGEX.test(slug)) return false;
+    if (DEMO_MODE) {
+        const taken = LEADERBOARD_PROFILES.some(
+            (p) => p.username === slug && p.id !== exceptUserId,
+        );
+        return !taken;
+    }
     const snap = await getDoc(doc(db, USERNAMES_COLLECTION, slug));
     if (!snap.exists()) return true;
     if (exceptUserId && snap.data()?.userId === exceptUserId) return true;
@@ -117,6 +130,11 @@ export async function searchProfilesByUsername(
 ): Promise<Profile[]> {
     const needle = q.trim().toLowerCase().replace(/^@/, '');
     if (!needle) return [];
+    if (DEMO_MODE) {
+        return LEADERBOARD_PROFILES
+            .filter((p) => p.username.startsWith(needle))
+            .slice(0, max);
+    }
     const snap = await getDocs(
         query(
             collection(db, COLLECTION),
@@ -130,6 +148,7 @@ export async function searchProfilesByUsername(
 }
 
 export async function getProfile(userId: string): Promise<Profile | null> {
+    if (DEMO_MODE) return MOCK_PROFILES[userId] ?? null;
     const snap = await getDoc(doc(db, COLLECTION, userId));
     if (!snap.exists()) return null;
     return rowToProfile(userId, snap.data() as Record<string, unknown>);
@@ -144,6 +163,7 @@ export async function ensureProfileExists(
     userId: string,
     walletAddress: string | null,
 ): Promise<Profile> {
+    if (DEMO_MODE) return DEMO_PROFILE;
     const ref = doc(db, COLLECTION, userId);
 
     return runTransaction(db, async (tx) => {
@@ -215,6 +235,9 @@ export async function ensureProfileExists(
             walletAddress,
             location: DEFAULT_LOCATION,
             groupCount: 0,
+            lamportsWonFromBounties: 0,
+            bountiesWon: 0,
+            bountiesParticipated: 0,
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
         });
@@ -227,6 +250,9 @@ export async function ensureProfileExists(
             walletAddress,
             location: DEFAULT_LOCATION,
             groupCount: 0,
+            lamportsWonFromBounties: 0,
+            bountiesWon: 0,
+            bountiesParticipated: 0,
             latestActivityAt: 0,
             createdAt: now,
             updatedAt: now,
@@ -324,6 +350,7 @@ export async function changeUsername(userId: string, newUsername: string): Promi
 }
 
 export async function setPushToken(userId: string, pushToken: string): Promise<void> {
+    if (DEMO_MODE) return;
     assertCurrentUser(userId);
     await setDoc(
         doc(db, PRIVATE_COLLECTION, userId),
@@ -333,6 +360,7 @@ export async function setPushToken(userId: string, pushToken: string): Promise<v
 }
 
 export async function clearPushToken(userId: string): Promise<void> {
+    if (DEMO_MODE) return;
     assertCurrentUser(userId);
     await setDoc(
         doc(db, PRIVATE_COLLECTION, userId),

@@ -11,6 +11,12 @@ import {
 import { db, functions } from '@/lib/firebase/config';
 import { httpsCallable } from 'firebase/functions';
 import { tsMs } from '@/lib/utils/firestoreTimestamp';
+import { DEMO_MODE } from '@/lib/mock';
+import {
+    MOCK_GROUPS,
+    getGroupMembers as mockGroupMembers,
+    getMyMemberships as mockMyMemberships,
+} from '@/lib/mock/fixtures';
 import type {
     Group,
     GroupMember,
@@ -47,12 +53,14 @@ function rowToMember(id: string, data: Record<string, unknown>): GroupMember {
 }
 
 export async function getGroup(id: string): Promise<Group | null> {
+    if (DEMO_MODE) return MOCK_GROUPS.find((g) => g.id === id) ?? null;
     const snap = await getDoc(doc(db, GROUPS, id));
     if (!snap.exists()) return null;
     return rowToGroup(snap.id, snap.data() as Record<string, unknown>);
 }
 
 async function listGroups(max = 50): Promise<Group[]> {
+    if (DEMO_MODE) return MOCK_GROUPS.slice(0, max);
     const snap = await getDocs(
         query(
             collection(db, GROUPS),
@@ -75,6 +83,7 @@ export async function searchGroups(q: string, max = 30): Promise<Group[]> {
 }
 
 export async function listMyMemberships(uid: string): Promise<GroupMember[]> {
+    if (DEMO_MODE) return mockMyMemberships(uid);
     const snap = await getDocs(
         query(
             collection(db, GROUP_MEMBERS),
@@ -87,6 +96,7 @@ export async function listMyMemberships(uid: string): Promise<GroupMember[]> {
 }
 
 export async function listGroupMembers(groupId: string, max = 100): Promise<GroupMember[]> {
+    if (DEMO_MODE) return mockGroupMembers(groupId).slice(0, max);
     const snap = await getDocs(
         query(
             collection(db, GROUP_MEMBERS),

@@ -15,6 +15,8 @@ import type {
     NotificationRefs,
 } from '@/lib/types/notification';
 import { tsMs } from '@/lib/utils/firestoreTimestamp';
+import { DEMO_MODE } from '@/lib/mock';
+import { getMyNotifications } from '@/lib/mock/fixtures';
 
 const NOTIFICATIONS = 'notifications';
 
@@ -49,6 +51,7 @@ function rowToNotification(
 export async function listMyNotifications(
     uid: string,
 ): Promise<AdlerNotification[]> {
+    if (DEMO_MODE) return getMyNotifications(uid);
     const snap = await getDocs(
         query(
             collection(db, NOTIFICATIONS),
@@ -63,6 +66,7 @@ export async function listMyNotifications(
 }
 
 export async function markNotificationRead(id: string): Promise<void> {
+    if (DEMO_MODE) return;
     await updateDoc(doc(db, NOTIFICATIONS, id), { read: true });
 }
 

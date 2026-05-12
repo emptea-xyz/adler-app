@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
-import { ScrollView, View, ActivityIndicator, Pressable, Linking } from 'react-native';
+import { ScrollView, View, Pressable, Linking, RefreshControl } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { PublicKey } from '@solana/web3.js';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Icon } from '@/components/ui/Icon';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { ThemedView } from '@/components/base/ThemedView';
 import { ThemedText } from '@/components/base/ThemedText';
 import { ActionTile } from '@/components/ui/ActionTile';
+import { Spinner } from '@/components/ui/Spinner';
 import { AdlerHomeHeader } from '@/components/features/home/AdlerHomeHeader';
 import { CircleIconButton } from '@/components/ui/CircleIconButton';
 import { SendSheet } from '@/components/features/wallet/SendSheet';
@@ -22,6 +22,7 @@ import { TailwindColors } from '@/constants/TailwindColors';
 import { haptic } from '@/lib/utils/haptic';
 import { formatSolParts } from '@/lib/utils/formatNumber';
 import { EMPTY_WALLET_BALANCE } from '@/lib/utils/copy';
+import { DEMO_MODE, DEMO_BALANCE_SOL } from '@/lib/mock';
 
 export default function WalletScreen() {
     const { theme } = useTheme();
@@ -37,6 +38,7 @@ export default function WalletScreen() {
         queryKey: walletAddress ? qk.wallet.balance(walletAddress) : ['wallet', 'balance', 'none'],
         enabled: !!walletAddress,
         queryFn: async () => {
+            if (DEMO_MODE) return DEMO_BALANCE_SOL;
             if (!walletAddress) return 0;
             const lamports = await getConnection().getBalance(new PublicKey(walletAddress));
             return lamportsToSol(lamports);
@@ -53,11 +55,6 @@ export default function WalletScreen() {
         if (!walletAddress) return;
         haptic('light');
         queryClient.invalidateQueries({ queryKey: qk.wallet.balance(walletAddress) });
-    };
-
-    const openFaucet = () => {
-        if (!walletAddress) return;
-        Linking.openURL(`https://faucet.solana.com/?address=${walletAddress}`);
     };
 
     const openExplorer = () => {
@@ -87,11 +84,21 @@ export default function WalletScreen() {
                     paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 24,
                     gap: 24,
                 }}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={balanceQuery.isFetching}
+                        onRefresh={() => {
+                            if (!walletAddress) return;
+                            queryClient.invalidateQueries({ queryKey: qk.wallet.balance(walletAddress) });
+                        }}
+                        tintColor={theme[950]}
+                    />
+                }
             >
                 <View style={{ gap: 4 }}>
                     {balanceQuery.isLoading || balanceQuery.data === undefined ? (
                         <View style={{ height: 56, justifyContent: 'center' }}>
-                            <ActivityIndicator color={theme[500]} />
+                            <Spinner size={24} />
                         </View>
                     ) : (
                         <Pressable
@@ -127,35 +134,6 @@ export default function WalletScreen() {
                     </View>
                 )}
 
-                <View style={{ alignItems: 'center' }}>
-                    <Pressable
-                        onPress={() => {
-                            haptic('medium');
-                            setReceiveOpen(true);
-                        }}
-                        style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
-                        accessibilityRole="button"
-                        accessibilityLabel="Receive SOL"
-                    >
-                        <View
-                            style={{
-                                flexDirection: 'row',
-                                alignItems: 'center',
-                                gap: 8,
-                                paddingHorizontal: 28,
-                                paddingVertical: 12,
-                                borderRadius: 100,
-                                backgroundColor: theme[950],
-                            }}
-                        >
-                            <Icon name="arrow.down" size={18} color={theme[50]} weight="semibold" />
-                            <ThemedText type="body-lg-semibold" style={{ color: theme[50] }}>
-                                Receive
-                            </ThemedText>
-                        </View>
-                    </Pressable>
-                </View>
-
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
                     <View style={{ flexBasis: '48%', flexGrow: 1 }}>
                         <ActionTile
@@ -180,12 +158,15 @@ export default function WalletScreen() {
                     </View>
                     <View style={{ flexBasis: '48%', flexGrow: 1 }}>
                         <ActionTile
-                            icon="plus"
+                            icon="arrow.down"
                             iconBgColor={TailwindColors.emerald[500]}
                             iconPosition="top-right"
-                            title="Buy SOL"
-                            subtitle="Devnet faucet"
-                            onPress={openFaucet}
+                            title="Receive"
+                            subtitle="Receive SOL"
+                            onPress={() => {
+                                haptic('medium');
+                                setReceiveOpen(true);
+                            }}
                             disabled={!walletAddress}
                         />
                     </View>

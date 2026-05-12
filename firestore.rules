@@ -38,14 +38,43 @@ service cloud.firestore {
     function validWalletAddress(v) {
       return v is string && v.size() >= 32 && v.size() <= 44;
     }
+    function validProfileCreate(d, userId) {
+      return d.keys().hasOnly([
+               'id',
+               'username',
+               'displayName',
+               'bio',
+               'avatarUrl',
+               'walletAddress',
+               'location',
+               'groupCount',
+               'lamportsWonFromBounties',
+               'bountiesWon',
+               'bountiesParticipated',
+               'createdAt',
+               'updatedAt'
+             ])
+             && d.id == userId
+             && validUsername(d.username)
+             && validDisplayName(d.displayName)
+             && validBio(d.bio)
+             && (d.get('avatarUrl', null) == null
+                 || (d.avatarUrl is string && d.avatarUrl.size() <= 2048))
+             && (d.get('walletAddress', null) == null
+                 || validWalletAddress(d.walletAddress))
+             && validLocation(d.location)
+             && d.groupCount == 0
+             && d.lamportsWonFromBounties == 0
+             && d.bountiesWon == 0
+             && d.bountiesParticipated == 0
+             && d.createdAt == request.time
+             && d.updatedAt == request.time;
+    }
 
     match /profiles/{userId} {
       allow read: if true;
       allow create: if isOwner(userId)
-                    && request.resource.data.id == userId
-                    && validUsername(request.resource.data.username)
-                    && validDisplayName(request.resource.data.displayName)
-                    && validBio(request.resource.data.bio);
+                    && validProfileCreate(request.resource.data, userId);
       // Allowlist of fields the client may mutate. Any field outside this
       // set (e.g. `verified`, `xp`, `latestActivityAt`, `groupCount`,
       // future schema additions) is server-only and a client-side write

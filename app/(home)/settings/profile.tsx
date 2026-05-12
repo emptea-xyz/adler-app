@@ -8,6 +8,7 @@ import { ThemedView } from '@/components/base/ThemedView';
 import { ScreenHeader } from '@/components/base/ScreenHeader';
 import { SectionLabel } from '@/components/base/SectionLabel';
 import { Button } from '@/components/ui/Button';
+import { Spinner } from '@/components/ui/Spinner';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import TextInput from '@/components/ui/TextInput';
 import { useAuth } from '@/contexts/AuthContext';
@@ -85,7 +86,18 @@ export default function SettingsProfileScreen() {
         };
     }, [debouncedUsername, usernameChanged, userId]);
 
-    if (!profile || !user) return <ThemedView style={{ flex: 1 }} />;
+    if (!profile || !user) {
+        return (
+            <ThemedView style={{ flex: 1 }}>
+                <SafeAreaView edges={['top']} style={{ flex: 1 }}>
+                    <ScreenHeader title="Profile" />
+                    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                        <Spinner size={32} />
+                    </View>
+                </SafeAreaView>
+            </ThemedView>
+        );
+    }
 
     const onPickAvatar = async () => {
         try {

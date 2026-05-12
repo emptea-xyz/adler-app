@@ -9,6 +9,7 @@ import { bridgeToFirebase, signOutOfFirebase } from '@/lib/services/privyAuthSer
 import { clearPushToken } from '@/lib/services/profileService';
 import { toast } from '@/lib/utils/toast';
 import { InitialLoadingScreen } from '@/components/base/InitialLoadingScreen';
+import { DEMO_MODE, DEMO_USER_ID, DEMO_USER_EMAIL, DEMO_WALLET_ADDRESS } from '@/lib/mock';
 
 export interface AuthUser {
     id: string;
@@ -34,6 +35,13 @@ function toAuthUser(fbUser: FirebaseUser | null): AuthUser | null {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+    if (DEMO_MODE) {
+        return <DemoAuthProvider>{children}</DemoAuthProvider>;
+    }
+    return <RealAuthProvider>{children}</RealAuthProvider>;
+}
+
+function RealAuthProvider({ children }: { children: React.ReactNode }) {
     const { user: privyUser, isReady: privyReady, getAccessToken, logout: privyLogout } = usePrivy();
     const solana = useEmbeddedSolanaWallet();
     const queryClient = useQueryClient();
@@ -198,4 +206,39 @@ export function useAuth(): AuthContextType {
     const ctx = useContext(AuthContext);
     if (!ctx) throw new Error('useAuth must be used within an AuthProvider');
     return ctx;
+}
+
+function DemoAuthProvider({ children }: { children: React.ReactNode }) {
+    const [initialLoading, setInitialLoading] = useState(true);
+
+    const signOut = useCallback(async () => {
+        toast.info('Sign-out disabled in demo mode.');
+    }, []);
+
+    const runIfOnline = useCallback((callback: () => void) => callback(), []);
+
+    const value = useMemo<AuthContextType>(
+        () => ({
+            user: { id: DEMO_USER_ID, email: DEMO_USER_EMAIL },
+            privyUserId: DEMO_USER_ID,
+            walletAddress: DEMO_WALLET_ADDRESS,
+            isReady: true,
+            isBridging: false,
+            isConnected: true,
+            signOut,
+            runIfOnline,
+        }),
+        [signOut, runIfOnline],
+    );
+
+    return (
+        <AuthContext.Provider value={value}>
+            {children}
+            {initialLoading && (
+                <View style={StyleSheet.absoluteFillObject} pointerEvents="auto">
+                    <InitialLoadingScreen onLoadingComplete={() => setInitialLoading(false)} />
+                </View>
+            )}
+        </AuthContext.Provider>
+    );
 }

@@ -11,6 +11,8 @@ import { STORAGE_KEYS } from '@/lib/constants/storageKeys';
 import type { Profile } from '@/lib/types/profile';
 import { PushPermissionPrompt } from '@/components/features/notifications/PushPermissionPrompt';
 import { toast } from '@/lib/utils/toast';
+import { DEMO_MODE } from '@/lib/mock';
+import { DEMO_PROFILE } from '@/lib/mock/fixtures';
 
 interface UserContextType {
     profile: Profile | null;
@@ -21,6 +23,13 @@ interface UserContextType {
 const UserContext = createContext<UserContextType | null>(null);
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
+    if (DEMO_MODE) {
+        return <DemoUserProvider>{children}</DemoUserProvider>;
+    }
+    return <RealUserProvider>{children}</RealUserProvider>;
+}
+
+function RealUserProvider({ children }: { children: React.ReactNode }) {
     const { user, walletAddress, isBridging } = useAuth();
     const [profile, setProfile] = useState<Profile | null>(null);
     const [loading, setLoading] = useState(true);
@@ -179,4 +188,16 @@ export function useUser(): UserContextType {
     const ctx = useContext(UserContext);
     if (!ctx) throw new Error('useUser must be used within a UserProvider');
     return ctx;
+}
+
+function DemoUserProvider({ children }: { children: React.ReactNode }) {
+    const value = useMemo<UserContextType>(
+        () => ({
+            profile: DEMO_PROFILE,
+            loading: false,
+            refreshProfile: async () => {},
+        }),
+        [],
+    );
+    return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
 }

@@ -27,6 +27,7 @@
     "jose"
   ],
   "ignoreBinaries": [
-    "expo"
+    "expo",
+    "maestro"
   ]
 }

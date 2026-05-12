@@ -1,8 +1,19 @@
 import React, { useCallback, useState } from 'react';
-import { View, Pressable, ActivityIndicator, Linking, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  View,
+  Pressable,
+  ActivityIndicator,
+  Linking,
+  StyleSheet,
+  ScrollView,
+  Image,
+  useWindowDimensions,
+  type NativeSyntheticEvent,
+  type NativeScrollEvent,
+} from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLoginWithOAuth } from '@privy-io/expo';
-import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
+import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Rect } from 'react-native-svg';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -11,38 +22,46 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { ThemedText } from '@/components/base/ThemedText';
-import { ThemedView } from '@/components/base/ThemedView';
 import { AdlerEagleLogo } from '@/components/ui/AdlerEagleLogo';
 import { Spinner } from '@/components/ui/Spinner';
-import { useTheme } from '@/contexts/ThemeContext';
-import { TailwindColors } from '@/constants/TailwindColors';
+import { Neutral } from '@/constants/NeutralColors';
+import { MONO_PALETTE } from '@/constants/ThemePalettes';
 import { toast } from '@/lib/utils/toast';
 import { haptic } from '@/lib/utils/haptic';
 
 type Provider = 'google';
 
-function SkyHalo() {
-  return (
-    <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 280, pointerEvents: 'none' as const }}>
-      <Svg width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 393 280">
-        <Defs>
-          <RadialGradient id="halo" cx="196" cy="460" rx="260" ry="360" gradientUnits="userSpaceOnUse">
-            <Stop offset="0" stopColor={TailwindColors.sky[500]} stopOpacity="1" />
-            <Stop offset="0.35" stopColor={TailwindColors.sky[400]} stopOpacity="0.7" />
-            <Stop offset="0.65" stopColor={TailwindColors.sky[300]} stopOpacity="0.35" />
-            <Stop offset="1" stopColor={TailwindColors.sky[500]} stopOpacity="0" />
-          </RadialGradient>
-        </Defs>
-        <Rect x="0" y="0" width="393" height="280" fill="url(#halo)" />
-      </Svg>
-    </View>
-  );
-}
+type Slide = {
+  title: string;
+  body: string;
+  image: number;
+};
+
+const SLIDES: Slide[] = [
+  {
+    title: 'Post a bounty.',
+    body: 'Fund any task in SOL. Escrow holds the prize until you pick a winner.',
+    image: require('@/assets/images/slide-0.png'),
+  },
+  {
+    title: 'Submit your work.',
+    body: 'Reply to any open bounty with a photo, video, or link. One shot per bounty.',
+    image: require('@/assets/images/slide-1.png'),
+  },
+  {
+    title: 'Get paid on-chain.',
+    body: 'Poster picks the winner. The Anchor escrow pays out instantly on Solana.',
+    image: require('@/assets/images/slide-2.png'),
+  },
+];
 
 export default function SignInScreen() {
-  const { theme } = useTheme();
+  const theme = MONO_PALETTE;
+  const insets = useSafeAreaInsets();
+  const { width: screenWidth } = useWindowDimensions();
   const [pending, setPending] = useState<Provider | null>(null);
   const [transitioning, setTransitioning] = useState(false);
+  const [activeSlide, setActiveSlide] = useState(0);
 
   const contentOpacity = useSharedValue(1);
   const loaderOpacity = useSharedValue(0);
@@ -82,75 +101,149 @@ export default function SignInScreen() {
     [pending, transitioning, login],
   );
 
+  const onSlideScrollEnd = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const idx = Math.round(e.nativeEvent.contentOffset.x / screenWidth);
+      setActiveSlide(idx);
+    },
+    [screenWidth],
+  );
+
   const contentStyle = useAnimatedStyle(() => ({ opacity: contentOpacity.value }));
   const loaderStyle = useAnimatedStyle(() => ({ opacity: loaderOpacity.value }));
 
   return (
-    <ThemedView className="flex-1">
+    <View style={{ flex: 1, backgroundColor: Neutral.white }}>
       <Animated.View style={[StyleSheet.absoluteFillObject, contentStyle]}>
-        <SkyHalo />
-        <SafeAreaView edges={['top', 'bottom']} className="flex-1">
-          <View className="flex-1 px-4 justify-between" style={{ paddingTop: 24, paddingBottom: 24 }}>
-            <View className="flex-1 items-center justify-center" style={{ gap: 8 }}>
-              <AdlerEagleLogo size={171} />
-              <View className="items-center">
-                <ThemedText type="h2" style={{ color: theme[950] }}>
-                  Adler
-                </ThemedText>
-                <ThemedText type="body-md" style={{ color: theme[300] }}>
-                  Trade content.
-                </ThemedText>
-              </View>
-            </View>
+        <View style={{ flex: 1, paddingTop: insets.top, paddingBottom: insets.bottom }}>
+          {/* Top strip */}
+          <View
+            className="flex-row items-center"
+            style={{ gap: 8, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: 'transparent' }}
+          >
+            <AdlerEagleLogo size={28} />
+            <ThemedText type="body-lg-semibold" style={{ color: theme[950] }}>
+              Adler
+            </ThemedText>
+          </View>
 
-            <View style={{ gap: 12 }}>
-              <Pressable
-                onPress={() => onSocialPress('google')}
-                disabled={!!pending || transitioning}
-                className="rounded-card h-14 flex-row items-center justify-center"
+          {/* Slideshow */}
+          <View style={{ flex: 1 }}>
+            <ScrollView
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onMomentumScrollEnd={onSlideScrollEnd}
+            >
+              {SLIDES.map((slide, i) => (
+                <View
+                  key={i}
+                  style={{ width: screenWidth, paddingHorizontal: 24, flex: 1 }}
+                >
+                  <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                    <View style={{ width: '100%', maxWidth: 280, aspectRatio: 1 }}>
+                      <Image
+                        source={slide.image}
+                        resizeMode="contain"
+                        style={{ width: '100%', height: '100%' }}
+                      />
+                      <Svg
+                        pointerEvents="none"
+                        style={StyleSheet.absoluteFill}
+                        preserveAspectRatio="none"
+                        viewBox="0 0 1 1"
+                      >
+                        <Defs>
+                          <SvgLinearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
+                            <Stop offset="0" stopColor={Neutral.white} stopOpacity="1" />
+                            <Stop offset="0.05" stopColor={Neutral.white} stopOpacity="0.2" />
+                            <Stop offset="0.1" stopColor={Neutral.white} stopOpacity="0" />
+                            <Stop offset="0.9" stopColor={Neutral.white} stopOpacity="0" />
+                            <Stop offset="0.95" stopColor={Neutral.white} stopOpacity="0.2" />
+                            <Stop offset="1" stopColor={Neutral.white} stopOpacity="1" />
+                          </SvgLinearGradient>
+                        </Defs>
+                        <Rect x="0" y="0" width="1" height="1" fill="url(#fade)" />
+                      </Svg>
+                    </View>
+                  </View>
+
+                  <View style={{ alignSelf: 'flex-start', paddingBottom: 24, gap: 6 }}>
+                    <ThemedText type="h3" style={{ color: theme[950] }}>
+                      {slide.title}
+                    </ThemedText>
+                    <ThemedText type="body-md" style={{ color: theme[500] }}>
+                      {slide.body}
+                    </ThemedText>
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+
+          {/* Pagination dots */}
+          <View className="flex-row justify-center" style={{ gap: 8, paddingVertical: 16 }}>
+            {SLIDES.map((_, i) => (
+              <View
+                key={i}
                 style={{
-                  backgroundColor: theme[950],
-                  opacity: pending && pending !== 'google' ? 0.5 : 1,
+                  width: 8,
+                  height: 8,
+                  borderRadius: 4,
+                  backgroundColor: i === activeSlide ? theme[950] : theme[300],
                 }}
-                accessibilityRole="button"
-                accessibilityLabel="Sign in with Google"
-              >
-                {pending === 'google' || transitioning ? (
-                  <ActivityIndicator size="small" color={theme[50]} />
-                ) : (
-                  <ThemedText type="body-lg-semibold" style={{ color: theme[50] }}>
-                    Sign in with Google
-                  </ThemedText>
-                )}
-              </Pressable>
+              />
+            ))}
+          </View>
 
+          {/* Bottom CTA */}
+          <View style={{ paddingHorizontal: 16, gap: 12, paddingBottom: 8 }}>
+            <Pressable
+              onPress={() => onSocialPress('google')}
+              disabled={!!pending || transitioning}
+              className="rounded-card h-14 flex-row items-center justify-center"
+              style={{
+                backgroundColor: theme[950],
+                opacity: pending && pending !== 'google' ? 0.5 : 1,
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Sign in with Google"
+            >
+              {pending === 'google' || transitioning ? (
+                <ActivityIndicator size="small" color={theme[50]} />
+              ) : (
+                <ThemedText type="body-lg-semibold" style={{ color: theme[50] }}>
+                  Sign in with Google
+                </ThemedText>
+              )}
+            </Pressable>
+
+            <ThemedText
+              type="body-xs"
+              align="center"
+              className="px-4"
+              style={{ color: theme[500], paddingTop: 8 }}
+            >
+              By continuing you accept our{' '}
               <ThemedText
                 type="body-xs"
-                align="center"
-                className="px-4"
-                style={{ color: theme[500], paddingTop: 8 }}
+                className="underline"
+                onPress={() => Linking.openURL('https://emptea.xyz/terms-of-service')}
               >
-                By continuing you accept our{' '}
-                <ThemedText
-                  type="body-xs"
-                  className="underline"
-                  onPress={() => Linking.openURL('https://emptea.xyz/terms-of-service')}
-                >
-                  Terms of Service
-                </ThemedText>
-                {' '}and{' '}
-                <ThemedText
-                  type="body-xs"
-                  className="underline"
-                  onPress={() => Linking.openURL('https://emptea.xyz/privacy-policy')}
-                >
-                  Privacy Policy
-                </ThemedText>
-                .
+                Terms of Service
               </ThemedText>
-            </View>
+              {' '}and{' '}
+              <ThemedText
+                type="body-xs"
+                className="underline"
+                onPress={() => Linking.openURL('https://emptea.xyz/privacy-policy')}
+              >
+                Privacy Policy
+              </ThemedText>
+              .
+            </ThemedText>
           </View>
-        </SafeAreaView>
+        </View>
       </Animated.View>
 
       <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFillObject, loaderStyle]}>
@@ -160,6 +253,6 @@ export default function SignInScreen() {
           </View>
         </SafeAreaView>
       </Animated.View>
-    </ThemedView>
+    </View>
   );
 }

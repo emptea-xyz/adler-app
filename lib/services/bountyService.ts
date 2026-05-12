@@ -18,6 +18,13 @@ import { tsMs } from '@/lib/utils/firestoreTimestamp';
 import { deriveBountyId } from '@/lib/escrow/pda';
 import { REVIEW_WINDOW_SECS, SUBMISSION_WINDOW_SECS } from '@/lib/constants/escrow';
 import { getProfile } from '@/lib/services/profileService';
+import { DEMO_MODE } from '@/lib/mock';
+import {
+    getBountyById,
+    getMyPostedBounties,
+    getOpenGroupBounties,
+    getOpenPublicBounties,
+} from '@/lib/mock/fixtures';
 import type {
     Bounty,
     BountyScope,
@@ -183,12 +190,14 @@ export async function markEscrowFunded(bountyId: string): Promise<void> {
 }
 
 export async function getBounty(id: string): Promise<Bounty | null> {
+    if (DEMO_MODE) return getBountyById(id);
     const snap = await getDoc(doc(db, BOUNTIES, id));
     if (!snap.exists()) return null;
     return rowToBounty(snap.id, snap.data() as Record<string, unknown>);
 }
 
 export async function listOpenPublicBounties(max = 50): Promise<Bounty[]> {
+    if (DEMO_MODE) return getOpenPublicBounties().slice(0, max);
     const snap = await getDocs(
         query(
             collection(db, BOUNTIES),
@@ -203,6 +212,7 @@ export async function listOpenPublicBounties(max = 50): Promise<Bounty[]> {
 
 export async function listGroupBounties(groupIds: string[], max = 50): Promise<Bounty[]> {
     if (groupIds.length === 0) return [];
+    if (DEMO_MODE) return getOpenGroupBounties(groupIds).slice(0, max);
     // Firestore `in` clause limit is 30; chunk if needed.
     const chunks: string[][] = [];
     for (let i = 0; i < groupIds.length; i += 30) {
@@ -225,6 +235,7 @@ export async function listGroupBounties(groupIds: string[], max = 50): Promise<B
 }
 
 export async function listMyPostedBounties(uid: string, max = 50): Promise<Bounty[]> {
+    if (DEMO_MODE) return getMyPostedBounties(uid).slice(0, max);
     const snap = await getDocs(
         query(
             collection(db, BOUNTIES),

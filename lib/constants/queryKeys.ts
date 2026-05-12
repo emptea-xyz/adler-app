@@ -43,6 +43,9 @@ export const qk = {
   preferences: {
     detail: (uid: string) => ['preferences', 'detail', uid] as const,
   },
+  leaderboard: {
+    list: (metric: string) => ['leaderboard', metric] as const,
+  },
   wallet: {
     balance: (address: string | null) =>
       ['wallet', 'balance', address ?? 'none'] as const,

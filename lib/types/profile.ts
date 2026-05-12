@@ -24,6 +24,11 @@ export interface Profile {
   /** Denormalized count of `groupMembers` rows for this uid. Maintained by
    *  Cloud Function; clients read for the Profile screen badge. */
   groupCount: number;
+  /** Lifetime lamports won from bounty awards, net of the 0.5% protocol
+   *  fee. Maintained server-side only — never reflects wallet deposits. */
+  lamportsWonFromBounties: number;
+  bountiesWon: number;
+  bountiesParticipated: number;
   latestActivityAt: number;
   createdAt: number;
   updatedAt: number;

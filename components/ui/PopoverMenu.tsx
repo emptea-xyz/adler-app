@@ -16,7 +16,7 @@ import { haptic } from "@/lib/utils/haptic";
 const MENU_ITEM_HEIGHT = 40;
 const MENU_PADDING = 16;
 const SCREEN_EDGE_MARGIN = 12;
-const MENU_MIN_WIDTH = 160;
+const MENU_MIN_WIDTH = 220;
 
 export interface PopoverMenuItem {
     label: string;
@@ -129,6 +129,8 @@ export function PopoverMenu({ items, children }: PopoverMenuProps) {
                                         )}
                                         <ThemedText
                                             type="body-sm"
+                                            numberOfLines={1}
+                                            ellipsizeMode="tail"
                                             style={{ color, flex: 1 }}
                                         >
                                             {item.label}
