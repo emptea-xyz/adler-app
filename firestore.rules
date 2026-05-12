@@ -27,6 +27,11 @@ service cloud.firestore {
              (v.kind == 'global'
                 || (v.country is string && v.country.size() == 2));
     }
+    // Solana base58 addresses are 32–44 chars. Cap at 44 to reject
+    // 1MB-string injection on first-set of `walletAddress`.
+    function validWalletAddress(v) {
+      return v is string && v.size() >= 32 && v.size() <= 44;
+    }
 
     match /profiles/{userId} {
       allow read: if true;
@@ -35,27 +40,38 @@ service cloud.firestore {
                     && validUsername(request.resource.data.username)
                     && validDisplayName(request.resource.data.displayName)
                     && validBio(request.resource.data.bio);
+      // Allowlist of fields the client may mutate. Any field outside this
+      // set (e.g. `verified`, `xp`, `latestActivityAt`, `groupCount`,
+      // future schema additions) is server-only and a client-side write
+      // is rejected. See H1.
       allow update: if isOwner(userId)
-                    // Append-only walletAddress.
-                    && (resource.data.walletAddress == null
-                        || request.resource.data.walletAddress == resource.data.walletAddress)
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['username','displayName','bio','walletAddress',
+                                   'location','avatarUrl','dmContact','pushToken',
+                                   'lastUsernameChangeAt','updatedAt'])
+                    // Append-only walletAddress. First set requires a real
+                    // base58 string; subsequent updates must preserve.
+                    && (
+                      (resource.data.get('walletAddress', null) == null
+                       && (request.resource.data.get('walletAddress', null) == null
+                           || validWalletAddress(request.resource.data.walletAddress)))
+                      || request.resource.data.walletAddress == resource.data.walletAddress
+                    )
                     && validUsername(request.resource.data.username)
                     && validDisplayName(request.resource.data.displayName)
                     && validBio(request.resource.data.bio)
                     // Location is optional on legacy profiles. If present, must validate.
                     && (request.resource.data.get('location', null) == null
                         || validLocation(request.resource.data.location))
-                    // groupCount + latestActivityAt are server-only fields — must
-                    // not change on a client update. .get() tolerates legacy
-                    // profiles where the field never existed.
-                    && (request.resource.data.get('groupCount', 0)
-                        == resource.data.get('groupCount', 0))
                     // Username change: rate-limited to once every 30 days
                     // (2_592_000_000 ms). lastUsernameChangeAt must equal
                     // request.time so clients can't backdate it.
                     && (
-                      // (a) Username preserved → no cooldown bookkeeping required.
-                      request.resource.data.username == resource.data.username
+                      // (a) Username preserved → lastUsernameChangeAt must
+                      //     also be preserved (closes the H2 backdate hole).
+                      (request.resource.data.username == resource.data.username
+                       && request.resource.data.get('lastUsernameChangeAt', null)
+                           == resource.data.get('lastUsernameChangeAt', null))
                       // (b) Username changed → cooldown elapsed (or never set)
                       //     AND new lastUsernameChangeAt is the server clock.
                       || (
@@ -84,16 +100,30 @@ service cloud.firestore {
       return d.posterId is string
              && d.title is string && d.title.size() > 0 && d.title.size() <= 80
              && d.prompt is string && d.prompt.size() > 0 && d.prompt.size() <= 500
-             && d.bountyLamports is int && d.bountyLamports > 0
+             && d.bountyLamports is int
+             && d.bountyLamports > 0
+             // 10 000 SOL ceiling (M2). Below 2^63-1, well above any plausible bounty.
+             && d.bountyLamports <= 10000000000000
              && d.scope in ['public', 'group']
              && d.contractIdHex is string && d.contractIdHex.matches('^[0-9a-f]{64}$')
              && d.posterWalletAddress is string
              && d.submissionKind in ['photo', 'video', 'link']
              && d.submissionEndsAt is int
+             // M3: submission window must not be already-closed at create.
+             && d.submissionEndsAt > request.time.toMillis()
              && d.expiresAt is int
              // Timestamps are unix-ms. 90 days review = 7_776_000_000 ms.
              && d.expiresAt == d.submissionEndsAt + 7776000000
-             && d.submissionCount is int && d.submissionCount == 0;
+             && d.submissionCount is int && d.submissionCount == 0
+             // H4: escrowFunded starts false; gets flipped true after on-chain
+             // create_bounty lands. Settle path gates on this being true.
+             && d.get('escrowFunded', false) == false;
+    }
+
+    // Returns the parent bounty's submissionKind for cross-doc validation
+    // in the submission create rule (M5).
+    function bountyKindFor(bountyId) {
+      return get(/databases/$(database)/documents/bounties/$(bountyId)).data.submissionKind;
     }
 
     match /bounties/{id} {
@@ -104,13 +134,24 @@ service cloud.firestore {
                     && bountyValidShape(request.resource.data)
                     && request.resource.data.status == 'open'
                     && request.resource.data.reportCount == 0
-                    && (request.resource.data.scope == 'public'
+                    // M1: posterWalletAddress must match the authenticated
+                    // user's profile — clients can't claim someone else's
+                    // wallet on the bounty doc.
+                    && request.resource.data.posterWalletAddress
+                        == get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.walletAddress
+                    // M6: scope=='public' must not carry a stray groupId.
+                    && ((request.resource.data.scope == 'public'
+                         && request.resource.data.get('groupId', null) == null)
                         || (request.resource.data.scope == 'group'
                             && request.resource.data.groupId is string));
       // Owner update paths:
-      //   (a) status preserved: e.g. flipping `escrowFunded` from false to true.
+      //   (a) status preserved: flipping `escrowFunded` from false to true
+      //       only (one-way; H4 transition guard).
       //   (b) open|in_review → settled: poster signed `settle_manual_bounty`
       //       on-chain and writes the on-chain tx signature + winner refs.
+      //       Requires escrowFunded == true (H4) and a non-empty base58
+      //       signature shape.
+      //   (c)–(e) Cancel state machine.
       // Refund + hidden flips are Cloud-Function-only.
       allow update: if isOwner(resource.data.posterId)
                     && request.resource.data.posterId == resource.data.posterId
@@ -122,23 +163,29 @@ service cloud.firestore {
                     && request.resource.data.get('submissionCount', 0)
                         == resource.data.get('submissionCount', 0)
                     && (
-                      // (a) Status preserved (e.g. flipping `escrowFunded` from false to true).
+                      // (a) Status preserved. `escrowFunded` may transition
+                      //     false→true only — never the reverse.
                       (resource.data.status == request.resource.data.status
-                       && request.resource.data.status in ['open', 'in_review'])
+                       && request.resource.data.status in ['open', 'in_review']
+                       && (resource.data.get('escrowFunded', false) == false
+                           || request.resource.data.get('escrowFunded', false) == true))
                       // (b) Manual settle: poster picks a winner in either `open` (early)
                       //     or `in_review` (after submission window). Must be before
-                      //     refund-unlock (`expiresAt`).
+                      //     refund-unlock (`expiresAt`). Requires the escrow to have
+                      //     actually been funded on-chain (H4).
                       || ((resource.data.status == 'open' || resource.data.status == 'in_review')
                           && request.resource.data.status == 'settled'
                           && request.resource.data.winnerId is string
                           && request.resource.data.winningSubmissionId is string
                           && request.resource.data.txSignature is string
+                          && request.resource.data.txSignature.size() >= 64
+                          && request.resource.data.txSignature.size() <= 128
+                          && resource.data.get('escrowFunded', false) == true
                           && request.time.toMillis() < resource.data.expiresAt)
                       // (c) Cancel — step 1: poster claims the lock. Atomic with
                       //     `enforceSubmissionCap` so a racing submitter can't
                       //     slip in. Must record `cancellingFromStatus` so the
                       //     revert path (e) knows what to restore.
-                      //     .get() tolerates legacy docs where submissionCount was never set.
                       || ((resource.data.status == 'open' || resource.data.status == 'in_review')
                           && request.resource.data.status == 'cancelling'
                           && resource.data.get('submissionCount', 0) == 0
@@ -165,12 +212,33 @@ service cloud.firestore {
     // `enforceSubmissionCap` Cloud Function is a defensive backstop.
     match /submissions/{id} {
       allow read: if true;
+      // M4: cap URL sizes. M5: cross-validate `kind` against parent bounty.
       allow create: if isOwner(request.resource.data.submitterId)
                     && request.resource.data.bountyId is string
                     && request.resource.data.photoUrl is string
+                    && request.resource.data.photoUrl.size() <= 2048
                     && request.resource.data.videoUrl is string
+                    && request.resource.data.videoUrl.size() <= 2048
+                    && request.resource.data.get('linkUrl', '') is string
+                    && request.resource.data.get('linkUrl', '').size() <= 2048
+                    && (request.resource.data.get('linkUrl', '') == ''
+                        || request.resource.data.linkUrl.matches('^https?://.+'))
                     && request.resource.data.isWinner == false
-                    && id == request.resource.data.bountyId + '_' + request.auth.uid;
+                    && id == request.resource.data.bountyId + '_' + request.auth.uid
+                    && (
+                      (bountyKindFor(request.resource.data.bountyId) == 'photo'
+                       && request.resource.data.photoUrl != ''
+                       && request.resource.data.videoUrl == ''
+                       && request.resource.data.get('linkUrl', '') == '')
+                      || (bountyKindFor(request.resource.data.bountyId) == 'video'
+                          && request.resource.data.videoUrl != ''
+                          && request.resource.data.photoUrl == ''
+                          && request.resource.data.get('linkUrl', '') == '')
+                      || (bountyKindFor(request.resource.data.bountyId) == 'link'
+                          && request.resource.data.get('linkUrl', '') != ''
+                          && request.resource.data.photoUrl == ''
+                          && request.resource.data.videoUrl == '')
+                    );
       // Submitter can withdraw their own submission until the poster
       // marks them the winner.
       allow update: if false;
@@ -195,7 +263,9 @@ service cloud.firestore {
     // ── Groups ──────────────────────────────────────────────────────────
     match /groups/{id} {
       allow read: if isAuthed();
-      // Server-only writes (Cloud Function approveGroupCreation).
+      // V2 admin-managed model: all writes (create / update name+description /
+      // delete) go through Cloud Functions — super-admin creates + activates,
+      // group-admin edits. No client-direct mutations.
       allow create, update, delete: if false;
     }
 
@@ -205,48 +275,20 @@ service cloud.firestore {
                   && (resource.data.uid == request.auth.uid
                       || (exists(/databases/$(database)/documents/groupMembers/$(resource.data.groupId + '_' + request.auth.uid))
                           && get(/databases/$(database)/documents/groupMembers/$(resource.data.groupId + '_' + request.auth.uid)).data.role == 'admin'));
-      // All writes are server-only. Super-admin seeds 'admin' role via
-      // direct Firestore writes (bypasses rules).
+      // V2 admin-managed: addGroupMember / removeGroupMember CFs handle all
+      // writes. Super-admin seeds the first admin via createGroup CF.
       allow create, update, delete: if false;
-    }
-
-    match /joinRequests/{id} {
-      allow read: if isAuthed()
-                  && (resource.data.uid == request.auth.uid
-                      || (exists(/databases/$(database)/documents/groupMembers/$(resource.data.groupId + '_' + request.auth.uid))
-                          && get(/databases/$(database)/documents/groupMembers/$(resource.data.groupId + '_' + request.auth.uid)).data.role == 'admin'));
-      // Deterministic doc id: ${groupId}_${uid}.
-      allow create: if isOwner(request.resource.data.uid)
-                    && request.resource.data.groupId is string
-                    && request.resource.data.status == 'pending'
-                    && id == request.resource.data.groupId + '_' + request.auth.uid;
-      // Admin approve/reject is server-only.
-      allow update, delete: if false;
-    }
-
-    match /groupCreationRequests/{id} {
-      allow read: if isOwner(resource.data.requesterId);
-      allow create: if isOwner(request.resource.data.requesterId)
-                    && request.resource.data.name is string
-                    && request.resource.data.name.size() > 0
-                    && request.resource.data.name.size() <= 60
-                    && request.resource.data.description is string
-                    && request.resource.data.description.size() <= 200
-                    && request.resource.data.status == 'pending';
-      allow update, delete: if false;
     }
 
     // ── Notifications ───────────────────────────────────────────────────
     match /notifications/{id} {
       allow read: if isOwner(resource.data.recipientId);
-      // Owner can flip read flag only.
+      // Owner can flip `read` from false to true — and nothing else. M7.
       allow update: if isOwner(resource.data.recipientId)
-                    && request.resource.data.recipientId == resource.data.recipientId
-                    && request.resource.data.kind == resource.data.kind
-                    && request.resource.data.title == resource.data.title
-                    && request.resource.data.body == resource.data.body
-                    && request.resource.data.href == resource.data.href
-                    && request.resource.data.refs == resource.data.refs;
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['read'])
+                    && request.resource.data.read == true
+                    && resource.data.read == false;
       // Server-only create + delete.
       allow create, delete: if false;
     }

@@ -20,5 +20,15 @@ service firebase.storage {
                    && request.resource.size < 8 * 1024 * 1024
                    && request.resource.contentType.matches('image/.*');
     }
+
+    // Group avatars: public read, authed write, JPEG ≤ 2 MB. Admin gating
+    // happens in the `updateGroup` Cloud Function — non-admins can upload
+    // but can't bind the URL onto the group doc.
+    match /groupLogos/{groupId}/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && request.resource.size < 2 * 1024 * 1024
+                   && request.resource.contentType == 'image/jpeg';
+    }
   }
 }
