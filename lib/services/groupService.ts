@@ -1,5 +1,4 @@
 import {
-    addDoc,
     collection,
     doc,
     getDoc,
@@ -7,11 +6,9 @@ import {
     limit,
     orderBy,
     query,
-    serverTimestamp,
-    setDoc,
     where,
 } from 'firebase/firestore';
-import { auth, db, functions } from '@/lib/firebase/config';
+import { db, functions } from '@/lib/firebase/config';
 import { httpsCallable } from 'firebase/functions';
 import { tsMs } from '@/lib/utils/firestoreTimestamp';
 import type {
@@ -19,14 +16,10 @@ import type {
     GroupMember,
     GroupRole,
     GroupStatus,
-    JoinRequest,
-    JoinRequestStatus,
 } from '@/lib/types/group';
 
 const GROUPS = 'groups';
 const GROUP_MEMBERS = 'groupMembers';
-const JOIN_REQUESTS = 'joinRequests';
-const GROUP_CREATION_REQUESTS = 'groupCreationRequests';
 
 function rowToGroup(id: string, data: Record<string, unknown>): Group {
     return {
@@ -50,16 +43,6 @@ function rowToMember(id: string, data: Record<string, unknown>): GroupMember {
         uid: (data.uid as string) ?? '',
         joinedAt: tsMs(data.joinedAt) || Date.now(),
         role: (data.role as GroupRole) ?? 'member',
-    };
-}
-
-function rowToJoinRequest(id: string, data: Record<string, unknown>): JoinRequest {
-    return {
-        id,
-        groupId: (data.groupId as string) ?? '',
-        uid: (data.uid as string) ?? '',
-        requestedAt: tsMs(data.requestedAt) || Date.now(),
-        status: (data.status as JoinRequestStatus) ?? 'pending',
     };
 }
 
@@ -103,48 +86,71 @@ export async function listMyMemberships(uid: string): Promise<GroupMember[]> {
     return snap.docs.map((d) => rowToMember(d.id, d.data() as Record<string, unknown>));
 }
 
-export async function requestGroupCreation(name: string, description: string): Promise<void> {
-    const uid = auth.currentUser?.uid;
-    if (!uid) throw new Error('Sign-in required');
-    await addDoc(collection(db, GROUP_CREATION_REQUESTS), {
-        name: name.trim(),
-        description: description.trim(),
-        requesterId: uid,
-        status: 'pending',
-        createdAt: serverTimestamp(),
-    });
-}
-
-export async function requestJoinGroup(groupId: string): Promise<void> {
-    const uid = auth.currentUser?.uid;
-    if (!uid) throw new Error('Sign-in required');
-    const id = `${groupId}_${uid}`;
-    await setDoc(doc(db, JOIN_REQUESTS, id), {
-        groupId,
-        uid,
-        requestedAt: serverTimestamp(),
-        status: 'pending',
-    });
-}
-
-export async function listJoinRequests(groupId: string): Promise<JoinRequest[]> {
+export async function listGroupMembers(groupId: string, max = 100): Promise<GroupMember[]> {
     const snap = await getDocs(
         query(
-            collection(db, JOIN_REQUESTS),
+            collection(db, GROUP_MEMBERS),
             where('groupId', '==', groupId),
-            where('status', '==', 'pending'),
-            orderBy('requestedAt', 'asc'),
+            orderBy('joinedAt', 'desc'),
+            limit(max),
         ),
     );
-    return snap.docs.map((d) => rowToJoinRequest(d.id, d.data() as Record<string, unknown>));
+    return snap.docs.map((d) => rowToMember(d.id, d.data() as Record<string, unknown>));
 }
 
-export async function approveJoinRequest(requestId: string): Promise<void> {
-    const fn = httpsCallable(functions, 'approveJoinRequest');
-    await fn({ requestId });
+// ── Admin-only callables ────────────────────────────────────────────────
+// Server-side: `updateGroup`, `addGroupMember`, `removeGroupMember` in
+// functions/index.js. All gated by `assertGroupAdmin(callerUid, groupId)`.
+
+export async function updateGroup(input: {
+    groupId: string;
+    name?: string;
+    description?: string;
+    /** Pass `null` to clear the logo, a Firebase Storage URL to set one. */
+    logoUrl?: string | null;
+}): Promise<void> {
+    const fn = httpsCallable(functions, 'updateGroup');
+    await fn(input);
 }
 
-export async function rejectJoinRequest(requestId: string): Promise<void> {
-    const fn = httpsCallable(functions, 'rejectJoinRequest');
-    await fn({ requestId });
+export interface AddGroupMemberResult {
+    uid: string;
+    displayName: string;
+}
+
+export async function addGroupMember(input: {
+    groupId: string;
+    identifier: string;
+}): Promise<AddGroupMemberResult> {
+    const fn = httpsCallable<typeof input, AddGroupMemberResult>(functions, 'addGroupMember');
+    const res = await fn(input);
+    return res.data;
+}
+
+export async function removeGroupMember(input: {
+    groupId: string;
+    uid: string;
+}): Promise<void> {
+    const fn = httpsCallable(functions, 'removeGroupMember');
+    await fn(input);
+}
+
+// ── Super-admin only ────────────────────────────────────────────────────
+// Provisioning a new group. Defaults to `status: 'pending'` so the assigned
+// admin sees the "not ready yet" banner until super-admin flips to 'active'.
+
+export async function createGroup(input: {
+    name: string;
+    description?: string;
+    ownerId: string;
+    status?: GroupStatus;
+}): Promise<{ groupId: string }> {
+    const fn = httpsCallable<typeof input, { groupId: string }>(functions, 'createGroup');
+    const res = await fn(input);
+    return res.data;
+}
+
+export async function activateGroup(groupId: string): Promise<void> {
+    const fn = httpsCallable(functions, 'activateGroup');
+    await fn({ groupId });
 }

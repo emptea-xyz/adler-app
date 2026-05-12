@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { FlatList, Pressable, View } from 'react-native';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { router } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import TextInput from '@/components/ui/TextInput';
 import { ThemedText } from '@/components/base/ThemedText';
@@ -11,14 +12,8 @@ import EmptyState from '@/components/ui/EmptyState';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDebounce } from '@/hooks/useDebounce';
-import {
-    listMyMemberships,
-    requestJoinGroup,
-    searchGroups,
-} from '@/lib/services/groupService';
+import { listMyMemberships, searchGroups } from '@/lib/services/groupService';
 import { qk } from '@/lib/constants/queryKeys';
-import { toast } from '@/lib/utils/toast';
-import { haptic } from '@/lib/utils/haptic';
 import type { Group } from '@/lib/types/group';
 
 interface GroupsSearchSheetProps {
@@ -29,7 +24,6 @@ interface GroupsSearchSheetProps {
 export function GroupsSearchSheet({ visible, onClose }: GroupsSearchSheetProps) {
     const { theme } = useTheme();
     const { user } = useAuth();
-    const queryClient = useQueryClient();
     const [queryText, setQueryText] = useState('');
     const debounced = useDebounce(queryText, 250);
 
@@ -51,31 +45,6 @@ export function GroupsSearchSheet({ visible, onClose }: GroupsSearchSheetProps) 
         () => new Set((membershipsQuery.data ?? []).map((m) => m.groupId)),
         [membershipsQuery.data],
     );
-
-    const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
-
-    const joinMutation = useMutation({
-        mutationFn: (groupId: string) => requestJoinGroup(groupId),
-        onMutate: (groupId) => {
-            setPendingIds((prev) => new Set(prev).add(groupId));
-        },
-        onSuccess: () => {
-            haptic('medium');
-            toast.success('Join request sent');
-        },
-        onError: (err) => {
-            haptic('error');
-            toast.error(err instanceof Error ? err.message : 'Could not request join');
-        },
-        onSettled: (_d, _e, groupId) => {
-            setPendingIds((prev) => {
-                const next = new Set(prev);
-                next.delete(groupId);
-                return next;
-            });
-            queryClient.invalidateQueries({ queryKey: ['groups'] });
-        },
-    });
 
     const data = groupsQuery.data ?? [];
 
@@ -113,8 +82,10 @@ export function GroupsSearchSheet({ visible, onClose }: GroupsSearchSheetProps) 
                                 <GroupRow
                                     group={item}
                                     joined={joinedIds.has(item.id)}
-                                    pending={pendingIds.has(item.id)}
-                                    onJoin={() => joinMutation.mutate(item.id)}
+                                    onOpen={() => {
+                                        onClose();
+                                        router.push(`/(home)/group/${item.id}`);
+                                    }}
                                 />
                             )}
                             ListEmptyComponent={
@@ -123,7 +94,7 @@ export function GroupsSearchSheet({ visible, onClose }: GroupsSearchSheetProps) 
                                     description={
                                         debounced.trim()
                                             ? 'Try a different search.'
-                                            : 'Check back soon — new groups land here as they go live.'
+                                            : 'Groups are provisioned by the Adler team.'
                                     }
                                 />
                             }
@@ -138,17 +109,16 @@ export function GroupsSearchSheet({ visible, onClose }: GroupsSearchSheetProps) 
 function GroupRow({
     group,
     joined,
-    pending,
-    onJoin,
+    onOpen,
 }: {
     group: Group;
     joined: boolean;
-    pending: boolean;
-    onJoin: () => void;
+    onOpen: () => void;
 }) {
     const { theme } = useTheme();
     return (
-        <View
+        <Pressable
+            onPress={onOpen}
             style={{
                 flexDirection: 'row',
                 alignItems: 'center',
@@ -158,6 +128,8 @@ function GroupRow({
                 borderBottomColor: theme[100],
                 gap: 12,
             }}
+            accessibilityRole="button"
+            accessibilityLabel={`Open ${group.name}`}
         >
             <View style={{ flex: 1, gap: 2 }}>
                 <ThemedText type="body-md-semibold" style={{ color: theme[950] }} numberOfLines={1}>
@@ -167,27 +139,8 @@ function GroupRow({
                     {group.memberCount} {group.memberCount === 1 ? 'member' : 'members'}
                 </ThemedText>
             </View>
-            {joined ? (
-                <Pill intent="success" label="JOINED" />
-            ) : (
-                <Pressable
-                    onPress={onJoin}
-                    disabled={pending}
-                    style={{
-                        paddingHorizontal: 14,
-                        paddingVertical: 8,
-                        borderRadius: 999,
-                        backgroundColor: theme[950],
-                        opacity: pending ? 0.6 : 1,
-                    }}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Request to join ${group.name}`}
-                >
-                    <ThemedText type="caption-semibold" style={{ color: theme[50] }}>
-                        {pending ? 'Sending…' : 'Request join'}
-                    </ThemedText>
-                </Pressable>
-            )}
-        </View>
+            {joined ? <Pill intent="success" label="JOINED" icon="checkmark.circle.fill" /> : null}
+            <Icon name="chevron.right" size={16} color={theme[400]} />
+        </Pressable>
     );
 }
