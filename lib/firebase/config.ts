@@ -4,7 +4,7 @@ import { getStorage } from 'firebase/storage';
 import { getFunctions } from 'firebase/functions';
 // @ts-ignore - Firebase types for RN interactions can be tricky
 import { getAuth, initializeAuth, type Auth, getReactNativePersistence } from 'firebase/auth';
-import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check';
+import { initializeAppCheck, ReCaptchaEnterpriseProvider, getToken as getAppCheckTokenInternal, type AppCheck } from 'firebase/app-check';
 import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
@@ -35,6 +35,7 @@ const firebaseConfig = {
 
 let app;
 let auth: Auth;
+let appCheckInstance: AppCheck | null = null;
 
 if (getApps().length === 0) {
     app = initializeApp(firebaseConfig);
@@ -90,7 +91,7 @@ if (getApps().length === 0) {
                     return { token, expireTimeMillis };
                 },
             });
-            initializeAppCheck(app, {
+            appCheckInstance = initializeAppCheck(app, {
                 provider: bridgeProvider,
                 isTokenAutoRefreshEnabled: true,
             });
@@ -110,7 +111,7 @@ if (getApps().length === 0) {
                     );
                 }
             } else {
-                initializeAppCheck(app, {
+                appCheckInstance = initializeAppCheck(app, {
                     provider: new ReCaptchaEnterpriseProvider(siteKey),
                     isTokenAutoRefreshEnabled: true,
                 });
@@ -118,7 +119,7 @@ if (getApps().length === 0) {
         } else {
             // @ts-ignore - App Check debug token for local development
             self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
-            initializeAppCheck(app, {
+            appCheckInstance = initializeAppCheck(app, {
                 provider: new ReCaptchaEnterpriseProvider('debug'),
                 isTokenAutoRefreshEnabled: true,
             });
@@ -144,5 +145,16 @@ const db =
         : initializeFirestore(app, {});
 const storage = getStorage(app);
 const functions = getFunctions(app);
+
+export async function getAppCheckTokenString(): Promise<string | null> {
+    if (!appCheckInstance) return null;
+    try {
+        const { token } = await getAppCheckTokenInternal(appCheckInstance, /* forceRefresh */ false);
+        return token || null;
+    } catch (err) {
+        if (__DEV__) console.warn('getAppCheckTokenString failed', err);
+        return null;
+    }
+}
 
 export { auth, db, storage, functions };
