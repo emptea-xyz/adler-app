@@ -53,10 +53,7 @@ export async function registerForPushAsync(
         if (!granted) return null;
 
         // expo-notifications v0.28+ requires a projectId for production tokens.
-        const projectId =
-            Constants.expoConfig?.extra?.eas?.projectId ??
-            // @ts-ignore — older Expo SDKs put it under easConfig
-            Constants.easConfig?.projectId;
+        const projectId = Constants.expoConfig?.extra?.eas?.projectId;
         if (!projectId) {
             if (__DEV__) console.warn('Push: no EAS projectId in app config');
             return null;

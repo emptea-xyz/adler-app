@@ -1,183 +1,235 @@
-import React, { useState } from 'react';
-import { View, ScrollView, ActivityIndicator } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
-import { BriefcaseBusiness } from 'lucide-react-native';
-import { ThemedText } from '@/components/base/ThemedText';
-import { ThemedView } from '@/components/base/ThemedView';
-import { SectionLabel } from '@/components/base/SectionLabel';
-import { Button } from '@/components/ui/Button';
-import { ListingCard } from '@/components/ui/ListingCard';
-import EmptyState from '@/components/ui/EmptyState';
-import { ProfileHeader } from '@/components/features/profile/ProfileHeader';
-import { EditProfileSheet } from '@/components/features/profile/EditProfileSheet';
-import { useUser } from '@/contexts/UserContext';
+import React, { useMemo, useState } from 'react';
+import { View, Pressable, ScrollView } from 'react-native';
+import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useQuery, useQueries } from '@tanstack/react-query';
 import { useTheme } from '@/contexts/ThemeContext';
-import { listMyListings } from '@/lib/services/listingsService';
-import { qk } from '@/lib/constants/queryKeys';
+import { useUser } from '@/contexts/UserContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { ThemedView } from '@/components/base/ThemedView';
+import { ThemedText } from '@/components/base/ThemedText';
+import { Avatar } from '@/components/ui/Avatar';
+import { CircleIconButton } from '@/components/ui/CircleIconButton';
 import { haptic } from '@/lib/utils/haptic';
-import { viewModeFor } from '@/lib/utils/role';
-import { TAB_BAR_HEIGHT } from '@/constants/LayoutConstants';
+import { AdlerHomeHeader } from '@/components/features/home/AdlerHomeHeader';
+import EmptyState from '@/components/ui/EmptyState';
 import {
-  EMPTY_PACKAGES_BY_SELLER,
-  EMPTY_GIGS_BY_BRAND,
-} from '@/lib/utils/copy';
-import type { Gig, Service } from '@/types/marketplace';
+    BountyCardForBounty,
+    BountyCardForSubmission,
+} from '@/components/features/bounty/BountyItemCard';
+import { TAB_BAR_HEIGHT } from '@/constants/LayoutConstants';
+import { qk } from '@/lib/constants/queryKeys';
+import { getBounty, listMyPostedBounties } from '@/lib/services/bountyService';
+import { listMySubmissions } from '@/lib/services/submissionService';
+import type { Bounty } from '@/lib/types/bounty';
+import type { Submission } from '@/lib/types/submission';
 
-const LISTINGS_PREVIEW_LIMIT = 6;
+const TABS = ['Created', 'Won', 'Participated'] as const;
+type Tab = (typeof TABS)[number];
 
 export default function ProfileScreen() {
-  const { profile } = useUser();
-  const { theme } = useTheme();
-  const router = useRouter();
-  const [editOpen, setEditOpen] = useState(false);
+    const { theme } = useTheme();
+    const { profile } = useUser();
+    const { user } = useAuth();
+    const insets = useSafeAreaInsets();
+    const [tab, setTab] = useState<Tab>('Created');
 
-  const isCreator = viewModeFor(profile) === 'creator';
+    const createdQuery = useQuery({
+        queryKey: user ? qk.bounties.byPoster(user.id) : ['bounties', 'byPoster', 'anon'],
+        enabled: !!user,
+        queryFn: () => listMyPostedBounties(user!.id),
+    });
 
-  const servicesQuery = useQuery({
-    queryKey: profile?.id ? qk.listings.byOwner('service', profile.id) : ['listings', 'byOwner', 'service', 'anon'],
-    enabled: !!profile?.id && isCreator,
-    queryFn: () => listMyListings('service', profile!.id),
-  });
+    const submissionsQuery = useQuery({
+        queryKey: user ? qk.submissions.bySubmitter(user.id) : ['submissions', 'bySubmitter', 'anon'],
+        enabled: !!user,
+        queryFn: () => listMySubmissions(user!.id),
+    });
 
-  const gigsQuery = useQuery({
-    queryKey: profile?.id ? qk.listings.byOwner('gig', profile.id) : ['listings', 'byOwner', 'gig', 'anon'],
-    enabled: !!profile?.id && !isCreator,
-    queryFn: () => listMyListings('gig', profile!.id),
-  });
+    const submissions = submissionsQuery.data ?? [];
+    const bountyIds = useMemo(
+        () => Array.from(new Set(submissions.map((s) => s.bountyId))),
+        [submissions],
+    );
 
-  const listings = isCreator ? servicesQuery.data ?? [] : gigsQuery.data ?? [];
-  const listingsLoading = isCreator ? servicesQuery.isLoading : gigsQuery.isLoading;
-  const listingsTitle = isCreator ? 'Your services' : 'Your gigs';
-  const listingsEmpty = isCreator ? EMPTY_PACKAGES_BY_SELLER : EMPTY_GIGS_BY_BRAND;
+    const bountyQueries = useQueries({
+        queries: bountyIds.map((id) => ({
+            queryKey: qk.bounties.detail(id),
+            queryFn: () => getBounty(id),
+            staleTime: 60_000,
+        })),
+    });
 
-  return (
-    <ThemedView className="flex-1">
-      <SafeAreaView edges={['top']} className="flex-1">
-        <ScrollView
-          contentContainerStyle={{
-            paddingHorizontal: 16,
-            paddingBottom: TAB_BAR_HEIGHT + 32,
-            gap: 24,
-          }}
-          showsVerticalScrollIndicator={false}
-        >
-          <ProfileHeader
-            listingsCount={listings.length}
-            onPressEdit={() => setEditOpen(true)}
-          />
+    const bountyById = useMemo(() => {
+        const map: Record<string, Bounty | undefined> = {};
+        bountyIds.forEach((id, i) => {
+            map[id] = bountyQueries[i]?.data ?? undefined;
+        });
+        return map;
+    }, [bountyIds, bountyQueries]);
 
-          <View style={{ gap: 12 }}>
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}
-            >
-              <SectionLabel label={listingsTitle} />
-              {listings.length > 0 ? (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  {isCreator ? (
-                    <Button
-                      title="Applications"
-                      size="sm"
-                      variant="secondary"
-                      onPress={() => router.push('/applications')}
-                    />
-                  ) : null}
-                  <Button
-                    title="Manage"
-                    size="sm"
-                    variant="secondary"
-                    onPress={() => router.push(isCreator ? '/services' : '/gigs')}
-                  />
-                  <ThemedText type="caption-semibold" style={{ color: theme[500] }}>
-                    {listings.length}
-                  </ThemedText>
-                </View>
-              ) : null}
+    if (!profile) return <ThemedView style={{ flex: 1 }} />;
+
+    return (
+        <ThemedView style={{ flex: 1 }}>
+            <View style={{ paddingTop: insets.top }}>
+                <AdlerHomeHeader
+                    title="Profile"
+                    rightSlot={
+                        <CircleIconButton
+                            icon="gearshape.fill"
+                            onPress={() => router.push('/settings')}
+                            accessibilityLabel="Settings"
+                        />
+                    }
+                />
             </View>
 
-            {listingsLoading ? (
-              <View style={{ paddingVertical: 24, alignItems: 'center' }}>
-                <ActivityIndicator color={theme[500]} />
-              </View>
-            ) : listings.length === 0 ? (
-              <View style={{ gap: 12, paddingTop: 8 }}>
-                <EmptyState
-                  title={listingsEmpty.title}
-                  description={listingsEmpty.description}
-                />
-                <Button
-                  title={isCreator ? 'List a service' : 'Post a gig'}
-                  onPress={() => {
-                    haptic('light');
-                    if (isCreator) {
-                      router.push('/services/new');
-                      return;
-                    }
-                    router.push('/gigs/new');
-                  }}
-                  variant="secondary"
-                  className="self-center"
-                />
-              </View>
-            ) : (
-              <View style={{ gap: 14 }}>
-                {listings.slice(0, LISTINGS_PREVIEW_LIMIT).map((item) => {
-                  const amount = isCreator
-                    ? (item as Service).priceSol
-                    : (item as Gig).budgetSol;
-                  return (
-                    <ListingCard
-                      key={item.id}
-                      kind={isCreator ? 'service' : 'gig'}
-                      amount={amount}
-                      category={item.category}
-                      title={item.title}
-                      ownerId={profile?.id ?? ''}
-                      createdAt={item.createdAt}
-                      mediaUrls={item.mediaUrls}
-                      overlay={isCreator ? (item as Service).overlay : null}
-                      onPress={() => {
-                        haptic('light');
-                        router.push(
-                          isCreator ? `/service/${item.id}` : `/gig/${item.id}`,
-                        );
-                      }}
+            <ScrollView
+                contentContainerStyle={{
+                    paddingTop: 8,
+                    paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 24,
+                }}
+            >
+                <View style={{ alignItems: 'center', paddingHorizontal: 24, gap: 12 }}>
+                    <Avatar
+                        size="xl"
+                        avatarUrl={profile.avatarUrl}
+                        initial={profile.displayName.charAt(0)}
                     />
-                  );
-                })}
-              </View>
-            )}
-          </View>
-        </ScrollView>
-      </SafeAreaView>
+                    <View style={{ alignItems: 'center' }}>
+                        <ThemedText type="h3" style={{ color: theme[950], textAlign: 'center' }}>
+                            {profile.displayName}
+                        </ThemedText>
+                        <ThemedText
+                            type="body-sm"
+                            style={{ color: theme[300], textAlign: 'center' }}
+                        >
+                            @{profile.username}
+                        </ThemedText>
+                    </View>
+                    {profile.bio ? (
+                        <ThemedText
+                            type="body-sm"
+                            style={{ color: theme[500], textAlign: 'center' }}
+                            numberOfLines={3}
+                        >
+                            {profile.bio}
+                        </ThemedText>
+                    ) : null}
+                </View>
 
-      {!isCreator ? (
-        <View
-          style={{
-            position: 'absolute',
-            right: 16,
-            bottom: TAB_BAR_HEIGHT + 24,
-          }}
-          pointerEvents="box-none"
-        >
-          <Button
-            title="My gigs"
-            size="sm"
-            onPress={() => {
-              haptic('light');
-              router.push('/gigs');
-            }}
-            leftIcon={<BriefcaseBusiness size={14} color={theme[50]} />}
-          />
+                <View style={{ marginTop: 24 }}>
+                    <FullWidthUnderlineTabs tabs={TABS} active={tab} onChange={setTab} />
+                </View>
+
+                <View>
+                    <BountyList
+                        tab={tab}
+                        createdData={createdQuery.data}
+                        submissions={submissions}
+                        bountyById={bountyById}
+                    />
+                </View>
+            </ScrollView>
+        </ThemedView>
+    );
+}
+
+function FullWidthUnderlineTabs<T extends string>({
+    tabs,
+    active,
+    onChange,
+}: {
+    tabs: readonly T[];
+    active: T;
+    onChange: (t: T) => void;
+}) {
+    const { theme } = useTheme();
+    return (
+        <View style={{ flexDirection: 'row', width: '100%' }}>
+            {tabs.map((t) => {
+                const isActive = active === t;
+                return (
+                    <Pressable
+                        key={t}
+                        onPress={() => {
+                            haptic('light');
+                            onChange(t);
+                        }}
+                        style={{
+                            flex: 1,
+                            alignItems: 'center',
+                            paddingVertical: 8,
+                            borderBottomWidth: 1,
+                            borderBottomColor: isActive ? theme[950] : theme[200],
+                        }}
+                    >
+                        <ThemedText
+                            type="body-sm-semibold"
+                            style={{ color: isActive ? theme[950] : theme[300] }}
+                        >
+                            {t}
+                        </ThemedText>
+                    </Pressable>
+                );
+            })}
         </View>
-      ) : null}
+    );
+}
 
-      <EditProfileSheet visible={editOpen} onClose={() => setEditOpen(false)} />
-    </ThemedView>
-  );
+function BountyList({
+    tab,
+    createdData,
+    submissions,
+    bountyById,
+}: {
+    tab: Tab;
+    createdData: Bounty[] | undefined;
+    submissions: Submission[];
+    bountyById: Record<string, Bounty | undefined>;
+}) {
+    if (tab === 'Created') {
+        const items = createdData ?? [];
+        if (items.length === 0) {
+            return (
+                <EmptyState
+                    title="No bounties yet"
+                    description="Tap the + button to post your first bounty."
+                />
+            );
+        }
+        return (
+            <View>
+                {items.map((b) => (
+                    <BountyCardForBounty key={b.id} bounty={b} />
+                ))}
+            </View>
+        );
+    }
+
+    const items = tab === 'Won' ? submissions.filter((s) => s.isWinner) : submissions;
+    if (items.length === 0) {
+        return (
+            <EmptyState
+                title={tab === 'Won' ? 'No wins yet' : 'No submissions yet'}
+                description={
+                    tab === 'Won'
+                        ? 'Win a bounty to see it here.'
+                        : 'Tap a bounty in Browse to submit your first photo.'
+                }
+            />
+        );
+    }
+    return (
+        <View>
+            {items.map((s) => (
+                <BountyCardForSubmission
+                    key={s.id}
+                    submission={s}
+                    bounty={bountyById[s.bountyId]}
+                />
+            ))}
+        </View>
+    );
 }

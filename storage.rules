@@ -1,81 +1,34 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    // Profile avatars: anyone can read; user only writes/deletes their own.
+
+    // Avatar pictures: owner-only write, public read, JPEG ≤ 2 MB.
     match /profilePictures/{fileName} {
       allow read: if true;
-      allow create, update: if request.auth != null
-        && fileName == request.auth.uid + '.jpg'
-        && request.resource.contentType == 'image/jpeg'
-        && request.resource.size <= 2 * 1024 * 1024;
-      allow delete: if request.auth != null
-        && fileName == request.auth.uid + '.jpg';
+      allow write: if request.auth != null
+                   && fileName == request.auth.uid + '.jpg'
+                   && request.resource.size < 2 * 1024 * 1024
+                   && request.resource.contentType == 'image/jpeg';
     }
 
-    // Marketplace media: each seller/applicant uploads under their own uid prefix.
-    // Public read so listings can render without authentication. Whitelist
-    // raster MIME types only — `image/.*` would let SVG through, which can
-    // execute scripts when rendered in <img> tags.
-    function isSafeRasterImage() {
-      return request.resource.contentType in
-        ['image/jpeg', 'image/png', 'image/webp'];
-    }
-    // Listing media (services + gigs) accepts both stills and short-form
-    // video — UGC creators sell themselves with testimonial clips and
-    // example reels, so image-only is too restrictive. The firestore rule
-    // caps each listing doc at 5 entries; per-file size is gated here.
-    function isSafeListingMedia() {
-      return request.resource.contentType in
-        ['image/jpeg', 'image/png', 'image/webp',
-         'video/mp4', 'video/webm', 'video/quicktime'];
-    }
-    match /packages/{userId}/{fileName} {
+    // Bounty submission photos: owner-only write, public read (the
+    // verifier Cloud Function fetches the public URL), raster only ≤ 8 MB.
+    match /bountySubmissions/{userId}/{fileName} {
       allow read: if true;
       allow write: if request.auth != null
-        && request.auth.uid == userId
-        && isSafeRasterImage()
-        && request.resource.size <= 8 * 1024 * 1024;
-    }
-    match /services/{userId}/{fileName} {
-      allow read: if true;
-      allow write: if request.auth != null
-        && request.auth.uid == userId
-        && isSafeListingMedia()
-        && request.resource.size <= 50 * 1024 * 1024;
-    }
-    match /gigs/{userId}/{fileName} {
-      allow read: if true;
-      allow write: if request.auth != null
-        && request.auth.uid == userId
-        && isSafeListingMedia()
-        && request.resource.size <= 50 * 1024 * 1024;
-    }
-    match /applications/{userId}/{fileName} {
-      allow read: if true;
-      allow write: if request.auth != null
-        && request.auth.uid == userId
-        && isSafeRasterImage()
-        && request.resource.size <= 8 * 1024 * 1024;
+                   && request.auth.uid == userId
+                   && request.resource.size < 8 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
     }
 
-    // Message attachments live under threads/{threadId}/{messageId}/{file}.
-    // Unlike listing media these are private to the two thread participants
-    // — Firestore is the source of truth on who that is, so the rules look
-    // up the parent thread doc on every read/write.
-    function isThreadParticipant(threadId) {
-      return request.auth != null
-        && firestore.exists(/databases/(default)/documents/threads/$(threadId))
-        && (request.auth.uid in
-            firestore.get(/databases/(default)/documents/threads/$(threadId)).data.participants);
-    }
-    match /threads/{threadId}/{messageId}/{fileName} {
-      allow read: if isThreadParticipant(threadId);
-      // The Firestore rule on the message subcollection enforces sender ==
-      // auth.uid; here we only need to confirm the uploader is one of the
-      // two participants. 25 MB cap (deliverables tend to be short clips).
-      allow write: if isThreadParticipant(threadId)
-        && isSafeListingMedia()
-        && request.resource.size <= 25 * 1024 * 1024;
+    // Group avatars: public read, authed write, JPEG ≤ 2 MB. Admin gating
+    // happens in the `updateGroup` Cloud Function — non-admins can upload
+    // but can't bind the URL onto the group doc.
+    match /groupLogos/{groupId}/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && request.resource.size < 2 * 1024 * 1024
+                   && request.resource.contentType == 'image/jpeg';
     }
   }
 }

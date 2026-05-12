@@ -8,7 +8,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText } from '@/components/base/ThemedText';
-import { Check } from 'lucide-react-native';
+import { Icon } from '@/components/ui/Icon';
 import { useAuth } from '@/contexts/AuthContext';
 import { Status } from '@/constants/StatusColors';
 import { Neutral } from '@/constants/NeutralColors';
@@ -66,7 +66,7 @@ export function OfflineBanner() {
                 </ThemedText>
             ) : (
                 <View className="flex-row items-center gap-1.5">
-                    <Check size={16} color={Neutral.white} strokeWidth={2.5} />
+                    <Icon name="checkmark" size={16} color={Neutral.white} weight="semibold" />
                     <ThemedText type="body-md-semibold" className="!text-white">
                         Back Online
                     </ThemedText>

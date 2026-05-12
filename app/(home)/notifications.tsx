@@ -9,7 +9,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckCheck } from 'lucide-react-native';
 import { ScreenHeader } from '@/components/base/ScreenHeader';
 import { ThemedText } from '@/components/base/ThemedText';
 import { ThemedView } from '@/components/base/ThemedView';
@@ -27,9 +26,6 @@ import { toast } from '@/lib/utils/toast';
 
 function destinationForNotification(n: AdlerNotification): string {
     const href = n.href?.trim();
-    if (href?.startsWith('/admin/disputes')) {
-        return n.refs.threadId ? `/inbox/${n.refs.threadId}` : '/(home)/(tabs)/inbox';
-    }
     if (!href) return '/(home)/(tabs)/inbox';
     return href.startsWith('/') ? href : `/${href}`;
 }
@@ -94,7 +90,7 @@ export default function NotificationsScreen() {
                     actionButton={
                         unreadCount > 0
                             ? {
-                                  icon: CheckCheck,
+                                  icon: 'checkmark.circle.fill',
                                   onPress: onMarkAll,
                                   accessibilityLabel: 'Mark all read',
                               }

@@ -1,8 +1,14 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
+  "workspaces": {
+    ".": {
+      "entry": ["app/**/*.{ts,tsx}", "index.js"]
+    }
+  },
   "entry": [
     "app/**/*.{ts,tsx}"
   ],
+  "ignoreWorkspaces": ["functions"],
   "ignore": [
     "functions/**",
     "components/ui/charts/**",
@@ -17,8 +23,9 @@
   "ignoreDependencies": [
     "babel-plugin-transform-remove-console",
     "buffer",
-    "expo-blur",
-    "expo-image-manipulator",
-    "@shopify/react-native-skia"
+    "jose"
+  ],
+  "ignoreBinaries": [
+    "expo"
   ]
 }

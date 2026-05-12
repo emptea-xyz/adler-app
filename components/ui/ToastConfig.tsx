@@ -1,6 +1,6 @@
 import React from "react";
 import { Pressable, View } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Icon, type IconName } from "@/components/ui/Icon";
 import { cn } from "@/components/utils/cn";
 import { ThemedText } from "@/components/base/ThemedText";
 import { Status } from "@/constants/StatusColors";
@@ -27,12 +27,12 @@ function ToastCard({
 
   const variantStyles: Record<
     ToastVariant,
-    { icon: keyof typeof Feather.glyphMap; accent: string }
+    { icon: IconName; accent: string }
   > = {
-    success: { icon: "check-circle", accent: Status.success },
-    error: { icon: "x-circle", accent: Status.error },
-    info: { icon: "info", accent: Status.info },
-    warn: { icon: "alert-triangle", accent: Status.warning },
+    success: { icon: "checkmark.circle.fill", accent: Status.success },
+    error: { icon: "xmark.circle.fill", accent: Status.error },
+    info: { icon: "info.circle.fill", accent: Status.info },
+    warn: { icon: "exclamationmark.triangle.fill", accent: Status.warning },
   };
 
   const meta = variantStyles[variant];
@@ -47,7 +47,7 @@ function ToastCard({
       )}
     >
       <View className="mr-3">
-        <Feather name={meta.icon} size={20} color={meta.accent} />
+        <Icon name={meta.icon} size={22} color={meta.accent} />
       </View>
       <View className="flex-1">
         {text1 ? (
@@ -62,7 +62,7 @@ function ToastCard({
         ) : null}
       </View>
       <Pressable onPress={hide} hitSlop={8} className="ml-3 p-1">
-        <Feather name="x" size={16} color={closeTint} />
+        <Icon name="xmark" size={16} color={closeTint} weight="semibold" />
       </Pressable>
     </Pressable>
   );

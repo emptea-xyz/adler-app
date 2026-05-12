@@ -1,7 +1,7 @@
 import React from "react";
 import { View, Pressable } from "react-native";
 import { router } from "expo-router";
-import { ChevronLeft } from "lucide-react-native";
+import { Icon, type IconName } from "@/components/ui/Icon";
 import { ThemedText } from "@/components/base/ThemedText";
 import { useTheme } from "@/contexts/ThemeContext";
 import { haptic } from "@/lib/utils/haptic";
@@ -10,7 +10,7 @@ import { haptic } from "@/lib/utils/haptic";
 // left-aligned next to it, optional action buttons on the right.
 
 interface ScreenHeaderAction {
-  icon: React.ComponentType<{ size?: number; color?: string }>;
+  icon: IconName;
   onPress: () => void;
   accessibilityLabel?: string;
   testID?: string;
@@ -62,12 +62,11 @@ export function ScreenHeader({
             justifyContent: "center",
           }}
         >
-          <ChevronLeft size={ICON} color={theme[950]} strokeWidth={2} />
+          <Icon name="chevron.left" size={ICON} color={theme[950]} />
         </Pressable>
       );
     }
     if (leftActionButton) {
-      const Icon = leftActionButton.icon;
       return (
         <Pressable
           onPress={() => {
@@ -83,7 +82,7 @@ export function ScreenHeader({
             justifyContent: "center",
           }}
         >
-          <Icon size={ICON} color={theme[950]} />
+          <Icon name={leftActionButton.icon} size={ICON} color={theme[950]} />
         </Pressable>
       );
     }
@@ -91,7 +90,6 @@ export function ScreenHeader({
   };
 
   const renderActionButton = (action: ScreenHeaderAction) => {
-    const Icon = action.icon;
     return (
       <Pressable
         key={action.testID ?? action.accessibilityLabel ?? Math.random().toString()}
@@ -109,7 +107,7 @@ export function ScreenHeader({
           justifyContent: "center",
         }}
       >
-        <Icon size={ICON} color={theme[950]} />
+        <Icon name={action.icon} size={ICON} color={theme[950]} />
       </Pressable>
     );
   };

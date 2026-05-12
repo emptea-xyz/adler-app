@@ -4,49 +4,34 @@ import type { NotificationKind } from '@/lib/types/notification';
 import {
     DEFAULT_NOTIFICATION_PREFERENCES,
     DEFAULT_PREFERENCES,
+    type NotificationPreferences,
     type UserPreferences,
 } from '@/lib/types/preferences';
 import { tsMs } from '@/lib/utils/firestoreTimestamp';
 
 const PREFERENCES = 'preferences';
 
-function mergeNotificationPrefs(
-    value: unknown,
-): UserPreferences['notifications'] {
+const KINDS: NotificationKind[] = [
+    'bounty_submission_received',
+    'bounty_won',
+    'bounty_lost',
+    'bounty_expired_refund',
+    'bounty_hidden_by_reports',
+    'group_join_approved',
+    'group_join_rejected',
+    'system',
+];
+
+function mergeNotificationPrefs(value: unknown): NotificationPreferences {
     const source =
         value && typeof value === 'object'
             ? (value as Record<string, unknown>)
             : {};
-    return {
-        application_received:
-            typeof source.application_received === 'boolean'
-                ? source.application_received
-                : DEFAULT_NOTIFICATION_PREFERENCES.application_received,
-        application_decided:
-            typeof source.application_decided === 'boolean'
-                ? source.application_decided
-                : DEFAULT_NOTIFICATION_PREFERENCES.application_decided,
-        order_state:
-            typeof source.order_state === 'boolean'
-                ? source.order_state
-                : DEFAULT_NOTIFICATION_PREFERENCES.order_state,
-        thread_message:
-            typeof source.thread_message === 'boolean'
-                ? source.thread_message
-                : DEFAULT_NOTIFICATION_PREFERENCES.thread_message,
-        dispute_filed:
-            typeof source.dispute_filed === 'boolean'
-                ? source.dispute_filed
-                : DEFAULT_NOTIFICATION_PREFERENCES.dispute_filed,
-        dispute_resolved:
-            typeof source.dispute_resolved === 'boolean'
-                ? source.dispute_resolved
-                : DEFAULT_NOTIFICATION_PREFERENCES.dispute_resolved,
-        system:
-            typeof source.system === 'boolean'
-                ? source.system
-                : DEFAULT_NOTIFICATION_PREFERENCES.system,
-    };
+    const out = { ...DEFAULT_NOTIFICATION_PREFERENCES };
+    for (const kind of KINDS) {
+        if (typeof source[kind] === 'boolean') out[kind] = source[kind] as boolean;
+    }
+    return out;
 }
 
 export async function getPreferences(uid: string): Promise<UserPreferences> {

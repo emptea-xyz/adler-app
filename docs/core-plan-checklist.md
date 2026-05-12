@@ -131,7 +131,7 @@ Legend: **`[x]`** = verified in codebase (this pass cites files where helpful) �
 
 **Studio specs**
 
-- [x] Entry from creator tab — [`AdlerTabBar.tsx`](components/ui/AdlerTabBar.tsx) `router.push('/studio/camera')`; brand tab shape omits create slot
+- [x] Entry from creator tab — [`TabBar.tsx`](components/ui/TabBar.tsx) `router.push('/studio/camera')`; brand tab shape omits create slot
 - [ ] Aspect ratio **9:16 only** — *not enforced; camera uses picker constraints only*
 - [x] Max **60s** enforced — [`studio/camera.tsx`](app/(home)/studio/camera.tsx) `MAX_DURATION_SECONDS` + `videoMaxDuration`; **min 1s** not asserted
 - [x] Intent: single clip (multi-carousel is separate listing concern)

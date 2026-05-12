@@ -8,15 +8,13 @@ import {
     registerForPushAsync,
 } from '@/lib/services/pushService';
 import { STORAGE_KEYS } from '@/lib/constants/storageKeys';
-import type { Profile } from '@/types/marketplace';
-import { viewModeFor } from '@/lib/utils/role';
+import type { Profile } from '@/lib/types/profile';
 import { PushPermissionPrompt } from '@/components/features/notifications/PushPermissionPrompt';
 import { toast } from '@/lib/utils/toast';
 
 interface UserContextType {
     profile: Profile | null;
     loading: boolean;
-    hasRole: boolean;
     refreshProfile: () => Promise<void>;
 }
 
@@ -29,8 +27,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     const [pushPromptVisible, setPushPromptVisible] = useState(false);
     const [pushPromptLoading, setPushPromptLoading] = useState(false);
     const isMounted = useRef(true);
-    // Per-app-launch latch so we register for push at most once per user even
-    // if profile fetches re-fire (wallet arrives, refresh on focus, etc.).
     const pushSyncedFor = useRef<string | null>(null);
 
     useEffect(() => {
@@ -40,7 +36,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         };
     }, []);
 
-    // SWR: serve cached profile immediately, then revalidate.
     useEffect(() => {
         if (!user) {
             setProfile(null);
@@ -70,16 +65,16 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     const fetchProfile = useCallback(async () => {
         if (!user) return;
         try {
-            // First-login bootstrap: ensure a profile doc exists. Wallet address may
-            // arrive a moment after the Firebase user (Privy creates it lazily).
             const ensured = await ensureProfileExists(user.id, walletAddress);
             if (!isMounted.current) return;
             setProfile(ensured);
             AsyncStorage.setItem(STORAGE_KEYS.CACHED_PROFILE, JSON.stringify(ensured)).catch(() => {});
 
-            // Register silently when the user already granted iOS permission.
-            // If permission is still undetermined, show Adler's pre-prompt first.
             if (pushSyncedFor.current !== user.id) {
+                // M13: claim the slot synchronously to dedup parallel
+                // fetchProfile fires within the same user.id; reset on
+                // error so the next mount can retry instead of silently
+                // skipping forever.
                 pushSyncedFor.current = user.id;
                 getPushPermissionState()
                     .then(async (permission) => {
@@ -95,11 +90,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
                     })
                     .catch((err) => {
                         if (__DEV__) console.warn('Push permission check failed', err);
+                        pushSyncedFor.current = null;
                     });
             }
         } catch (err) {
-            console.error('Failed to fetch profile:', err);
-            // Soft fallback to whatever is on disk.
+            if (__DEV__) console.error('Failed to fetch profile:', err);
             try {
                 const fresh = await getProfile(user.id);
                 if (fresh && isMounted.current) {
@@ -107,12 +102,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
                     AsyncStorage.setItem(STORAGE_KEYS.CACHED_PROFILE, JSON.stringify(fresh)).catch(() => {});
                 }
             } catch (innerErr) {
-                console.error('Profile fallback fetch failed:', innerErr);
+                if (__DEV__) console.error('Profile fallback fetch failed:', innerErr);
             }
         }
     }, [user, walletAddress]);
 
-    // Revalidate whenever auth state settles or wallet address arrives.
     useEffect(() => {
         if (!user || isBridging) return;
         fetchProfile();
@@ -120,8 +114,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         if (!user) return;
+        // L6: capture uid into a local const so a mid-callback `user`
+        // mutation (TS narrowing) can't crash on `user.id`. The effect
+        // cleanup also runs before user changes — so this is largely
+        // defensive but cheap.
+        const uid = user.id;
         const sub = addPushTokenRotationListener((token) => {
-            setPushToken(user.id, token).catch((err) => {
+            setPushToken(uid, token).catch((err) => {
                 if (__DEV__) console.warn('Push token rotation sync failed', err);
             });
         });
@@ -158,7 +157,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         () => ({
             profile,
             loading,
-            hasRole: viewModeFor(profile) !== null,
             refreshProfile: fetchProfile,
         }),
         [profile, loading, fetchProfile],

@@ -1,10 +1,10 @@
 /**
  * Semantic status palette — for success / error / warning / info states.
  *
- * Distinct from `Accent` (brand-accent palette, used for category chips,
- * illustrative highlights, etc.). Status colors must NEVER be swapped for
- * brand accents — a green checkmark and a brand-lime chip serve different
- * functions even when the hue rhymes.
+ * Distinct from the brand sky accent (`TailwindColors.sky`, used for
+ * category chips and illustrative highlights). Status colors must NEVER be
+ * swapped for the brand accent — a green checkmark and a sky-tinted chip
+ * serve different functions.
  *
  * For irreversible destructive actions use the canonical hex `#DC143C`
  * directly. It is intentionally outside this palette to keep the "you
@@ -18,3 +18,10 @@ export const Status = {
 } as const;
 
 export type StatusName = keyof typeof Status;
+
+/**
+ * Canonical destructive crimson — used for irreversible actions (sign out,
+ * delete account, etc.). Intentionally outside `Status` to keep "you are
+ * about to lose data" visually distinct from a generic error state.
+ */
+export const DESTRUCTIVE = '#DC143C';

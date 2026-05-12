@@ -1,6 +1,6 @@
 import React from 'react';
 import { View } from 'react-native';
-import { Bell } from 'lucide-react-native';
+import { Icon } from '@/components/ui/Icon';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Button } from '@/components/ui/Button';
 import { ThemedText } from '@/components/base/ThemedText';
@@ -26,7 +26,7 @@ export function PushPermissionPrompt({
             visible={visible}
             onClose={onSkip}
             title="Notifications"
-            height={330}
+            height={420}
             dismissible={!loading}
         >
             <View style={{ flex: 1, justifyContent: 'space-between', gap: 24 }}>
@@ -41,7 +41,7 @@ export function PushPermissionPrompt({
                             backgroundColor: theme[100],
                         }}
                     >
-                        <Bell size={22} color={theme[950]} />
+                        <Icon name="bell.fill" size={28} color={theme[950]} />
                     </View>
                     <View style={{ gap: 8 }}>
                         <ThemedText type="h5" style={{ color: theme[950] }}>

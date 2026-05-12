@@ -414,21 +414,30 @@ export function BottomSheet({
               </View>
             )}
 
-            {/* Content */}
-            {(keyboardAware && (dismissKeyboardOnTap ?? true)) ? (
-              <TouchableWithoutFeedback onPress={dismissKeyboard} accessible={false}>
+            {/* Content — bottom padding clears the home-indicator safe area so action buttons never sit on top of it. */}
+            {(() => {
+              const safeBottom = Math.max(insets.bottom + 16, 24);
+              if (keyboardAware && (dismissKeyboardOnTap ?? true)) {
+                return (
+                  <TouchableWithoutFeedback onPress={dismissKeyboard} accessible={false}>
+                    <View
+                      className={cn("flex-1 px-5")}
+                      style={{ paddingBottom: keyboardVisible ? keyboardHeight + 20 : safeBottom }}
+                    >
+                      {renderedChildren}
+                    </View>
+                  </TouchableWithoutFeedback>
+                );
+              }
+              return (
                 <View
-                  className={cn("flex-1 px-5")}
-                  style={{ paddingBottom: keyboardVisible ? keyboardHeight + 20 : 40 }}
+                  className={cn("flex-1", !flush && "px-5", !flush && !(title || leftAction || rightAction || secondaryRightAction) && "pt-5")}
+                  style={!flush ? { paddingBottom: safeBottom } : undefined}
                 >
                   {renderedChildren}
                 </View>
-              </TouchableWithoutFeedback>
-            ) : (
-              <View className={cn("flex-1", !flush && "px-5 pb-10", !flush && !(title || leftAction || rightAction || secondaryRightAction) && "pt-5")}>
-                {renderedChildren}
-              </View>
-            )}
+              );
+            })()}
           </Animated.View>
         </View>
       </View>

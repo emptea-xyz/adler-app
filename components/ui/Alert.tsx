@@ -4,6 +4,7 @@ import { ThemedText } from "@/components/base/ThemedText";
 import { haptic } from "@/lib/utils/haptic";
 import { BottomSheet } from "./BottomSheet";
 import { useTheme } from "@/contexts/ThemeContext";
+import { DESTRUCTIVE } from "@/constants/StatusColors";
 
 /**
  * Props for the Alert component
@@ -25,7 +26,7 @@ interface AlertProps {
   cancelText?: string;
   /** Color for the confirm button text (default: theme text color) */
   confirmColor?: string;
-  /** Height of the alert (default: 200) */
+  /** Height of the alert (default: 260) */
   height?: number;
   /** Whether the confirm action is destructive (renders red background) */
   isDestructive?: boolean;
@@ -44,7 +45,7 @@ export function Alert({
   confirmText = "Confirm",
   cancelText = "Cancel",
   confirmColor,
-  height = 200,
+  height = 260,
   isDestructive = false,
 }: AlertProps) {
   const { theme } = useTheme();
@@ -112,7 +113,7 @@ export function Alert({
             <Pressable
               onPress={() => handleConfirm(close)}
               className="flex-1 py-3 px-4 rounded-card"
-              style={{ backgroundColor: isDestructive ? '#DC143C' : theme[950] }}
+              style={{ backgroundColor: isDestructive ? DESTRUCTIVE : theme[950] }}
             >
               <ThemedText
                 type="body-lg-semibold"

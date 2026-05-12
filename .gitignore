@@ -51,5 +51,10 @@ firebase-debug.*.log
 extensions/*.secret.local
 extensions/*.env.local
 
+# functions/ is npm-managed (see _packageManager note in functions/package.json).
+# pnpm v11 doesn't honour the `overrides` block for rpc-websockets' uuid dep
+# and bumps it to uuid@14 (ESM-only) → ERR_REQUIRE_ESM at deploy.
+functions/pnpm-lock.yaml
+
 # Claude Code worktrees
 .claude/worktrees/

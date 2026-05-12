@@ -1,22 +1,26 @@
-import { PublicKey } from "@solana/web3.js";
-import { SOLANA_NETWORK, type SolanaNetwork } from "./featureGates";
+import { PublicKey } from '@solana/web3.js';
+import { SOLANA_NETWORK, type SolanaNetwork } from './featureGates';
 
-// Adler escrow program (`../adler-program`) — devnet deploy. Mainnet
-// deploy is gated on external audit + Squads multisig upgrade authority,
-// so the mainnet entry below intentionally points at the same address as
-// devnet for now. Bump it (and ship a release note) on cutover day.
+// Adler bounty escrow program. Devnet only on v1; mainnet entry holds the
+// same id pending audit + Squads multisig upgrade authority.
 const PROGRAM_IDS: Record<SolanaNetwork, string> = {
-  devnet: "BArnn6qEM45LMxntW2eBKc5icsZGGqaLiDFCSTFx1uZr",
-  "mainnet-beta": "BArnn6qEM45LMxntW2eBKc5icsZGGqaLiDFCSTFx1uZr",
-  testnet: "BArnn6qEM45LMxntW2eBKc5icsZGGqaLiDFCSTFx1uZr",
+    devnet: 'BArnn6qEM45LMxntW2eBKc5icsZGGqaLiDFCSTFx1uZr',
+    'mainnet-beta': 'BArnn6qEM45LMxntW2eBKc5icsZGGqaLiDFCSTFx1uZr',
+    testnet: 'BArnn6qEM45LMxntW2eBKc5icsZGGqaLiDFCSTFx1uZr',
 };
 
 export const V1_PROGRAM_ID = new PublicKey(PROGRAM_IDS[SOLANA_NETWORK]);
 
-// Sentinel default for surfaces that need to render a deadline before the
-// chain has been queried. The real value lives at
-// `ProtocolConfig.approval_window_secs` and may diverge if the admin
-// rotates it via `update_protocol_field` — never trust this for settlement
-// logic. UI countdowns must read the on-chain config or the per-contract
-// `escrow.approval_deadline` instead.
-export const APPROVAL_WINDOW_SECS_DEFAULT = 72 * 3600;
+/** Fixed 30-day submission window. */
+export const SUBMISSION_WINDOW_SECS = 30 * 24 * 60 * 60;
+
+/** Fixed 90-day review window after submissions close. Mirrors the
+ *  `REVIEW_WINDOW_SECS` Rust constant in the on-chain program — changing
+ *  this requires a program redeploy. */
+export const REVIEW_WINDOW_SECS = 90 * 24 * 60 * 60;
+
+/** Hard cap: one submission per user per bounty. */
+export const MAX_SUBMISSIONS_PER_USER = 1;
+
+/** Mode byte passed to the on-chain `create_bounty` ix. Manual only in v1. */
+export const BOUNTY_MODE_MANUAL = 0;

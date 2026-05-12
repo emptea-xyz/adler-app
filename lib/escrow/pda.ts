@@ -12,36 +12,31 @@ function hexToBytes(hex: string): Uint8Array {
     return new Uint8Array(pairs.map((pair) => Number.parseInt(pair, 16)));
 }
 
-export async function deriveContractId(orderId: string): Promise<ContractId> {
-    const hex = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, orderId);
+/**
+ * Deterministic 32-byte derivation of the on-chain bounty id from the
+ * off-chain Firestore doc id. SHA-256(bountyId). The on-chain side stores
+ * the same 32 bytes as the PDA seed (`[b"bounty", poster, bounty_id]`).
+ */
+export async function deriveBountyId(off_chain_id: string): Promise<ContractId> {
+    const hex = await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, off_chain_id);
     return { hex, bytes: hexToBytes(hex) };
 }
 
-export function deriveContractEscrowPda(
-    buyerWalletAddress: string,
-    contractId: Uint8Array,
+export function contractIdFromHex(hex: string): Uint8Array {
+    return hexToBytes(hex);
+}
+
+export function deriveBountyEscrowPda(
+    posterWalletAddress: string,
+    bountyIdBytes: Uint8Array,
 ): PublicKey {
     const [pda] = PublicKey.findProgramAddressSync(
-        [Buffer.from('contract'), new PublicKey(buyerWalletAddress).toBuffer(), Buffer.from(contractId)],
+        [Buffer.from('bounty'), new PublicKey(posterWalletAddress).toBuffer(), Buffer.from(bountyIdBytes)],
         V1_PROGRAM_ID,
     );
     return pda;
 }
 
-export function deriveProtocolConfigPda(programId: PublicKey): PublicKey {
-    return PublicKey.findProgramAddressSync([Buffer.from('config')], programId)[0];
-}
-
-export function deriveContractRecordPda(
-    brandWalletAddress: string,
-    contractId: Uint8Array,
-): PublicKey {
-    return PublicKey.findProgramAddressSync(
-        [Buffer.from('record'), new PublicKey(brandWalletAddress).toBuffer(), Buffer.from(contractId)],
-        V1_PROGRAM_ID,
-    )[0];
-}
-
-export function contractIdFromHex(hex: string): Uint8Array {
-    return hexToBytes(hex);
+export function deriveProtocolConfigPda(): PublicKey {
+    return PublicKey.findProgramAddressSync([Buffer.from('bounty_config')], V1_PROGRAM_ID)[0];
 }

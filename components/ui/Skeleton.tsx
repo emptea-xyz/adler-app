@@ -9,7 +9,6 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { cn } from '@/components/utils/cn';
-import { BORDER_RADIUS } from '@/constants/ComponentTheme';
 import { AnimationDuration } from '@/constants/LayoutConstants';
 import { useTheme } from '@/contexts/ThemeContext';
 
@@ -62,8 +61,8 @@ export function Skeleton({
 
   const getBorderRadius = () => {
     if (variant === 'circle') return 'rounded-full';
-    if (variant === 'text') return BORDER_RADIUS.sm;
-    return BORDER_RADIUS.md;
+    if (variant === 'text') return 'rounded';
+    return 'rounded-lg';
   };
 
   // Only inject dimension styles from explicit props; fall back to defaults only

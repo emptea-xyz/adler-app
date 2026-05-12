@@ -7,9 +7,9 @@ import {
 } from "react-native";
 import { ThemedText } from "@/components/base/ThemedText";
 import { useTheme } from "@/contexts/ThemeContext";
-import { ChevronDown } from "lucide-react-native";
+import { Icon } from "@/components/ui/Icon";
 import { haptic } from "@/lib/utils/haptic";
-import { Neutral } from "@/constants/NeutralColors";
+import { Shadow } from "@/constants/LayoutConstants";
 
 interface DropdownOption<T extends string> {
     label: string;
@@ -66,7 +66,7 @@ export function Dropdown<T extends string>({
                     <ThemedText type="body-sm-semibold" style={{ color: theme[950] }}>
                         {activeLabel}
                     </ThemedText>
-                    <ChevronDown size={14} color={theme[400]} />
+                    <Icon name="chevron.down" size={14} color={theme[400]} />
                 </View>
             </Pressable>
 
@@ -88,11 +88,8 @@ export function Dropdown<T extends string>({
                                 borderRadius: 8,
                                 borderWidth: 1,
                                 borderColor: theme[200],
-                                shadowColor: Neutral.black,
-                                shadowOffset: { width: 0, height: 4 },
-                                shadowOpacity: 0.12,
-                                shadowRadius: 12,
-                                elevation: 8,
+                                shadowColor: theme[950],
+                                ...Shadow.md,
                                 overflow: "hidden",
                             }}
                         >

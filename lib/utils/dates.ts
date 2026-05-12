@@ -22,6 +22,26 @@ export function formatRelative(timestampMs: number, now: number = Date.now()): s
   return `${Math.floor(day / 365)}y ago`;
 }
 
+/** Compact remaining-time label for a future timestamp — "in 28d", "in 4h",
+ *  "soon" (<1 min), or "expired" once the timestamp has already passed. */
+export function formatRemaining(timestampMs: number, now: number = Date.now()): string {
+  const diff = timestampMs - now;
+  if (diff <= 0) return "expired";
+  const sec = Math.floor(diff / 1000);
+  if (sec < 60) return "soon";
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `in ${min}m`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `in ${hr}h`;
+  const day = Math.floor(hr / 24);
+  if (day < 7) return `in ${day}d`;
+  const wk = Math.floor(day / 7);
+  if (wk < 5) return `in ${wk}w`;
+  const mo = Math.floor(day / 30);
+  if (mo < 12) return `in ${mo}mo`;
+  return `in ${Math.floor(day / 365)}y`;
+}
+
 /** Format a Date as "DD.MM.YYYY". Universal full-date format used everywhere. */
 export function formatDisplayDate(date: Date): string {
   const dd = String(date.getDate()).padStart(2, "0");

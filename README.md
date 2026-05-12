@@ -2,19 +2,19 @@
 
 > Package manager: **pnpm** (use `pnpm install`, not npm).
 
-A two-sided UGC marketplace built on Solana.
+A bounty marketplace built on Solana.
 
-- **Creators** list content packages (video / images) for brands to purchase.
-- **Brands** post gigs that creators apply to; the brand selects a winning applicant.
+- **Anyone** can post a funded bounty (manual or auto settlement, with a submission window of 3 / 7 / 30 days).
+- **Anyone** can submit to a bounty. The poster picks a winner (manual) or settlement runs automatically.
 
-Payments settle as direct SOL transfers on **Solana devnet** (mainnet flip is post-MVP). Authentication and embedded wallets are powered by **Privy**. Database, storage, and the auth bridge run on **Firebase**.
+Funds escrow on-chain via the `adler-escrow` Anchor program on **Solana devnet** (mainnet flip is post-MVP). Authentication and embedded wallets are powered by **Privy**. Database, storage, and the auth bridge run on **Firebase**.
 
 ## Stack
 
 - **App**: Expo 55, React Native 0.83, TypeScript, expo-router
 - **Styling**: NativeWind 4 + Tailwind tokens
 - **Auth**: `@privy-io/expo` (email OTP login + embedded Solana wallet)
-- **Payments**: `@solana/web3.js` against `api.devnet.solana.com`
+- **Payments**: `@solana/web3.js` + `@coral-xyz/anchor` against devnet — Anchor escrow program `adler-escrow`
 - **Backend**: Firebase Firestore + Storage + Cloud Functions (`mintFirebaseToken` bridges Privy JWT → Firebase custom token)
 
 ## Required environment variables
@@ -43,9 +43,9 @@ PRIVY_APP_SECRET
 ## First run
 
 ```sh
-npm install
-npx expo prebuild --clean        # regenerate iOS/Android native dirs
-npx expo run:ios                 # or run:android
+pnpm install
+pnpm prebuild                    # regenerate iOS native dir (iOS-only)
+pnpm ios                         # build & run on iOS
 ```
 
 ## Deploy backend

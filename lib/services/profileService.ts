@@ -1,27 +1,28 @@
 import {
+    collection,
     doc,
     getDoc,
+    getDocs,
+    limit,
+    orderBy,
+    query,
     runTransaction,
     serverTimestamp,
     setDoc,
     updateDoc,
-    writeBatch,
+    where,
 } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase/config';
-import type {
-    BrandProfile,
-    CreatorProfile,
-    DmContact,
-    Profile,
-    SocialLink,
-    SocialPlatform,
+import {
+    DEFAULT_LOCATION,
+    USERNAME_COOLDOWN_MS,
+    type Profile,
+    type ProfileLocation,
 } from '@/lib/types/profile';
 import { tsMs } from '@/lib/utils/firestoreTimestamp';
-import { isSameSocialLink, SOCIAL_PLATFORMS } from '@/lib/utils/socialLinks';
 
 // IMPORTANT: collection name + document shape must stay in lockstep with
-// adler-website/lib/services/profileService.ts and the deployed
-// firestore.rules in this repo. Any divergence triggers
+// the deployed firestore.rules. Any divergence triggers
 // "Missing or insufficient permissions" at write time.
 const COLLECTION = 'profiles';
 const USERNAMES_COLLECTION = 'usernames';
@@ -41,12 +42,6 @@ function pick<T>(arr: readonly T[]): T {
     return arr[Math.floor(Math.random() * arr.length)];
 }
 
-/**
- * Generated username embeds a 4-char suffix derived from the userId so the
- * chance of collision in the `usernames/` reservation collection is
- * essentially zero. Falls back to a random suffix if the userId is too
- * short.
- */
 function generateUsername(userId: string): string {
     const adj = pick(ADJECTIVES).toLowerCase();
     const noun = pick(NOUNS).toLowerCase();
@@ -61,131 +56,89 @@ function generateDisplayName(): string {
     return `${pick(ADJECTIVES)} ${pick(NOUNS)}`;
 }
 
-function readSocialLinks(value: unknown): SocialLink[] {
-    if (!Array.isArray(value)) return [];
-    const valid = SOCIAL_PLATFORMS as readonly SocialPlatform[];
-    const out: SocialLink[] = [];
-    for (const raw of value) {
-        if (!raw || typeof raw !== 'object') continue;
-        const row = raw as Record<string, unknown>;
-        const platform = row.platform;
-        const handle = row.handle;
-        if (
-            typeof platform !== 'string' ||
-            typeof handle !== 'string' ||
-            !valid.includes(platform as SocialPlatform) ||
-            handle.trim() === ''
-        ) {
-            continue;
-        }
-        const link: SocialLink = {
-            platform: platform as SocialPlatform,
-            handle: handle.trim(),
-        };
-        if (!out.some((l) => isSameSocialLink(l, link))) out.push(link);
+function readLocation(value: unknown): ProfileLocation {
+    if (!value || typeof value !== 'object') return DEFAULT_LOCATION;
+    const raw = value as Record<string, unknown>;
+    // Accept both the current shape (kind: 'country') and the legacy
+    // shape (kind: 'city', { city, country }) — for legacy docs we just
+    // drop the city and keep the country code.
+    const country = typeof raw.country === 'string' ? raw.country : null;
+    if (raw.kind === 'global' || !country || country.length !== 2) {
+        return DEFAULT_LOCATION;
     }
-    return out;
+    return { kind: 'country', country: country.toUpperCase() };
 }
 
-/**
- * `dmContact === null` means "not open to cold DMs". An object with every
- * field empty is forbidden by the rules; null collapses are done at write
- * time, not read time.
- */
-function readDmContact(value: unknown): DmContact | null {
-    if (!value || typeof value !== 'object') return null;
-    const data = value as Record<string, unknown>;
-    const email = typeof data.email === 'string' && data.email !== '' ? data.email : null;
-    const telegram =
-        typeof data.telegram === 'string' && data.telegram !== '' ? data.telegram : null;
-    const phone = typeof data.phone === 'string' && data.phone !== '' ? data.phone : null;
-    if (!email && !telegram && !phone) return null;
-    return { email, telegram, phone };
-}
-
-function readCreatorProfile(value: unknown): CreatorProfile | null {
-    if (!value || typeof value !== 'object') return null;
-    const data = value as Record<string, unknown>;
+function rowToProfile(uid: string, data: Record<string, unknown>): Profile {
     return {
-        niches: Array.isArray(data.niches) ? (data.niches as string[]) : [],
-        portfolioUrl: (data.portfolioUrl as string | undefined) ?? null,
-        socialLinks: readSocialLinks(data.socialLinks),
-        dmContact: readDmContact(data.dmContact),
-    };
-}
-
-function readBrandProfile(value: unknown): BrandProfile | null {
-    if (!value || typeof value !== 'object') return null;
-    const data = value as Record<string, unknown>;
-    // companyName is the only required field; without it we treat the
-    // section as not yet set up (matches the web reader).
-    const companyName = data.companyName as string | undefined;
-    if (!companyName) return null;
-    return {
-        companyName,
-        industry: (data.industry as string | undefined) ?? null,
-        websiteUrl: (data.websiteUrl as string | undefined) ?? null,
-        dmContact: readDmContact(data.dmContact),
-    };
-}
-
-function rowToProfile(id: string, data: Record<string, unknown>): Profile {
-    const creatorProfile = readCreatorProfile(data.creatorProfile);
-    const brandProfile = readBrandProfile(data.brandProfile);
-    // Prefer persisted booleans when present (so a write that hasn't
-    // re-synced yet still reads correctly), otherwise derive from the
-    // sub-profile presence. Older docs predating the flags fall through to
-    // the derived value automatically.
-    const persistedIsCreator =
-        typeof data.isCreator === 'boolean' ? data.isCreator : null;
-    const persistedIsBrand =
-        typeof data.isBrand === 'boolean' ? data.isBrand : null;
-    return {
-        id,
-        username: (data.username as string | undefined) ?? '',
-        displayName: (data.displayName as string | undefined) ?? '',
-        bio: (data.bio as string | undefined) ?? '',
-        avatarUrl: (data.avatarUrl as string | undefined) ?? null,
-        walletAddress: (data.walletAddress as string | undefined) ?? null,
-        pushToken: (data.pushToken as string | undefined) ?? null,
-        country: (data.country as string | undefined) ?? null,
-        creatorProfile,
-        brandProfile,
-        isCreator: persistedIsCreator ?? creatorProfile !== null,
-        isBrand: persistedIsBrand ?? brandProfile !== null,
+        id: uid,
+        username: (data.username as string) ?? '',
+        displayName: (data.displayName as string) ?? '',
+        bio: (data.bio as string) ?? '',
+        avatarUrl: (data.avatarUrl as string | null) ?? null,
+        walletAddress: (data.walletAddress as string | null) ?? null,
+        pushToken: (data.pushToken as string | null) ?? null,
+        location: readLocation(data.location),
+        groupCount: typeof data.groupCount === 'number' ? data.groupCount : 0,
         latestActivityAt: tsMs(data.latestActivityAt),
         createdAt: tsMs(data.createdAt) || Date.now(),
         updatedAt: tsMs(data.updatedAt) || Date.now(),
+        lastUsernameChangeAt: tsMs(data.lastUsernameChangeAt),
     };
 }
 
-/**
- * Public availability check — used by the EditProfileSheet to validate a
- * desired username before submit. Best-effort: a value can be claimed in
- * the window between check and write, in which case the transactional
- * update will surface the conflict.
- */
+function assertCurrentUser(userId: string): void {
+    const current = auth.currentUser?.uid;
+    if (!current || current !== userId) {
+        throw new Error('Profile mutation requires authentication');
+    }
+}
+
 export async function isUsernameAvailable(
     username: string,
-    exceptUserId: string,
+    exceptUserId?: string,
 ): Promise<boolean> {
-    if (!USERNAME_REGEX.test(username)) return false;
-    const snap = await getDoc(doc(db, USERNAMES_COLLECTION, username));
+    const slug = username.trim().toLowerCase();
+    if (!USERNAME_REGEX.test(slug)) return false;
+    const snap = await getDoc(doc(db, USERNAMES_COLLECTION, slug));
     if (!snap.exists()) return true;
-    return snap.data()?.userId === exceptUserId;
+    if (exceptUserId && snap.data()?.userId === exceptUserId) return true;
+    return false;
+}
+
+/**
+ * Prefix search over the `profiles.username` field. Usernames are stored
+ * lowercase, so we lowercase the needle and bracket with `` for a
+ * Firestore range query. Returns up to `max` matches ordered by username.
+ */
+export async function searchProfilesByUsername(
+    q: string,
+    max = 20,
+): Promise<Profile[]> {
+    const needle = q.trim().toLowerCase().replace(/^@/, '');
+    if (!needle) return [];
+    const snap = await getDocs(
+        query(
+            collection(db, COLLECTION),
+            orderBy('username'),
+            where('username', '>=', needle),
+            where('username', '<', `${needle}`),
+            limit(max),
+        ),
+    );
+    return snap.docs.map((d) => rowToProfile(d.id, d.data() as Record<string, unknown>));
 }
 
 export async function getProfile(userId: string): Promise<Profile | null> {
     const snap = await getDoc(doc(db, COLLECTION, userId));
     if (!snap.exists()) return null;
-    return rowToProfile(snap.id, snap.data() as Record<string, unknown>);
+    return rowToProfile(userId, snap.data() as Record<string, unknown>);
 }
 
 /**
- * Idempotent profile bootstrap. Mirrors the web implementation: creates a
- * profile + reserves the username slug atomically the first time we see
- * this user, otherwise backfills walletAddress and missing username
- * claims.
+ * Idempotent profile bootstrap. Reserves the username slug atomically the
+ * first time we see this user; backfills walletAddress and missing slug
+ * claims on subsequent calls.
  */
 export async function ensureProfileExists(
     userId: string,
@@ -200,7 +153,6 @@ export async function ensureProfileExists(
             const data = snap.data();
             const existingUsername = data.username as string | undefined;
 
-            // All reads must precede writes inside a transaction.
             let backfillUsernameClaim = false;
             if (existingUsername) {
                 const slugRef = doc(db, USERNAMES_COLLECTION, existingUsername);
@@ -208,8 +160,24 @@ export async function ensureProfileExists(
                 backfillUsernameClaim = !slugSnap.exists();
             }
 
-            if (walletAddress && !data.walletAddress) {
-                tx.update(ref, { walletAddress, updatedAt: serverTimestamp() });
+            // Backfill missing/legacy fields on existing profiles so subsequent
+            // writes (push token, profile edits) pass the rule's strict
+            // validation. Migrates legacy `{kind: 'city', city, country}` to
+            // the new country-only shape.
+            const patch: Record<string, unknown> = {};
+            if (walletAddress && !data.walletAddress) patch.walletAddress = walletAddress;
+            const loc = data.location as Record<string, unknown> | undefined;
+            if (!loc) {
+                patch.location = DEFAULT_LOCATION;
+            } else if (loc.kind === 'city') {
+                const country = typeof loc.country === 'string' ? loc.country : null;
+                patch.location = country && country.length === 2
+                    ? { kind: 'country', country: country.toUpperCase() }
+                    : DEFAULT_LOCATION;
+            }
+            if (typeof data.groupCount !== 'number') patch.groupCount = 0;
+            if (Object.keys(patch).length > 0) {
+                tx.update(ref, { ...patch, updatedAt: serverTimestamp() });
             }
             if (backfillUsernameClaim && existingUsername) {
                 tx.set(doc(db, USERNAMES_COLLECTION, existingUsername), {
@@ -220,6 +188,7 @@ export async function ensureProfileExists(
 
             return rowToProfile(snap.id, {
                 ...data,
+                ...patch,
                 walletAddress:
                     walletAddress ?? (data.walletAddress as string | undefined) ?? null,
                 updatedAt: Date.now(),
@@ -230,8 +199,6 @@ export async function ensureProfileExists(
         const slugRef = doc(db, USERNAMES_COLLECTION, username);
         const slugSnap = await tx.get(slugRef);
         if (slugSnap.exists()) {
-            // Astronomically unlikely with the userId-suffix scheme, but we
-            // surface a clear error rather than silently overwriting.
             throw new Error(
                 `Generated username ${username} collided. Try signing in again.`,
             );
@@ -247,11 +214,8 @@ export async function ensureProfileExists(
             avatarUrl: null,
             walletAddress,
             pushToken: null,
-            country: null,
-            creatorProfile: null,
-            brandProfile: null,
-            isCreator: false,
-            isBrand: false,
+            location: DEFAULT_LOCATION,
+            groupCount: 0,
             createdAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
         });
@@ -263,32 +227,16 @@ export async function ensureProfileExists(
             avatarUrl: null,
             walletAddress,
             pushToken: null,
-            country: null,
-            creatorProfile: null,
-            brandProfile: null,
-            isCreator: false,
-            isBrand: false,
+            location: DEFAULT_LOCATION,
+            groupCount: 0,
             latestActivityAt: 0,
             createdAt: now,
             updatedAt: now,
+            lastUsernameChangeAt: 0,
         };
     });
 }
 
-function assertCurrentUser(userId: string) {
-    if (auth.currentUser?.uid !== userId) {
-        throw new Error('Cannot update profile for another user');
-    }
-}
-
-/**
- * Update the user-editable identity fields. `displayName` and `bio` are
- * both seeded by `ensureProfileExists` (random adjective+noun, empty bio)
- * and otherwise managed entirely from the profile-settings page. Username
- * is intentionally not editable here — renaming requires migrating the
- * `usernames/{slug}` reservation transactionally and is out of scope for
- * v1.
- */
 export async function updateProfileBasics(
     userId: string,
     patch: { displayName?: string; bio?: string },
@@ -300,49 +248,19 @@ export async function updateProfileBasics(
     await updateDoc(doc(db, COLLECTION, userId), update);
 }
 
-export async function setCountry(
+export async function setLocation(
     userId: string,
-    country: string | null,
+    location: ProfileLocation,
 ): Promise<void> {
     assertCurrentUser(userId);
+    const sanitized: ProfileLocation =
+        location.kind === 'country' && location.country && location.country.length === 2
+            ? { kind: 'country', country: location.country.toUpperCase() }
+            : DEFAULT_LOCATION;
     await updateDoc(doc(db, COLLECTION, userId), {
-        country,
+        location: sanitized,
         updatedAt: serverTimestamp(),
     });
-}
-
-export interface CompleteOnboardingInput {
-    displayName: string;
-    bio: string;
-    country: string | null;
-    creatorProfile: CreatorProfile;
-    brandProfile: BrandProfile;
-}
-
-export async function completeDualProfileOnboarding(
-    userId: string,
-    input: CompleteOnboardingInput,
-): Promise<void> {
-    assertCurrentUser(userId);
-    const ref = doc(db, COLLECTION, userId);
-    const batch = writeBatch(db);
-    batch.update(ref, {
-        displayName: input.displayName,
-        bio: input.bio,
-        country: input.country,
-        creatorProfile: {
-            ...input.creatorProfile,
-            dmContact: normalizeDmContact(input.creatorProfile.dmContact),
-        },
-        brandProfile: {
-            ...input.brandProfile,
-            dmContact: normalizeDmContact(input.brandProfile.dmContact),
-        },
-        isCreator: true,
-        isBrand: true,
-        updatedAt: serverTimestamp(),
-    });
-    await batch.commit();
 }
 
 export async function setAvatarUrl(
@@ -357,120 +275,14 @@ export async function setAvatarUrl(
 }
 
 /**
- * Collapse an incoming `DmContact` patch to either a fully-populated
- * object (with empty strings normalised to `null`) or `null` if every
- * channel is blank. Mirrors the `readDmContact` invariant.
+ * Append-only by the rule: walletAddress can flip from null → string but
+ * never be overwritten. Clients fall back to the existing value.
  */
-function normalizeDmContact(value: DmContact | null | undefined): DmContact | null {
-    if (!value) return null;
-    const email = value.email && value.email.trim() !== '' ? value.email.trim() : null;
-    const telegram =
-        value.telegram && value.telegram.trim() !== ''
-            ? value.telegram.trim().replace(/^@/, '')
-            : null;
-    const phone = value.phone && value.phone.trim() !== '' ? value.phone.trim() : null;
-    if (!email && !telegram && !phone) return null;
-    return { email, telegram, phone };
-}
-
-/**
- * Pass a partial patch to merge fields into the creator section, or
- * `null` to clear it entirely. Keeps the denormalized `isCreator` flag in
- * lockstep with `creatorProfile != null` — directory queries depend on
- * this and the rule enforces it.
- */
-export async function updateCreatorProfile(
-    userId: string,
-    patch: Partial<CreatorProfile> | null,
-): Promise<void> {
-    assertCurrentUser(userId);
-    const ref = doc(db, COLLECTION, userId);
-
-    if (patch === null) {
-        await updateDoc(ref, {
-            creatorProfile: null,
-            isCreator: false,
-            updatedAt: serverTimestamp(),
-        });
-        return;
-    }
-
-    const snap = await getDoc(ref);
-    const existing = snap.exists()
-        ? readCreatorProfile((snap.data() as Record<string, unknown>).creatorProfile)
-        : null;
-    // Dedupe on write — defence in depth against UIs that don't enforce
-    // uniqueness on add.
-    const incomingLinks = patch.socialLinks ?? existing?.socialLinks ?? [];
-    const dedupedLinks: SocialLink[] = [];
-    for (const link of incomingLinks) {
-        if (!dedupedLinks.some((l) => isSameSocialLink(l, link))) {
-            dedupedLinks.push(link);
-        }
-    }
-    const dmContact = normalizeDmContact(
-        patch.dmContact !== undefined ? patch.dmContact : existing?.dmContact ?? null,
-    );
-    const next: CreatorProfile = {
-        niches: patch.niches ?? existing?.niches ?? [],
-        portfolioUrl: patch.portfolioUrl ?? existing?.portfolioUrl ?? null,
-        socialLinks: dedupedLinks,
-        dmContact,
-    };
-    await updateDoc(ref, {
-        creatorProfile: next,
-        isCreator: true,
-        updatedAt: serverTimestamp(),
-    });
-}
-
-export async function updateBrandProfile(
-    userId: string,
-    patch: Partial<BrandProfile> | null,
-): Promise<void> {
-    assertCurrentUser(userId);
-    const ref = doc(db, COLLECTION, userId);
-
-    if (patch === null) {
-        await updateDoc(ref, {
-            brandProfile: null,
-            isBrand: false,
-            updatedAt: serverTimestamp(),
-        });
-        return;
-    }
-
-    const snap = await getDoc(ref);
-    const existing = snap.exists()
-        ? readBrandProfile((snap.data() as Record<string, unknown>).brandProfile)
-        : null;
-    const companyName = patch.companyName ?? existing?.companyName;
-    if (!companyName) {
-        throw new Error('Brand profile requires a company name');
-    }
-    const dmContact = normalizeDmContact(
-        patch.dmContact !== undefined ? patch.dmContact : existing?.dmContact ?? null,
-    );
-    const next: BrandProfile = {
-        companyName,
-        industry: patch.industry ?? existing?.industry ?? null,
-        websiteUrl: patch.websiteUrl ?? existing?.websiteUrl ?? null,
-        dmContact,
-    };
-    await updateDoc(ref, {
-        brandProfile: next,
-        isBrand: true,
-        updatedAt: serverTimestamp(),
-    });
-}
-
 export async function setWalletAddress(
     userId: string,
     walletAddress: string,
 ): Promise<void> {
     assertCurrentUser(userId);
-    // Append-only by the rule: walletAddress can flip from null → string
-    // but never be overwritten. Clients fall back to the existing value.
     await setDoc(
         doc(db, COLLECTION, userId),
         { walletAddress, updatedAt: serverTimestamp() },
@@ -479,9 +291,56 @@ export async function setWalletAddress(
 }
 
 /**
- * Persist the user's Expo push token. Idempotent — caller debounces so we
- * don't spam Firestore on every app foreground.
+ * Atomic username change: claim new slug, release old slug, update profile.
+ * Rate-limited to once every 30 days via `lastUsernameChangeAt`; the same
+ * cooldown is enforced server-side by `firestore.rules`.
+ *
+ * Throws on: bad format, taken slug, cooldown active, or profile missing.
  */
+export async function changeUsername(userId: string, newUsername: string): Promise<void> {
+    assertCurrentUser(userId);
+    const slug = newUsername.trim().toLowerCase();
+    if (!USERNAME_REGEX.test(slug)) {
+        throw new Error('Username must be 3–20 chars: lowercase letters, digits, underscores.');
+    }
+
+    const profileRef = doc(db, COLLECTION, userId);
+    const newSlugRef = doc(db, USERNAMES_COLLECTION, slug);
+
+    await runTransaction(db, async (tx) => {
+        const profileSnap = await tx.get(profileRef);
+        if (!profileSnap.exists()) throw new Error('Profile not found.');
+        const data = profileSnap.data();
+        const oldUsername = data.username as string | undefined;
+        if (!oldUsername) throw new Error('Profile has no current username.');
+        if (slug === oldUsername) return; // No-op.
+
+        const lastChangeMs = tsMs(data.lastUsernameChangeAt);
+        if (lastChangeMs > 0) {
+            const elapsed = Date.now() - lastChangeMs;
+            if (elapsed < USERNAME_COOLDOWN_MS) {
+                const daysLeft = Math.ceil((USERNAME_COOLDOWN_MS - elapsed) / 86400000);
+                throw new Error(
+                    `You can change your username again in ${daysLeft} day${daysLeft === 1 ? '' : 's'}.`,
+                );
+            }
+        }
+
+        const newSlugSnap = await tx.get(newSlugRef);
+        if (newSlugSnap.exists()) {
+            throw new Error('That username is taken.');
+        }
+
+        tx.set(newSlugRef, { userId, createdAt: serverTimestamp() });
+        tx.delete(doc(db, USERNAMES_COLLECTION, oldUsername));
+        tx.update(profileRef, {
+            username: slug,
+            lastUsernameChangeAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+        });
+    });
+}
+
 export async function setPushToken(userId: string, pushToken: string): Promise<void> {
     assertCurrentUser(userId);
     await setDoc(
@@ -491,11 +350,6 @@ export async function setPushToken(userId: string, pushToken: string): Promise<v
     );
 }
 
-/**
- * Clear the push token on sign-out so notifications don't fire to a
- * device that's no longer signed in. Best-effort — caller swallows
- * failures.
- */
 export async function clearPushToken(userId: string): Promise<void> {
     assertCurrentUser(userId);
     await setDoc(
@@ -505,6 +359,4 @@ export async function clearPushToken(userId: string): Promise<void> {
     );
 }
 
-// Re-exported so step-2 edit flows can validate before hitting the
-// network. Mirrors the regex baked into the Firestore rules.
 export const USERNAME_PATTERN = USERNAME_REGEX;

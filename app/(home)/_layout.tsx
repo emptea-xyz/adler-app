@@ -4,9 +4,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useUser } from '@/contexts/UserContext';
 import { LoadingScreen } from '@/components/base/LoadingScreen';
 import { OverlaySheetsProvider } from '@/contexts/OverlaySheetsContext';
-import { ProfileGate } from '@/components/base/ProfileGate';
-import { RoleSwitchOverlay } from '@/components/features/role/RoleSwitchOverlay';
-import { RecoverPendingOrders } from '@/components/features/marketplace/RecoverPendingOrders';
 
 export default function HomeLayout() {
   const { user, isReady, isBridging } = useAuth();
@@ -16,33 +13,15 @@ export default function HomeLayout() {
   if (!user) return <Redirect href="/(auth)/sign-in" />;
 
   return (
-    <ProfileGate require="both">
-      <OverlaySheetsProvider>
-        <RoleSwitchOverlay />
-        <RecoverPendingOrders />
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="service/[id]" options={{ presentation: 'card' }} />
-          <Stack.Screen name="services/index" options={{ presentation: 'card' }} />
-          <Stack.Screen name="services/new" options={{ presentation: 'card' }} />
-          <Stack.Screen name="services/[id]/edit" options={{ presentation: 'card' }} />
-          <Stack.Screen name="gig/[id]" options={{ presentation: 'card' }} />
-          <Stack.Screen name="gigs/index" options={{ presentation: 'card' }} />
-          <Stack.Screen name="gigs/[id]/edit" options={{ presentation: 'card' }} />
-          <Stack.Screen name="gigs/new" options={{ presentation: 'card' }} />
-          <Stack.Screen name="studio/camera" options={{ presentation: 'card' }} />
-          <Stack.Screen name="studio/edit" options={{ presentation: 'card' }} />
-          <Stack.Screen name="inbox/[threadId]" options={{ presentation: 'card' }} />
-          <Stack.Screen name="notifications" options={{ presentation: 'card' }} />
-          <Stack.Screen name="applications" options={{ presentation: 'card' }} />
-          <Stack.Screen name="applicants" options={{ presentation: 'card' }} />
-          <Stack.Screen name="checkout" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="wallet" options={{ presentation: 'card' }} />
-          <Stack.Screen name="order/[id]" options={{ presentation: 'card' }} />
-          <Stack.Screen name="profile/[id]" options={{ presentation: 'card' }} />
-          <Stack.Screen name="settings" />
-        </Stack>
-      </OverlaySheetsProvider>
-    </ProfileGate>
+    <OverlaySheetsProvider>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="bounty/[id]" options={{ presentation: 'card' }} />
+        <Stack.Screen name="bounty/[id]/submit" options={{ presentation: 'card' }} />
+        <Stack.Screen name="notifications" options={{ presentation: 'card' }} />
+        <Stack.Screen name="settings" />
+        <Stack.Screen name="wallet/activity" options={{ presentation: 'card' }} />
+      </Stack>
+    </OverlaySheetsProvider>
   );
 }

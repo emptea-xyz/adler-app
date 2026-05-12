@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, persistentSingleTabManager } from 'firebase/firestore';
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getFunctions } from 'firebase/functions';
 // @ts-ignore - Firebase types for RN interactions can be tricky
@@ -99,10 +99,22 @@ if (getApps().length === 0) {
         }
     } else if (Platform.OS === 'web') {
         if (!__DEV__) {
-            initializeAppCheck(app, {
-                provider: new ReCaptchaEnterpriseProvider('RECAPTCHA_ENTERPRISE_SITE_KEY'),
-                isTokenAutoRefreshEnabled: true,
-            });
+            // M11: real ReCaptcha Enterprise site key. If unset (or still
+            // the literal placeholder), skip web App Check setup entirely
+            // rather than silently failing-open with a bogus site key.
+            const siteKey = process.env.EXPO_PUBLIC_RECAPTCHA_ENTERPRISE_SITE_KEY;
+            if (!siteKey || siteKey === 'RECAPTCHA_ENTERPRISE_SITE_KEY') {
+                if (__DEV__) {
+                    console.warn(
+                        'App Check (web): EXPO_PUBLIC_RECAPTCHA_ENTERPRISE_SITE_KEY unset; skipping init.',
+                    );
+                }
+            } else {
+                initializeAppCheck(app, {
+                    provider: new ReCaptchaEnterpriseProvider(siteKey),
+                    isTokenAutoRefreshEnabled: true,
+                });
+            }
         } else {
             // @ts-ignore - App Check debug token for local development
             self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
@@ -117,13 +129,19 @@ if (getApps().length === 0) {
     auth = getAuth(app);
 }
 
-const db = initializeFirestore(app, {
-    localCache: persistentLocalCache({
-        tabManager: Platform.OS === 'web'
-            ? persistentMultipleTabManager()
-            : persistentSingleTabManager({ forceOwnership: true }),
-    }),
-});
+// Firestore JS SDK only ships IndexedDB-backed persistence; React Native
+// has no IndexedDB, so persistentLocalCache logs a noisy warning before
+// falling back to memory. Skip it entirely on native — we get the same
+// memory cache without the warning, and TanStack Query already handles
+// offline reads at the application layer.
+const db =
+    Platform.OS === 'web'
+        ? initializeFirestore(app, {
+              localCache: persistentLocalCache({
+                  tabManager: persistentMultipleTabManager(),
+              }),
+          })
+        : initializeFirestore(app, {});
 const storage = getStorage(app);
 const functions = getFunctions(app);
 

@@ -1,59 +1,16 @@
 import React from 'react';
-import { Pressable, View } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
-import { PublicKey } from '@solana/web3.js';
-import { router } from 'expo-router';
-import { Bell } from 'lucide-react-native';
+import { View } from 'react-native';
 import { ThemedText } from '@/components/base/ThemedText';
-import { WalletPill } from '@/components/ui/WalletPill';
-import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useOverlaySheets } from '@/contexts/OverlaySheetsContext';
-import { getConnection, lamportsToSol } from '@/lib/solana/connection';
-import { qk, PROFILE_KEYS } from '@/lib/constants/queryKeys';
-import { listMyNotifications } from '@/lib/services/notificationsService';
-import { formatSol } from '@/lib/utils/formatNumber';
-import { useViewMode } from '@/contexts/ViewModeContext';
-
-// Figma node 131:133 — top header on tab screens. Static screen label on the
-// left, live wallet balance pill on the right. Drops the personalized greeting
-// per design. Tapping the balance pill opens the global WalletSheet by
-// default; an optional `onPressBalance` overrides that for special cases.
 
 interface AdlerHomeHeaderProps {
     title: string;
-    onPressBalance?: () => void;
+    /** Optional slot rendered on the right (e.g. a settings cog). */
+    rightSlot?: React.ReactNode;
 }
 
-export function AdlerHomeHeader({ title, onPressBalance }: AdlerHomeHeaderProps) {
+export function AdlerHomeHeader({ title, rightSlot }: AdlerHomeHeaderProps) {
     const { theme } = useTheme();
-    const { walletAddress, user } = useAuth();
-    const { openWallet } = useOverlaySheets();
-    const { viewMode, availableModes, setViewMode } = useViewMode();
-
-    const balanceQuery = useQuery({
-        queryKey: walletAddress ? PROFILE_KEYS.walletBalance(walletAddress) : ['wallet', 'balance', 'none'],
-        enabled: !!walletAddress,
-        queryFn: async () => {
-            if (!walletAddress) return 0;
-            const lamports = await getConnection().getBalance(new PublicKey(walletAddress));
-            return lamportsToSol(lamports);
-        },
-        refetchInterval: 30_000,
-        staleTime: 15_000,
-    });
-
-    const balanceText =
-        balanceQuery.data === undefined ? '—' : formatSol(balanceQuery.data);
-
-    const notificationsQuery = useQuery({
-        queryKey: user ? qk.notifications.list(user.id) : ['notifications', 'list', 'anon'],
-        enabled: !!user,
-        queryFn: () => listMyNotifications(user!.id),
-        staleTime: 15_000,
-        refetchInterval: 30_000,
-    });
-    const unreadCount = (notificationsQuery.data ?? []).filter((n) => !n.read).length;
 
     return (
         <View
@@ -66,75 +23,14 @@ export function AdlerHomeHeader({ title, onPressBalance }: AdlerHomeHeaderProps)
                 backgroundColor: theme[50],
             }}
         >
-            <ThemedText
-                type="h4"
-                style={{ color: theme[950] }}
-                numberOfLines={1}
-            >
+            <ThemedText type="h4" style={{ color: theme[950] }} numberOfLines={1}>
                 {title}
             </ThemedText>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                {availableModes.length > 1 ? (
-                    <Pressable
-                        onPress={() => {
-                            setViewMode(viewMode === 'creator' ? 'brand' : 'creator');
-                        }}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Switch to ${viewMode === 'creator' ? 'brand' : 'creator'} view`}
-                        style={{
-                            minHeight: 36,
-                            borderRadius: 999,
-                            paddingHorizontal: 12,
-                            justifyContent: 'center',
-                            backgroundColor: theme[100],
-                        }}
-                    >
-                        <ThemedText type="body-sm-semibold" style={{ color: theme[950] }}>
-                            {viewMode === 'creator' ? 'Creator' : 'Brand'}
-                        </ThemedText>
-                    </Pressable>
-                ) : null}
-                <Pressable
-                    onPress={() => router.push('/notifications')}
-                    accessibilityRole="button"
-                    accessibilityLabel={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
-                    style={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: 18,
-                        backgroundColor: theme[100],
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                    }}
-                >
-                    <Bell size={16} color={theme[950]} />
-                    {unreadCount > 0 ? (
-                        <View
-                            style={{
-                                position: 'absolute',
-                                top: 3,
-                                right: 4,
-                                minWidth: 14,
-                                height: 14,
-                                borderRadius: 7,
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                backgroundColor: theme[950],
-                                paddingHorizontal: 2,
-                            }}
-                        >
-                            <ThemedText type="caption-semibold" style={{ color: theme[50], fontSize: 9 }}>
-                                {unreadCount > 9 ? '9+' : String(unreadCount)}
-                            </ThemedText>
-                        </View>
-                    ) : null}
-                </Pressable>
-                <WalletPill
-                    amount={balanceText}
-                    loading={balanceQuery.isLoading}
-                    onPress={onPressBalance ?? openWallet}
-                />
-            </View>
+            {rightSlot ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    {rightSlot}
+                </View>
+            ) : null}
         </View>
     );
 }

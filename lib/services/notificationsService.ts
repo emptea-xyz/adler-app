@@ -22,11 +22,9 @@ function readRefs(value: unknown): NotificationRefs {
     if (!value || typeof value !== 'object') return {};
     const raw = value as Record<string, unknown>;
     const refs: NotificationRefs = {};
-    if (typeof raw.orderId === 'string') refs.orderId = raw.orderId;
-    if (typeof raw.threadId === 'string') refs.threadId = raw.threadId;
-    if (typeof raw.applicationId === 'string') refs.applicationId = raw.applicationId;
-    if (typeof raw.listingId === 'string') refs.listingId = raw.listingId;
-    if (typeof raw.disputeId === 'string') refs.disputeId = raw.disputeId;
+    if (typeof raw.bountyId === 'string') refs.bountyId = raw.bountyId;
+    if (typeof raw.submissionId === 'string') refs.submissionId = raw.submissionId;
+    if (typeof raw.groupId === 'string') refs.groupId = raw.groupId;
     return refs;
 }
 

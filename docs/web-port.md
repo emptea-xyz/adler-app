@@ -1055,7 +1055,7 @@ app/
 ├── (home)/
 │   ├── layout.tsx                    // routes guard: redirect to /(auth) if not signed-in or roleless
 │   ├── (tabs)/                       // shared tab-shell layout
-│   │   ├── layout.tsx                // sticky AdlerTabBar
+│   │   ├── layout.tsx                // sticky TabBar
 │   │   ├── browse/page.tsx           // landing tab — mixed packages + gigs feed with filters
 │   │   ├── saved/page.tsx            // bookmarked listings
 │   │   ├── inbox/page.tsx            // creator: Sales / Applications · brand: Purchases / Posted / Applications
@@ -1554,7 +1554,7 @@ These are the components used across the app. For each, build a web equivalent t
 - **`AdlerEagleLogo`** — sign-in / intro hero. ViewBox 133×171. Source SVG: `assets/images/eagle-compact.svg` (in the mobile repo). Copy the file into the web repo's `public/` and render via `<img>` or inline `<svg>` — never redraw.
 - **`EagleLoader`** — animated eagle. Cycles fill color through pink → cyan → lime → orange every 4s. The path data lives in `components/ui/EagleLoader.paths.ts` (a bit-string `A` selecting which paths get the accent fill). Use it for the initial loading screen. On web, port the same Skia approach to SVG + Framer Motion or a CSS keyframe animation on the relevant paths.
 
-### Tab bar (`AdlerTabBar`)
+### Tab bar (`TabBar`)
 
 Custom 5-slot bar: `browse, saved, create, inbox, profile`. The "create" slot is **not navigable** — it's an oversized button that opens the global Create sheet. Center button uses `SolanaUploadArrow`. Other slots: 22px Lucide icons (`Compass`, `Bookmark`, `Inbox`, `User`). Active slot: icon color = `theme[950]`. Inactive: `theme[400]`. Always render labels in screen-reader / a11y attributes — visually icon-only.
 
@@ -2181,7 +2181,7 @@ Mobile assumptions that change on web — call these out in code comments where 
 | `expo-clipboard` | `navigator.clipboard.writeText()` |
 | `react-native-qrcode-svg` | `qrcode.react` |
 | `BottomSheet` (mobile sheet) | shadcn/ui Drawer < 768px, Dialog ≥ 768px |
-| `AdlerTabBar` (4 + center) | Bottom bar < 768px; left sidebar with prominent Create button ≥ 768px |
+| `TabBar` (4 + center) | Bottom bar < 768px; left sidebar with prominent Create button ≥ 768px |
 | `useSafeAreaInsets()` | `env(safe-area-inset-*)` CSS where applicable |
 | `Linking.openURL(url)` | `window.open(url, '_blank', 'noopener,noreferrer')` |
 | `useColorScheme` (RN) | `window.matchMedia('(prefers-color-scheme: dark)')` |

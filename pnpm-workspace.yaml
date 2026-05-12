@@ -8,3 +8,6 @@ allowBuilds:
   utf-8-validate: true
 nodeLinker: hoisted
 shamefullyHoist: true
+peerDependencyRules:
+  allowedVersions:
+    utf-8-validate: '6'

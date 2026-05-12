@@ -1,293 +1,213 @@
-import React, { useMemo, useState } from 'react';
-import { Pressable, View, FlatList, ActivityIndicator, RefreshControl } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { useInfiniteQuery } from '@tanstack/react-query';
-import { Plus, Search } from 'lucide-react-native';
-import type { DocumentSnapshot } from 'firebase/firestore';
-import { ThemedText } from '@/components/base/ThemedText';
-import { ThemedView } from '@/components/base/ThemedView';
-import EmptyState from '@/components/ui/EmptyState';
-import { ListingCard } from '@/components/ui/ListingCard';
-import { FilterChip } from '@/components/ui/FilterChip';
-import TextInput from '@/components/ui/TextInput';
-import { AdlerHomeHeader } from '@/components/features/home/AdlerHomeHeader';
-import { SortBySheet } from '@/components/features/browse/SortBySheet';
-import { CategorySheet } from '@/components/features/browse/CategorySheet';
-import { PriceRangeSheet } from '@/components/features/browse/PriceRangeSheet';
-import {
-  DEFAULT_FILTERS,
-  PRICE_RANGE_CHIP_LABEL,
-  PRICE_RANGE_OPTIONS,
-  SORT_BY_CHIP_LABEL,
-} from '@/components/features/browse/filterTypes';
+import React, { useState } from 'react';
+import { FlatList, Pressable, ScrollView, View, RefreshControl } from 'react-native';
+import { router } from 'expo-router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useUser } from '@/contexts/UserContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useViewMode } from '@/contexts/ViewModeContext';
-import { useDebounce } from '@/hooks/useDebounce';
-import { listListings } from '@/lib/services/listingsService';
-import { FEED_KEYS } from '@/lib/constants/queryKeys';
-import type { FeedItem } from '@/types/marketplace';
-import type { ListingKind } from '@/lib/types/listing';
+import { ThemedView } from '@/components/base/ThemedView';
+import { ThemedText } from '@/components/base/ThemedText';
+import { AdlerHomeHeader } from '@/components/features/home/AdlerHomeHeader';
+import { CircleIconButton } from '@/components/ui/CircleIconButton';
+import { SegmentedToggle } from '@/components/ui/SegmentedToggle';
+import { Pill } from '@/components/ui/Pill';
+import EmptyState from '@/components/ui/EmptyState';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { BountyCardForBounty } from '@/components/features/bounty/BountyItemCard';
+import { GroupLogoDot } from '@/components/features/bounty/BountyTags';
+import { GroupsSearchSheet } from '@/components/features/groups/GroupsSearchSheet';
+import {
+    listOpenPublicBounties,
+    listGroupBounties,
+} from '@/lib/services/bountyService';
+import { getGroup, listMyMemberships } from '@/lib/services/groupService';
+import { qk } from '@/lib/constants/queryKeys';
+import { EMPTY_BROWSE_PUBLIC, EMPTY_BROWSE_GROUPS } from '@/lib/utils/copy';
+import { haptic } from '@/lib/utils/haptic';
 import { TAB_BAR_HEIGHT } from '@/constants/LayoutConstants';
-import { EMPTY_BROWSE, EMPTY_BROWSE_SEARCH } from '@/lib/utils/copy';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import type { Bounty } from '@/lib/types/bounty';
+import type { Group } from '@/lib/types/group';
+import type { ProfileLocation } from '@/lib/types/profile';
 
-const PAGE_SIZE = 25;
+type BrowseTab = 'public' | 'groups';
 
-type FeedPageParam = DocumentSnapshot | null;
-const INITIAL_PAGE_PARAM: FeedPageParam = null;
-
-interface FeedPage {
-  items: FeedItem[];
-  next: FeedPageParam | null;
+function sortByLocation(bounties: Bounty[], _location: ProfileLocation): Bounty[] {
+    return bounties;
 }
 
 export default function BrowseScreen() {
-  const { theme } = useTheme();
-  const router = useRouter();
-  const { viewMode } = useViewMode();
-  const feedKind: ListingKind = viewMode === 'creator' ? 'gig' : 'service';
+    const { theme } = useTheme();
+    const { profile } = useUser();
+    const { user } = useAuth();
+    const insets = useSafeAreaInsets();
+    const queryClient = useQueryClient();
+    const [tab, setTab] = useState<BrowseTab>('public');
+    const [groupsOpen, setGroupsOpen] = useState(false);
 
-  const [filters, setFilters] = useState(DEFAULT_FILTERS);
-  const [searchInput, setSearchInput] = useState('');
-  const debouncedQuery = useDebounce(searchInput.trim().toLowerCase(), 250);
-  const [sortSheet, setSortSheet] = useState(false);
-  const [categorySheet, setCategorySheet] = useState(false);
-  const [priceSheet, setPriceSheet] = useState(false);
-
-  const {
-    data,
-    isLoading,
-    refetch,
-    isRefetching,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-  } = useInfiniteQuery<FeedPage, Error, FeedPage[], readonly unknown[], FeedPageParam>({
-    queryKey: FEED_KEYS.browse({ kind: feedKind }),
-    initialPageParam: INITIAL_PAGE_PARAM,
-    queryFn: async ({ pageParam }): Promise<FeedPage> => {
-      const page = await listListings({
-        kind: feedKind,
-        pageSize: PAGE_SIZE,
-        cursor: pageParam ?? INITIAL_PAGE_PARAM,
-      });
-      const items: FeedItem[] = page.items.map((listing) => (
-        listing.kind === 'service'
-          ? { kind: 'service' as const, data: listing as Extract<FeedItem, { kind: 'service' }>['data'] }
-          : { kind: 'gig' as const, data: listing as Extract<FeedItem, { kind: 'gig' }>['data'] }
-      ));
-      return {
-        items,
-        next: page.nextCursor,
-      };
-    },
-    getNextPageParam: (last) => last.next ?? undefined,
-    select: (raw) => raw.pages,
-  });
-
-  const flatFeed = useMemo<FeedItem[]>(() => {
-    if (!data) return [];
-    return data.flatMap((p) => p.items);
-  }, [data]);
-
-  const filtered = useMemo(() => {
-    if (!flatFeed.length) return [];
-    const pricePredicate =
-      PRICE_RANGE_OPTIONS.find((o) => o.id === filters.priceRange)?.predicate ?? (() => true);
-
-    const matched = flatFeed.filter((item) => {
-      if (filters.category && item.data.category !== filters.category) return false;
-      const amount =
-        item.kind === 'service' ? item.data.priceSol : item.data.budgetSol;
-      if (!pricePredicate(amount)) return false;
-      if (debouncedQuery) {
-        const haystack = `${item.data.title} ${item.data.description}`.toLowerCase();
-        if (!haystack.includes(debouncedQuery)) return false;
-      }
-      return true;
+    const publicQuery = useQuery({
+        queryKey: qk.bounties.listPublic('open'),
+        queryFn: () => listOpenPublicBounties(),
+        staleTime: 30_000,
+        enabled: tab === 'public',
     });
 
-    if (filters.sortBy === 'oldest') {
-      matched.sort((a, b) => a.data.createdAt - b.data.createdAt);
-    }
-    if (filters.sortBy === 'priceAsc' || filters.sortBy === 'priceDesc') {
-      const dir = filters.sortBy === 'priceAsc' ? 1 : -1;
-      matched.sort((a, b) => {
-        const aAmount = a.kind === 'service' ? a.data.priceSol : a.data.budgetSol;
-        const bAmount = b.kind === 'service' ? b.data.priceSol : b.data.budgetSol;
-        return (aAmount - bAmount) * dir;
-      });
-    }
-    // 'newest' is the server-default order, leave as is.
-    return matched;
-  }, [flatFeed, filters, debouncedQuery]);
+    const membershipsQuery = useQuery({
+        queryKey: user ? qk.groups.myMemberships(user.id) : ['groups', 'myMemberships', 'anon'],
+        queryFn: () => (user ? listMyMemberships(user.id) : Promise.resolve([])),
+        staleTime: 60_000,
+        enabled: !!user && tab === 'groups',
+    });
+    const myGroupIds = (membershipsQuery.data ?? []).map((m) => m.groupId);
 
-  const categoryChipLabel =
-    filters.category === null
-      ? 'Category'
-      : filters.category.charAt(0).toUpperCase() + filters.category.slice(1);
+    // Fan-out group fetches so the strip above the bounty list can show
+    // each membership with its current status. Cheap — getGroup is cached
+    // per id under qk.groups.detail.
+    const myGroupsQuery = useQuery({
+        queryKey: ['groups', 'byIds', [...myGroupIds].sort()],
+        queryFn: async () => {
+            const groups = await Promise.all(myGroupIds.map((id) => getGroup(id)));
+            return groups.filter((g): g is Group => !!g);
+        },
+        staleTime: 60_000,
+        enabled: tab === 'groups' && myGroupIds.length > 0,
+    });
+    const myGroups = myGroupsQuery.data ?? [];
 
-  return (
-    <ThemedView className="flex-1">
-      <SafeAreaView edges={['top']} className="flex-1">
-        <AdlerHomeHeader title={viewMode === 'creator' ? 'Gigs' : 'Services'} />
+    const groupsQuery = useQuery({
+        queryKey: qk.bounties.listGroup(myGroupIds, 'open'),
+        queryFn: () => listGroupBounties(myGroupIds),
+        staleTime: 30_000,
+        enabled: tab === 'groups' && myGroupIds.length > 0,
+    });
 
-        <View style={{ paddingHorizontal: 16, marginTop: 8 }}>
-          <TextInput
-            value={searchInput}
-            onChangeText={setSearchInput}
-            placeholder={viewMode === 'creator' ? 'Search gigs' : 'Search services'}
-            autoCapitalize="none"
-            autoCorrect={false}
-            returnKeyType="search"
-            leftIcon={<Search size={16} color={theme[500]} strokeWidth={2} />}
-          />
-        </View>
+    const isLoading = tab === 'public' ? publicQuery.isLoading : (membershipsQuery.isLoading || groupsQuery.isLoading);
+    const dataRaw = tab === 'public' ? publicQuery.data ?? [] : groupsQuery.data ?? [];
+    const data = profile ? sortByLocation(dataRaw, profile.location) : dataRaw;
 
-        <View
-          style={{
-            flexDirection: 'row',
-            gap: 8,
-            paddingHorizontal: 16,
-            marginTop: 8,
-          }}
-        >
-          {viewMode === 'brand' ? (
-            <Pressable
-              onPress={() => router.push('/gigs/new')}
-              accessibilityRole="button"
-              style={{
-                minHeight: 36,
-                borderRadius: 999,
-                paddingHorizontal: 12,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 6,
-                backgroundColor: theme[950],
-              }}
-            >
-              <Plus size={14} color={theme[50]} />
-              <ThemedText type="body-sm-semibold" style={{ color: theme[50] }}>
-                Post gig
-              </ThemedText>
-            </Pressable>
-          ) : null}
-          <FilterChip
-            label={SORT_BY_CHIP_LABEL[filters.sortBy]}
-            active={filters.sortBy !== 'newest'}
-            onPress={() => setSortSheet(true)}
-          />
-          <FilterChip
-            label={categoryChipLabel}
-            active={filters.category !== null}
-            onPress={() => setCategorySheet(true)}
-          />
-          <FilterChip
-            label={PRICE_RANGE_CHIP_LABEL[filters.priceRange]}
-            active={filters.priceRange !== 'all'}
-            onPress={() => setPriceSheet(true)}
-          />
-        </View>
+    const onRefresh = async () => {
+        await Promise.all([
+            queryClient.invalidateQueries({ queryKey: qk.bounties.all() }),
+            queryClient.invalidateQueries({ queryKey: ['groups'] }),
+        ]);
+    };
 
-        {isLoading ? (
-          <View className="flex-1 items-center justify-center">
-            <ActivityIndicator color={theme[950]} />
-          </View>
-        ) : (
-          <FlatList
-            data={filtered}
-            keyExtractor={(item) => `${item.kind}:${item.data.id}`}
-            contentContainerStyle={{
-              paddingHorizontal: 16,
-              paddingTop: 16,
-              paddingBottom: TAB_BAR_HEIGHT + 32,
-              gap: 14,
-            }}
-            refreshControl={
-              <RefreshControl
-                refreshing={isRefetching}
-                onRefresh={refetch}
-                tintColor={theme[500]}
-              />
-            }
-            onEndReachedThreshold={0.4}
-            onEndReached={() => {
-              if (hasNextPage && !isFetchingNextPage) {
-                fetchNextPage();
-              }
-            }}
-            ListFooterComponent={
-              isFetchingNextPage ? (
-                <View style={{ paddingVertical: 16, alignItems: 'center' }}>
-                  <ActivityIndicator color={theme[500]} />
-                </View>
-              ) : null
-            }
-            ListEmptyComponent={
-              <View className="pt-12">
-                {(() => {
-                  // Distinguish "no listings exist" from "user's filter narrows it to zero".
-                  const hasFilter =
-                    !!debouncedQuery ||
-                    filters.category !== null ||
-                    filters.priceRange !== 'all';
-                  const haveAnyData = (flatFeed?.length ?? 0) > 0;
-                  const empty = hasFilter && haveAnyData
-                    ? EMPTY_BROWSE_SEARCH
-                    : viewMode === 'creator'
-                      ? {
-                          title: 'No gigs yet',
-                          description: 'Brand briefs will appear here when the market opens.',
-                        }
-                      : EMPTY_BROWSE;
-                  return <EmptyState title={empty.title} description={empty.description} />;
-                })()}
-              </View>
-            }
-            renderItem={({ item }) => {
-              const ownerId = item.kind === 'service' ? item.data.sellerId : item.data.brandId;
-              const amount = item.kind === 'service' ? item.data.priceSol : item.data.budgetSol;
-              const mediaUrls = item.data.mediaUrls;
-              return (
-                <ListingCard
-                  kind={item.kind}
-                  amount={amount}
-                  category={item.data.category}
-                  title={item.data.title}
-                  ownerId={ownerId}
-                  createdAt={item.data.createdAt}
-                  mediaUrls={mediaUrls}
-                  overlay={item.kind === 'service' ? item.data.overlay : null}
-                  listingId={item.data.id}
-                  onPress={() => {
-                    if (item.kind === 'service') router.push(`/service/${item.data.id}`);
-                    else router.push(`/gig/${item.data.id}`);
-                  }}
+    return (
+        <ThemedView style={{ flex: 1 }}>
+            <View style={{ paddingTop: insets.top }}>
+                <AdlerHomeHeader
+                    title="Browse"
+                    rightSlot={
+                        <CircleIconButton
+                            icon="person.2.fill"
+                            onPress={() => setGroupsOpen(true)}
+                            accessibilityLabel="Find groups"
+                        />
+                    }
                 />
-              );
-            }}
-          />
-        )}
-      </SafeAreaView>
+                <View style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
+                    <SegmentedToggle
+                        tabs={['Public', 'My Groups'] as const}
+                        activeTab={tab === 'public' ? 'Public' : 'My Groups'}
+                        onTabChange={(t) => setTab(t === 'Public' ? 'public' : 'groups')}
+                        size="md"
+                    />
+                </View>
+            </View>
 
-      <SortBySheet
-        visible={sortSheet}
-        value={filters.sortBy}
-        onChange={(sortBy) => setFilters((f) => ({ ...f, sortBy }))}
-        onClose={() => setSortSheet(false)}
-      />
-      <CategorySheet
-        visible={categorySheet}
-        value={filters.category}
-        onChange={(category) => setFilters((f) => ({ ...f, category }))}
-        onClose={() => setCategorySheet(false)}
-      />
-      <PriceRangeSheet
-        visible={priceSheet}
-        value={filters.priceRange}
-        onChange={(priceRange) => setFilters((f) => ({ ...f, priceRange }))}
-        onClose={() => setPriceSheet(false)}
-      />
-    </ThemedView>
-  );
+            {isLoading ? (
+                <View style={{ paddingHorizontal: 16, gap: 12, paddingTop: 8 }}>
+                    {[0, 1, 2, 3].map((k) => (
+                        <Skeleton key={k} height={84} />
+                    ))}
+                </View>
+            ) : (
+                <FlatList
+                    data={data}
+                    keyExtractor={(item) => item.id}
+                    renderItem={({ item }) => <BountyCardForBounty bounty={item} />}
+                    contentContainerStyle={{ paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 24 }}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={
+                                tab === 'public' ? publicQuery.isFetching : groupsQuery.isFetching
+                            }
+                            onRefresh={onRefresh}
+                            tintColor={theme[950]}
+                        />
+                    }
+                    ListHeaderComponent={
+                        tab === 'groups' && myGroups.length > 0 ? (
+                            <MyGroupsStrip groups={myGroups} />
+                        ) : null
+                    }
+                    ListEmptyComponent={
+                        tab === 'public' ? (
+                            <EmptyState title={EMPTY_BROWSE_PUBLIC.title} description={EMPTY_BROWSE_PUBLIC.description} />
+                        ) : (
+                            <EmptyState title={EMPTY_BROWSE_GROUPS.title} description={EMPTY_BROWSE_GROUPS.description} />
+                        )
+                    }
+                />
+            )}
+
+            <GroupsSearchSheet visible={groupsOpen} onClose={() => setGroupsOpen(false)} />
+        </ThemedView>
+    );
+}
+
+function MyGroupsStrip({ groups }: { groups: Group[] }) {
+    const { theme } = useTheme();
+    return (
+        <View style={{ paddingBottom: 12, gap: 8 }}>
+            <ThemedText
+                type="caption-semibold"
+                style={{
+                    color: theme[500],
+                    letterSpacing: 0.6,
+                    paddingHorizontal: 16,
+                }}
+            >
+                YOUR GROUPS
+            </ThemedText>
+            <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}
+            >
+                {groups.map((g) => (
+                    <Pressable
+                        key={g.id}
+                        onPress={() => {
+                            haptic('light');
+                            router.push(`/(home)/group/${g.id}`);
+                        }}
+                        style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 8,
+                            paddingVertical: 8,
+                            paddingHorizontal: 12,
+                            borderRadius: 999,
+                            borderWidth: 1,
+                            borderColor: theme[200],
+                            backgroundColor: theme[50],
+                        }}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Open ${g.name}`}
+                    >
+                        <GroupLogoDot name={g.name} logoUrl={g.logoUrl ?? null} size={20} />
+                        <ThemedText
+                            type="caption-semibold"
+                            style={{ color: theme[950] }}
+                            numberOfLines={1}
+                        >
+                            {g.name}
+                        </ThemedText>
+                        {g.status === 'pending' ? <Pill intent="warning" label="PENDING" icon="clock.fill" /> : null}
+                    </Pressable>
+                ))}
+            </ScrollView>
+        </View>
+    );
 }

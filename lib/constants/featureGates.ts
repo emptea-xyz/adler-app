@@ -1,6 +1,3 @@
-/** Use mock data in development. Set to false to use real Firebase in dev. */
-export const USE_DEV_DATA = false;
-
 /**
  * Solana network + RPC. Driven by env so the same JS bundle ships to both
  * devnet (preview) and mainnet (production) builds via separate EAS profiles.
@@ -25,20 +22,41 @@ function resolveNetwork(): SolanaNetwork {
         : 'devnet';
 }
 
-const DEFAULT_RPC_BY_NETWORK: Record<SolanaNetwork, string> = {
+// In production the client routes through our Cloud Function proxy so the
+// paid Helius key stays server-side AND the App Check enforcement layer on
+// the proxy can reject bot/spoofed calls. In __DEV__ that proxy returns
+// 401 (App Check is skipped in dev per lib/firebase/config.ts), so dev
+// builds must point EXPO_PUBLIC_SOLANA_RPC_URL at Helius directly.
+//
+// Hard rule (user directive): never fall back to public Solana RPCs
+// (api.devnet.solana.com etc.) — they're rate-limited and unreliable.
+// If no Helius URL is configured in dev, we throw immediately so the
+// developer notices instead of silently bleeding into a broken state.
+const PROXY_RPC_BY_NETWORK: Record<SolanaNetwork, string> = {
     'devnet': 'https://us-central1-emptea-adler.cloudfunctions.net/solanaRpcProxyDevnet',
     'mainnet-beta': 'https://us-central1-emptea-adler.cloudfunctions.net/solanaRpcProxyMainnet',
-    'testnet': 'https://api.testnet.solana.com',
+    'testnet': 'https://us-central1-emptea-adler.cloudfunctions.net/solanaRpcProxyTestnet',
 };
 
 export const SOLANA_NETWORK: SolanaNetwork = resolveNetwork();
-export const SOLANA_RPC_URL: string =
-    // 1. Server-side proxy (production-safe — no API key in the bundle).
-    process.env.EXPO_PUBLIC_SOLANA_RPC_PROXY_URL ??
-    // 2. Direct RPC URL (dev/preview where the Helius key is fine to ship).
-    process.env.EXPO_PUBLIC_SOLANA_RPC_URL ??
-    // 3. Public Solana RPC (rate-limited; defensive default).
-    DEFAULT_RPC_BY_NETWORK[SOLANA_NETWORK];
+
+function resolveRpcUrl(): string {
+    // 1. Explicit override (Helius URL in dev; proxy URL or custom in prod).
+    const explicit =
+        process.env.EXPO_PUBLIC_SOLANA_RPC_PROXY_URL ??
+        process.env.EXPO_PUBLIC_SOLANA_RPC_URL;
+    if (explicit) return explicit;
+    // 2. Prod default: server-side proxy (App Check enforced, key hidden).
+    if (!__DEV__) return PROXY_RPC_BY_NETWORK[SOLANA_NETWORK];
+    // 3. Dev with no URL → loud failure (better than silent rate-limit).
+    throw new Error(
+        'EXPO_PUBLIC_SOLANA_RPC_URL is required in dev. Set it to a Helius ' +
+            `devnet URL in .env (see HELIUS_RPC_URL_${SOLANA_NETWORK === 'mainnet-beta' ? 'MAINNET' : SOLANA_NETWORK.toUpperCase()} ` +
+            'secret in Firebase functions config).',
+    );
+}
+
+export const SOLANA_RPC_URL: string = resolveRpcUrl();
 export const SOLANA_EXPLORER_BASE = 'https://explorer.solana.com';
 
 /**

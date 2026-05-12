@@ -84,16 +84,21 @@
       ],
       "@react-native-firebase/app",
       "@react-native-firebase/app-check",
-      "expo-video"
+      "expo-video",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#0a0a0a",
+          "defaultChannel": "default"
+        }
+      ]
     ],
     "extra": {
       "router": {},
       "eas": {
         "projectId": "f1c5c2e1-8379-44c3-800b-8de2956f6769"
       }
-    },
-    "runtimeVersion": {
-      "policy": "appVersion"
     }
   }
 }
