@@ -7,7 +7,7 @@
 - **Styling**: NativeWind 4 (Tailwind CSS for RN), class builder via `cn()` in `lib/utils/cn.ts`
 - **State**: TanStack Query 5 (server state) + React Context (global state) + useState (local)
 - **Auth**: Privy (`@privy-io/expo`) with embedded Solana wallets, bridged to Firebase Auth via a Cloud Function
-- **Payments**: Anchor program `adler-escrow` on Solana devnet — funded bounty escrows, manual / auto settlement, refund + cancel paths
+- **Payments**: Anchor program `adler-escrow` on Solana devnet — funded bounty escrows, manual settlement (poster picks winner), refund + cancel paths
 - **Backend**: Firebase 12 (Firestore + Storage + Functions + App Check). No analytics/crash reporting on the client in v1.
 - **Animations**: `react-native-reanimated` 4 + `@shopify/react-native-skia` (TabBar, ProgressBar, EagleLoader, ArrowProgress)
 - **Icons**: `lucide-react-native` (via `components/ui/Icon.tsx`)
@@ -104,7 +104,7 @@ lib/
 │   ├── _send.ts                  # Sign + send raw instruction batch via Privy embedded wallet provider
 │   ├── pda.ts                    # deriveBountyEscrowPda, deriveProtocolConfigPda, contractIdFromHex
 │   ├── createBounty.ts           # `create_bounty` instruction
-│   ├── settleManualBounty.ts     # `settle_manual_bounty` instruction (manual mode)
+│   ├── settleManualBounty.ts     # `settle_manual_bounty` instruction
 │   ├── refundBounty.ts           # `refund_bounty` (post-expiry, anyone can call)
 │   └── cancelBounty.ts           # `cancel_bounty` (poster only, before submissions)
 ├── services/
@@ -123,9 +123,9 @@ lib/
 │   ├── queryKeys.ts              # Centralized TanStack key factory under `qk` (bounties / submissions / groups / profiles / wallet / notifications / preferences)
 │   ├── storageKeys.ts            # AsyncStorage keys
 │   ├── featureGates.ts           # SOLANA_NETWORK / SOLANA_RPC_URL / SOLANA_EXPLORER_BASE / IS_DEVNET_LIKE / PROTOCOL_FEE_BPS / computeFeeLamports / computeFeeSol / SOLANA_CHAIN_ID
-│   └── escrow.ts                 # V1_PROGRAM_ID, SUBMISSION_WINDOW_* (3d/7d/30d), REVIEW_WINDOW_SECS, MAX_SUBMISSIONS_PER_USER, BountyMode
+│   └── escrow.ts                 # V1_PROGRAM_ID, SUBMISSION_WINDOW_SECS (30d), REVIEW_WINDOW_SECS (90d), MAX_SUBMISSIONS_PER_USER
 ├── types/
-│   ├── bounty.ts                 # Bounty, BountyStatus, BountyMode, BountySubmissionKind
+│   ├── bounty.ts                 # Bounty, BountyStatus, BountyScope, BountySubmissionKind
 │   ├── submission.ts             # Submission, SubmissionStatus
 │   ├── group.ts                  # Group, GroupMember, JoinRequest
 │   ├── profile.ts                # Profile, location, push prefs
@@ -161,7 +161,7 @@ functions/
 |-----------|---------|
 | `profiles/{userId}` | Profile (username, displayName, bio, avatarUrl, walletAddress, location, dmContact, pushToken) — userId == Privy user id == Firebase auth uid |
 | `usernames/{slug}` | Unique-username sentinel (transactional reservation on profile create) |
-| `bounties/{id}` | Poster-funded bounties (posterId, contractIdHex, amountLamports, mode (manual/auto), submissionKind, scope (public/group), groupId, submissionEndsAt, expiresAt, status (open/cancelling/refunded/settled/cancelled)) |
+| `bounties/{id}` | Poster-funded bounties (posterId, posterWalletAddress, contractIdHex, bountyLamports, submissionKind (photo/video/link), scope (public/group), groupId, submissionEndsAt (createdAt + 30d), expiresAt (submissionEndsAt + 90d), status (open/in_review/cancelling/hidden/settled/refunded), winnerId, winningSubmissionId, txSignature, escrowFunded, submissionCount, reportCount) |
 | `submissions/{id}` | Submissions to bounties (bountyId, submitterId, mediaUrls, status) — `MAX_SUBMISSIONS_PER_USER = 1` |
 | `reports/{id}` | Moderator reports against submissions |
 | `groups/{id}` | Curated audience groups (host posts bounties scoped to a group) |
@@ -218,15 +218,15 @@ ErrorBoundary
 Funds live in a PDA-derived escrow account; no separate "order" doc.
 
 1. **Create**: UI calls `useBountyEscrow().post(input)`.
-   - `bountyService.draftBounty` reserves a Firestore doc id + generates `contractIdHex` + computes `submissionEndsAt = now + submissionWindowSecs` and `expiresAt = submissionEndsAt + REVIEW_WINDOW_SECS`.
+   - `bountyService.draftBounty` reserves a Firestore doc id + generates `contractIdHex` + computes `submissionEndsAt = now + SUBMISSION_WINDOW_SECS` (30d) and `expiresAt = submissionEndsAt + REVIEW_WINDOW_SECS` (90d).
    - `escrow.createBounty` builds the `create_bounty` instruction (config PDA, escrow PDA, poster pubkey) and submits via Privy's embedded wallet provider.
-   - On success, `bountyService.persistBounty` writes the bounty doc with `status: 'open'`.
-2. **Submit**: creators upload media → `submissionService.createSubmission` writes the doc. Hard cap: 1 submission per user per bounty.
-3. **Settle (manual)**: poster picks a winner → `useBountyEscrow().settleManual` calls `settle_manual_bounty` (winner gets amount − protocol fee, fee goes to `feeTreasury`) → `bountyService.markManualSettled` updates the doc.
-4. **Cancel**: poster, while bounty has no submissions → `useBountyEscrow().cancel` flips Firestore to `cancelling`, runs `cancel_bounty`, finalizes to `cancelled`. On failure, status is reverted via `abortCancel` or swept by the `expireBounties` Cloud Function.
-5. **Refund**: anyone, after `expiresAt`, no winner → `refund_bounty` returns funds to poster.
+   - On success, `bountyService.persistBounty` writes the bounty doc with `status: 'open'` and `escrowFunded: true`.
+2. **Submit**: submitters upload media → `submissionService.createSubmission` writes the doc. Hard cap: 1 submission per user per bounty.
+3. **Settle (manual, only mode)**: after `submissionEndsAt`, status flips to `in_review`. Poster picks a winner → `useBountyEscrow().settleManual` calls `settle_manual_bounty` (winner gets amount − 0.5% protocol fee, fee goes to `feeTreasury`) → `bountyService.markManualSettled` updates the doc to `settled`.
+4. **Cancel**: poster, while bounty has no submissions → `useBountyEscrow().cancel` flips Firestore to `cancelling`, runs `cancel_bounty`, finalizes to `refunded`. On failure, status is reverted via `abortCancel` or swept by the `expireBounties` Cloud Function.
+5. **Refund**: anyone, after `expiresAt`, no winner picked → `refund_bounty` returns funds to poster; doc flips to `refunded`.
 
-Protocol fee: **0.5%** (`PROTOCOL_FEE_BPS = 50`) — computed on-chain at settlement; client estimates via `computeFeeLamports` / `computeFeeSol` for receipts.
+Protocol fee: **0.5%** (`PROTOCOL_FEE_BPS = 50`) — computed on-chain at settlement; client estimates via `computeFeeLamports` / `computeFeeSol` for receipts. Settlement is manual-only; there is no auto / AI-verifier path (dropped in commit a1dae7d).
 
 ## Settings Screen Conventions
 

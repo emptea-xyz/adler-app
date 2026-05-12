@@ -1,6 +1,6 @@
 # Adler
 
-**Adler** is a bounty marketplace built with Expo, TypeScript, Privy (embedded Solana wallets), Firebase, Reanimated, and NativeWind. Anyone can post a funded bounty; anyone can submit. Funds escrow on-chain via the `adler-escrow` Anchor program on Solana devnet — manual or auto settlement, refund + cancel paths. iOS-only on mobile.
+**Adler** is a bounty marketplace built with Expo, TypeScript, Privy (embedded Solana wallets), Firebase, Reanimated, and NativeWind. Anyone can post a funded bounty; anyone can submit. Funds escrow on-chain via the `adler-escrow` Anchor program on Solana devnet — manual settlement (poster picks winner), refund + cancel paths. iOS-only on mobile.
 
 The design philosophy is **industrial precision** — clean structural hierarchy, high-contrast data-forward interfaces, and zero visual noise. Every pixel earns its place.
 
