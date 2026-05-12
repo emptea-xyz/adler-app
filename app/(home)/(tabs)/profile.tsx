@@ -24,7 +24,7 @@ import { listMySubmissions } from '@/lib/services/submissionService';
 import type { Bounty } from '@/lib/types/bounty';
 import type { Submission } from '@/lib/types/submission';
 
-const TABS = ['Created', 'Won', 'Participated'] as const;
+const TABS = ['Won', 'Created', 'Participated'] as const;
 type Tab = (typeof TABS)[number];
 
 export default function ProfileScreen() {
@@ -32,7 +32,7 @@ export default function ProfileScreen() {
     const { profile } = useUser();
     const { user } = useAuth();
     const insets = useSafeAreaInsets();
-    const [tab, setTab] = useState<Tab>('Created');
+    const [tab, setTab] = useState<Tab>('Won');
 
     const createdQuery = useQuery({
         queryKey: user ? qk.bounties.byPoster(user.id) : ['bounties', 'byPoster', 'anon'],
@@ -74,6 +74,18 @@ export default function ProfileScreen() {
         });
         return map;
     }, [bountyIds, bountyQueries]);
+
+    const createdCount = createdQuery.data?.length ?? 0;
+    const participatedCount = submissions.length;
+    const wonCount = useMemo(() => submissions.filter((s) => s.isWinner).length, [submissions]);
+    const winRatePct =
+        participatedCount > 0 ? Math.round((wonCount / participatedCount) * 100) : null;
+
+    const counts: Record<Tab, number> = {
+        Won: wonCount,
+        Created: createdCount,
+        Participated: participatedCount,
+    };
 
     if (!profile) return <ThemedView style={{ flex: 1 }} />;
 
@@ -126,8 +138,12 @@ export default function ProfileScreen() {
                     ) : null}
                 </View>
 
-                <View style={{ marginTop: 24 }}>
-                    <FullWidthUnderlineTabs tabs={TABS} active={tab} onChange={setTab} />
+                <View style={{ marginTop: 20, paddingHorizontal: 24 }}>
+                    <WinRateBlock winRatePct={winRatePct} wonCount={wonCount} participatedCount={participatedCount} />
+                </View>
+
+                <View style={{ marginTop: 20 }}>
+                    <FullWidthUnderlineTabs tabs={TABS} active={tab} onChange={setTab} counts={counts} />
                 </View>
 
                 <View>
@@ -143,14 +159,44 @@ export default function ProfileScreen() {
     );
 }
 
+function WinRateBlock({
+    winRatePct,
+    wonCount,
+    participatedCount,
+}: {
+    winRatePct: number | null;
+    wonCount: number;
+    participatedCount: number;
+}) {
+    const { theme } = useTheme();
+    return (
+        <View style={{ alignItems: 'center', gap: 2 }}>
+            <ThemedText
+                type="caption-semibold"
+                style={{ color: theme[400], letterSpacing: 0.6 }}
+            >
+                WIN RATE
+            </ThemedText>
+            <ThemedText type="h1" style={{ color: theme[950] }}>
+                {winRatePct == null ? '—' : `${winRatePct}%`}
+            </ThemedText>
+            <ThemedText type="body-xs" style={{ color: theme[500] }}>
+                {wonCount} won · {participatedCount} submitted
+            </ThemedText>
+        </View>
+    );
+}
+
 function FullWidthUnderlineTabs<T extends string>({
     tabs,
     active,
     onChange,
+    counts,
 }: {
     tabs: readonly T[];
     active: T;
     onChange: (t: T) => void;
+    counts: Record<T, number>;
 }) {
     const { theme } = useTheme();
     return (
@@ -166,7 +212,10 @@ function FullWidthUnderlineTabs<T extends string>({
                         }}
                         style={{
                             flex: 1,
+                            flexDirection: 'row',
+                            justifyContent: 'center',
                             alignItems: 'center',
+                            gap: 6,
                             paddingVertical: 8,
                             borderBottomWidth: 1,
                             borderBottomColor: isActive ? theme[950] : theme[200],
@@ -177,6 +226,12 @@ function FullWidthUnderlineTabs<T extends string>({
                             style={{ color: isActive ? theme[950] : theme[300] }}
                         >
                             {t}
+                        </ThemedText>
+                        <ThemedText
+                            type="body-xs-semibold"
+                            style={{ color: isActive ? theme[500] : theme[300] }}
+                        >
+                            {counts[t]}
                         </ThemedText>
                     </Pressable>
                 );

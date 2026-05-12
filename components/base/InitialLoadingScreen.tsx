@@ -8,7 +8,7 @@ import Animated, {
   runOnJS,
 } from 'react-native-reanimated';
 import { ThemedView } from './ThemedView';
-import { EagleLoader } from '@/components/ui/EagleLoader';
+import { Spinner } from '@/components/ui/Spinner';
 import { useTheme } from '@/contexts/ThemeContext';
 
 interface InitialLoadingScreenProps {
@@ -65,7 +65,7 @@ export function InitialLoadingScreen({ onLoadingComplete, status }: InitialLoadi
       style={[{ backgroundColor: theme[50] }, containerStyle]}
     >
       <ThemedView className="items-center" style={{ gap: 24 }}>
-        <EagleLoader size={230} />
+        <Spinner size={48} />
         {status && (
           <Animated.Text
             style={[

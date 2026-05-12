@@ -13,7 +13,7 @@ import Animated, {
 import { ThemedText } from '@/components/base/ThemedText';
 import { ThemedView } from '@/components/base/ThemedView';
 import { AdlerEagleLogo } from '@/components/ui/AdlerEagleLogo';
-import { EagleLoader } from '@/components/ui/EagleLoader';
+import { Spinner } from '@/components/ui/Spinner';
 import { useTheme } from '@/contexts/ThemeContext';
 import { TailwindColors } from '@/constants/TailwindColors';
 import { toast } from '@/lib/utils/toast';
@@ -156,7 +156,7 @@ export default function SignInScreen() {
       <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFillObject, loaderStyle]}>
         <SafeAreaView edges={['top', 'bottom']} className="flex-1">
           <View className="flex-1 items-center justify-center px-4">
-            <EagleLoader size={230} />
+            <Spinner size={48} />
           </View>
         </SafeAreaView>
       </Animated.View>
