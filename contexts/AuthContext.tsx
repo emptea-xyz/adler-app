@@ -90,7 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 lastBridgedPrivyId.current = privyUserId;
             } catch (err) {
                 if (!cancelled) {
-                    console.error('Failed to bridge Privy→Firebase:', err);
+                    if (__DEV__) console.error('Failed to bridge Privy→Firebase:', err);
                     toast.error('Sign-in failed. Please try again.');
                     // privyLogout can itself throw; fall back to clearing the
                     // Firebase session so the user lands on sign-in instead of
@@ -120,13 +120,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // sign-out (the user still wants to leave).
             const currentUid = auth.currentUser?.uid;
             if (currentUid) {
-                await clearPushToken(currentUid).catch(() => null);
+                // L5: best-effort but visible in dev; a silent failure
+                // here meant rule-tightening regressions slipped through.
+                await clearPushToken(currentUid).catch((err) => {
+                    if (__DEV__) console.warn('clearPushToken failed', err);
+                });
             }
             await privyLogout();
             await signOutOfFirebase();
             queryClient.clear();
         } catch (err) {
-            console.error('Sign-out failed:', err);
+            if (__DEV__) console.error('Sign-out failed:', err);
             toast.error('Sign-out failed. Please try again.');
         }
     }, [privyLogout, queryClient]);

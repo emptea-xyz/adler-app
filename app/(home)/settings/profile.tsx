@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { FlatList, ScrollView, View, Pressable, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -15,16 +15,21 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useUser } from '@/contexts/UserContext';
 import {
     changeUsername,
+    isUsernameAvailable,
     setAvatarUrl,
     setLocation,
     updateProfileBasics,
+    USERNAME_PATTERN,
 } from '@/lib/services/profileService';
 import { USERNAME_COOLDOWN_MS } from '@/lib/types/profile';
 import { pickImage, uploadProfilePicture } from '@/lib/services/imageUploadService';
 import { toast } from '@/lib/utils/toast';
 import { haptic } from '@/lib/utils/haptic';
+import { useDebounce } from '@/hooks/useDebounce';
 import { COUNTRIES, codeToFlag, countryName } from '@/lib/constants/countries';
 import type { ProfileLocation } from '@/lib/types/profile';
+
+type UsernameStatus = 'idle' | 'checking' | 'available' | 'taken' | 'invalid';
 
 export default function SettingsProfileScreen() {
     const router = useRouter();
@@ -48,7 +53,37 @@ export default function SettingsProfileScreen() {
         lastChange > 0 ? Math.max(0, USERNAME_COOLDOWN_MS - (Date.now() - lastChange)) : 0;
     const cooldownDaysLeft = Math.ceil(cooldownRemainingMs / 86400000);
     const cooldownActive = cooldownRemainingMs > 0;
-    const usernameChanged = username.trim().toLowerCase() !== profile.username;
+    const trimmedUsername = username.trim().toLowerCase();
+    const usernameChanged = trimmedUsername !== profile.username;
+
+    // M12: debounced live availability check. Mirrors the rule check so
+    // taken-username errors surface before Save.
+    const debouncedUsername = useDebounce(trimmedUsername, 300);
+    const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>('idle');
+    useEffect(() => {
+        if (!usernameChanged || !debouncedUsername) {
+            setUsernameStatus('idle');
+            return;
+        }
+        if (!USERNAME_PATTERN.test(debouncedUsername)) {
+            setUsernameStatus('invalid');
+            return;
+        }
+        let cancelled = false;
+        setUsernameStatus('checking');
+        isUsernameAvailable(debouncedUsername, user.id)
+            .then((available) => {
+                if (cancelled) return;
+                setUsernameStatus(available ? 'available' : 'taken');
+            })
+            .catch(() => {
+                if (cancelled) return;
+                setUsernameStatus('idle');
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [debouncedUsername, usernameChanged, user.id]);
 
     const onPickAvatar = async () => {
         try {
@@ -74,7 +109,7 @@ export default function SettingsProfileScreen() {
             // Run it first; if it fails, abort before touching other fields so
             // the user sees a clean error.
             if (usernameChanged) {
-                await changeUsername(user.id, username.trim().toLowerCase());
+                await changeUsername(user.id, trimmedUsername);
             }
             const trimmedName = displayName.trim().slice(0, 50);
             const trimmedBio = bio.trim().slice(0, 280);
@@ -84,7 +119,8 @@ export default function SettingsProfileScreen() {
                 : { kind: 'global', country: null };
             await setLocation(user.id, newLocation);
             await refreshProfile();
-            haptic('success');
+            // L1: project vocabulary — `heavy` for confirmed/major events.
+            haptic('heavy');
             toast.success('Profile updated');
             router.back();
         } catch (err) {
@@ -94,6 +130,10 @@ export default function SettingsProfileScreen() {
             setSaving(false);
         }
     };
+
+    const saveBlocked =
+        saving
+        || (usernameChanged && (usernameStatus === 'checking' || usernameStatus === 'taken' || usernameStatus === 'invalid'));
 
     return (
         <ThemedView style={{ flex: 1 }}>
@@ -139,9 +179,27 @@ export default function SettingsProfileScreen() {
                             editable={!cooldownActive}
                             leftIcon={<ThemedText type="body-md" style={{ color: theme[400] }}>@</ThemedText>}
                         />
-                        <ThemedText type="caption" style={{ color: theme[500] }}>
+                        <ThemedText
+                            type="caption"
+                            style={{
+                                color:
+                                    usernameStatus === 'taken' || usernameStatus === 'invalid'
+                                        ? '#DC143C'
+                                        : usernameStatus === 'available'
+                                        ? theme[700]
+                                        : theme[500],
+                            }}
+                        >
                             {cooldownActive
                                 ? `You can change your username again in ${cooldownDaysLeft} day${cooldownDaysLeft === 1 ? '' : 's'}.`
+                                : usernameStatus === 'checking'
+                                ? 'Checking availability…'
+                                : usernameStatus === 'available'
+                                ? 'Available'
+                                : usernameStatus === 'taken'
+                                ? 'Username already taken'
+                                : usernameStatus === 'invalid'
+                                ? 'Must be 3–20 lowercase letters, digits, or underscores.'
                                 : '3–20 lowercase letters, digits, or underscores. One change per 30 days.'}
                         </ThemedText>
                     </View>
@@ -214,7 +272,7 @@ export default function SettingsProfileScreen() {
                         variant="primary"
                         title={saving ? 'Saving…' : 'Save'}
                         loading={saving}
-                        disabled={saving}
+                        disabled={saveBlocked}
                         onPress={onSave}
                     />
                 </View>

@@ -71,6 +71,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
             AsyncStorage.setItem(STORAGE_KEYS.CACHED_PROFILE, JSON.stringify(ensured)).catch(() => {});
 
             if (pushSyncedFor.current !== user.id) {
+                // M13: claim the slot synchronously to dedup parallel
+                // fetchProfile fires within the same user.id; reset on
+                // error so the next mount can retry instead of silently
+                // skipping forever.
                 pushSyncedFor.current = user.id;
                 getPushPermissionState()
                     .then(async (permission) => {
@@ -86,10 +90,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
                     })
                     .catch((err) => {
                         if (__DEV__) console.warn('Push permission check failed', err);
+                        pushSyncedFor.current = null;
                     });
             }
         } catch (err) {
-            console.error('Failed to fetch profile:', err);
+            if (__DEV__) console.error('Failed to fetch profile:', err);
             try {
                 const fresh = await getProfile(user.id);
                 if (fresh && isMounted.current) {
@@ -97,7 +102,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
                     AsyncStorage.setItem(STORAGE_KEYS.CACHED_PROFILE, JSON.stringify(fresh)).catch(() => {});
                 }
             } catch (innerErr) {
-                console.error('Profile fallback fetch failed:', innerErr);
+                if (__DEV__) console.error('Profile fallback fetch failed:', innerErr);
             }
         }
     }, [user, walletAddress]);
@@ -109,8 +114,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         if (!user) return;
+        // L6: capture uid into a local const so a mid-callback `user`
+        // mutation (TS narrowing) can't crash on `user.id`. The effect
+        // cleanup also runs before user changes — so this is largely
+        // defensive but cheap.
+        const uid = user.id;
         const sub = addPushTokenRotationListener((token) => {
-            setPushToken(user.id, token).catch((err) => {
+            setPushToken(uid, token).catch((err) => {
                 if (__DEV__) console.warn('Push token rotation sync failed', err);
             });
         });

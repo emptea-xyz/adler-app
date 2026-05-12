@@ -1,10 +1,16 @@
 import {
+    collection,
     doc,
     getDoc,
+    getDocs,
+    limit,
+    orderBy,
+    query,
     runTransaction,
     serverTimestamp,
     setDoc,
     updateDoc,
+    where,
 } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase/config';
 import {
@@ -98,6 +104,29 @@ export async function isUsernameAvailable(
     if (!snap.exists()) return true;
     if (exceptUserId && snap.data()?.userId === exceptUserId) return true;
     return false;
+}
+
+/**
+ * Prefix search over the `profiles.username` field. Usernames are stored
+ * lowercase, so we lowercase the needle and bracket with `` for a
+ * Firestore range query. Returns up to `max` matches ordered by username.
+ */
+export async function searchProfilesByUsername(
+    q: string,
+    max = 20,
+): Promise<Profile[]> {
+    const needle = q.trim().toLowerCase().replace(/^@/, '');
+    if (!needle) return [];
+    const snap = await getDocs(
+        query(
+            collection(db, COLLECTION),
+            orderBy('username'),
+            where('username', '>=', needle),
+            where('username', '<', `${needle}`),
+            limit(max),
+        ),
+    );
+    return snap.docs.map((d) => rowToProfile(d.id, d.data() as Record<string, unknown>));
 }
 
 export async function getProfile(userId: string): Promise<Profile | null> {
