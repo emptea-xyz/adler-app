@@ -51,3 +51,22 @@ export const MONO_PALETTE: ThemePalette = {
 export const SIGNAL_COLORS = {
     accent: TailwindColors.sky,
 } as const;
+
+/** Mirrors a palette across the 500 axis: 50↔950, 100↔900, … 400↔600. */
+export function invertPalette(palette: ThemePalette): ThemePalette {
+    return {
+        50: palette[950],
+        100: palette[900],
+        200: palette[800],
+        300: palette[700],
+        400: palette[600],
+        500: palette[500],
+        600: palette[400],
+        700: palette[300],
+        800: palette[200],
+        900: palette[100],
+        950: palette[50],
+    };
+}
+
+export const DARK_MONO_PALETTE: ThemePalette = invertPalette(MONO_PALETTE);
