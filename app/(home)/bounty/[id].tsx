@@ -27,7 +27,6 @@ import {
 import { Avatar } from '@/components/ui/Avatar';
 import { SolanaIcon } from '@/components/ui/SolanaIcon';
 import { WonCard } from '@/components/features/bounty/WonCard';
-import { TailwindColors } from '@/constants/TailwindColors';
 import { Radius } from '@/constants/LayoutConstants';
 import { useBounty } from '@/hooks/useBounty';
 import { useBountyEscrow } from '@/hooks/useBountyEscrow';
@@ -48,7 +47,7 @@ import type { Submission } from '@/lib/types/submission';
 export default function BountyDetailScreen() {
     const { id: idParam } = useLocalSearchParams<{ id: string }>();
     const id = String(idParam ?? '');
-    const { theme } = useTheme();
+    const { theme, tw } = useTheme();
     const { user } = useAuth();
     const queryClient = useQueryClient();
     const insets = useSafeAreaInsets();
@@ -276,9 +275,9 @@ export default function BountyDetailScreen() {
                         }}
                     >
                         <MetaPill
-                            bg={TailwindColors.sky[50]}
-                            fg={TailwindColors.sky[700]}
-                            icon={<SolanaIcon size={10} color={TailwindColors.sky[700]} />}
+                            bg={tw.sky[50]}
+                            fg={tw.sky[700]}
+                            icon={<SolanaIcon size={10} color={tw.sky[700]} />}
                             label={formatSol(bounty.bountyLamports / 1e9)}
                         />
                         <TimePill bounty={bounty} />
@@ -458,7 +457,7 @@ function MetaPill({
 }
 
 function TimePill({ bounty }: { bounty: import('@/lib/types/bounty').Bounty }) {
-    const { theme } = useTheme();
+    const { theme, tw } = useTheme();
     const isOpen = bounty.status === 'open';
     const isReview = bounty.status === 'in_review';
     // Target may be 0 on legacy docs that pre-date submissionEndsAt /
@@ -475,11 +474,11 @@ function TimePill({ bounty }: { bounty: import('@/lib/types/bounty').Bounty }) {
     let bg: string;
     let fg: string;
     if (expired) {
-        bg = TailwindColors.red[50];
-        fg = TailwindColors.red[700];
+        bg = tw.red[50];
+        fg = tw.red[700];
     } else if (hasTarget && (isOpen || isReview)) {
-        bg = TailwindColors.amber[50];
-        fg = TailwindColors.amber[700];
+        bg = tw.amber[50];
+        fg = tw.amber[700];
     } else {
         bg = theme[100];
         fg = theme[700];

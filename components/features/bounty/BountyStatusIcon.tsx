@@ -1,7 +1,6 @@
 import React from 'react';
 import { View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { TailwindColors } from '@/constants/TailwindColors';
 import { useTheme } from '@/contexts/ThemeContext';
 import { ThemedText } from '@/components/base/ThemedText';
 import { Radius } from '@/constants/LayoutConstants';
@@ -79,7 +78,7 @@ interface BountyStatusIconProps {
 }
 
 function BountyStatusIcon({ status, size = 14 }: BountyStatusIconProps) {
-    const { theme } = useTheme();
+    const { theme, tw } = useTheme();
     const grayFill = theme[300];
 
     switch (status) {
@@ -100,7 +99,7 @@ function BountyStatusIcon({ status, size = 14 }: BountyStatusIconProps) {
             // Hourglass viewBox 9×14.
             return (
                 <Svg width={(size * 9) / 14} height={size} viewBox="0 0 9 14">
-                    <Path d={HOURGLASS} fill={TailwindColors.amber[400]} />
+                    <Path d={HOURGLASS} fill={tw.amber[400]} />
                 </Svg>
             );
         case 'processing':
@@ -108,7 +107,7 @@ function BountyStatusIcon({ status, size = 14 }: BountyStatusIconProps) {
             return (
                 <Svg width={(size * 18) / 14} height={size} viewBox="0 0 18 14">
                     {GEARS_PATHS.map((d, i) => (
-                        <Path key={i} d={d} fill={TailwindColors.sky[400]} />
+                        <Path key={i} d={d} fill={tw.sky[400]} />
                     ))}
                 </Svg>
             );
@@ -116,7 +115,7 @@ function BountyStatusIcon({ status, size = 14 }: BountyStatusIconProps) {
             return (
                 <Svg width={size} height={size} viewBox="0 0 14 14">
                     {WON_PATHS.map((d, i) => (
-                        <Path key={i} d={d} fill={TailwindColors.emerald[500]} />
+                        <Path key={i} d={d} fill={tw.emerald[500]} />
                     ))}
                 </Svg>
             );
@@ -124,10 +123,10 @@ function BountyStatusIcon({ status, size = 14 }: BountyStatusIconProps) {
             return (
                 <Svg width={size} height={size} viewBox="0 0 14 14">
                     {LOST_RED.map((d, i) => (
-                        <Path key={`r-${i}`} d={d} fill={TailwindColors.red[500]} />
+                        <Path key={`r-${i}`} d={d} fill={tw.red[500]} />
                     ))}
                     {LOST_PINK.map((d, i) => (
-                        <Path key={`p-${i}`} d={d} fill={TailwindColors.red[200]} />
+                        <Path key={`p-${i}`} d={d} fill={tw.red[200]} />
                     ))}
                 </Svg>
             );
@@ -149,19 +148,19 @@ interface PillPalette {
 }
 
 function usePillPalette(status: BountyItemStatus): PillPalette {
-    const { theme } = useTheme();
+    const { theme, tw } = useTheme();
     switch (status) {
         case 'open':
         case 'closed':
             return { bg: theme[100], fg: theme[700] };
         case 'pending':
-            return { bg: TailwindColors.amber[50], fg: TailwindColors.amber[700] };
+            return { bg: tw.amber[50], fg: tw.amber[700] };
         case 'processing':
-            return { bg: TailwindColors.sky[50], fg: TailwindColors.sky[700] };
+            return { bg: tw.sky[50], fg: tw.sky[700] };
         case 'won':
-            return { bg: TailwindColors.emerald[50], fg: TailwindColors.emerald[700] };
+            return { bg: tw.emerald[50], fg: tw.emerald[700] };
         case 'lost':
-            return { bg: TailwindColors.red[50], fg: TailwindColors.red[700] };
+            return { bg: tw.red[50], fg: tw.red[700] };
     }
 }
 

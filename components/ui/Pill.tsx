@@ -3,7 +3,6 @@ import { View } from 'react-native';
 import { ThemedText } from '@/components/base/ThemedText';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { useTheme } from '@/contexts/ThemeContext';
-import { TailwindColors } from '@/constants/TailwindColors';
 import { Status } from '@/constants/StatusColors';
 import { Neutral } from '@/constants/NeutralColors';
 import { Radius } from '@/constants/LayoutConstants';
@@ -32,15 +31,15 @@ interface PillProps {
 }
 
 export function Pill({ intent, label, icon }: PillProps) {
-  const { theme } = useTheme();
+  const { theme, tw } = useTheme();
 
   let bg: string;
   let fg: string;
 
   switch (intent) {
     case 'accent':
-      bg = TailwindColors.sky[100];
-      fg = TailwindColors.sky[700];
+      bg = tw.sky[100];
+      fg = tw.sky[700];
       break;
     case 'dark':
       bg = theme[950];

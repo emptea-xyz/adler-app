@@ -14,7 +14,6 @@ import { SolanaIcon } from '@/components/ui/SolanaIcon';
 import { ShareWinCard } from '@/components/features/bounty/ShareWinCard';
 import { Neutral } from '@/constants/NeutralColors';
 import { Status } from '@/constants/StatusColors';
-import { TailwindColors } from '@/constants/TailwindColors';
 import { Radius } from '@/constants/LayoutConstants';
 import { useTheme } from '@/contexts/ThemeContext';
 import { captureAndShareWin } from '@/lib/utils/shareWin';
@@ -31,7 +30,7 @@ interface WonCardProps {
 }
 
 export function WonCard({ bounty, winner }: WonCardProps) {
-    const { theme } = useTheme();
+    const { theme, tw } = useTheme();
     const cardRef = useRef<RNView>(null);
     const [state, setState] = useState<'idle' | 'sharing' | 'success'>('idle');
     const amountSol = bounty.bountyLamports / 1e9;
@@ -161,10 +160,10 @@ export function WonCard({ bounty, winner }: WonCardProps) {
                 {bounty.txSignature ? (
                     <Pressable onPress={() => Linking.openURL(explorerTxUrl(bounty.txSignature!))}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                            <ThemedText type="caption-semibold" style={{ color: TailwindColors.sky[600] }}>
+                            <ThemedText type="caption-semibold" style={{ color: tw.sky[600] }}>
                                 View on Solscan
                             </ThemedText>
-                            <Icon name="arrow.up.forward" size={11} color={TailwindColors.sky[600]} />
+                            <Icon name="arrow.up.forward" size={11} color={tw.sky[600]} />
                         </View>
                     </Pressable>
                 ) : null}
