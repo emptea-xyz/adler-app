@@ -40,16 +40,8 @@ export function ConnectivitySheet({ visible, onClose }: Props) {
         refetchInterval: visible ? 5_000 : false,
         queryFn: async () => {
             const start = Date.now();
-            const conn = getConnection();
-            const [version, slot] = await Promise.all([
-                conn.getVersion(),
-                conn.getSlot('confirmed'),
-            ]);
-            return {
-                latencyMs: Date.now() - start,
-                solanaCore: version['solana-core'],
-                slot,
-            };
+            const slot = await getConnection().getSlot('confirmed');
+            return { latencyMs: Date.now() - start, slot };
         },
     });
 
@@ -97,10 +89,7 @@ export function ConnectivitySheet({ visible, onClose }: Props) {
                     <Row label="Network" value={NETWORK_LABEL[SOLANA_NETWORK] ?? SOLANA_NETWORK} />
                     <Row label="RPC" value={rpcLabel(SOLANA_RPC_URL)} mono />
                     {pingQuery.data ? (
-                        <>
-                            <Row label="Cluster version" value={pingQuery.data.solanaCore} mono />
-                            <Row label="Current slot" value={pingQuery.data.slot.toLocaleString()} mono />
-                        </>
+                        <Row label="Current slot" value={pingQuery.data.slot.toLocaleString()} mono />
                     ) : null}
                 </View>
             )}
