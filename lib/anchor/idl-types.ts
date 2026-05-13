@@ -15,12 +15,12 @@ export type AdlerEscrow = {
   "docs": [
     "Adler bounty escrow — single-program bounty marketplace settlement.",
     "",
-    "Each bounty escrows the poster's SOL into a PDA. Manual mode: poster",
-    "signs `settle_manual_bounty(winner)`. Auto mode: a custodial verifier",
-    "keypair (held by the off-chain Cloud Function) signs",
-    "`settle_auto_bounty(winner)` after Gemini Vision verifies the photo.",
-    "Anyone can call `refund_bounty` after `expires_at`",
-    "(= create_time + submission_window + 30-day review window)."
+    "Each bounty escrows the poster's SOL into a PDA. Poster signs",
+    "`settle_manual_bounty(winner)` to release funds. Anyone can call",
+    "`refund_bounty` after `expires_at` (= create_time + 30-day submission",
+    "window + 90-day review window). Everything else — name, description,",
+    "media, status, submissions — lives off-chain in Firestore; the chain",
+    "only holds what's needed to verifiably maintain custody."
   ],
   "instructions": [
     {
@@ -61,7 +61,10 @@ export type AdlerEscrow = {
                   110,
                   102,
                   105,
-                  103
+                  103,
+                  95,
+                  118,
+                  50
                 ]
               }
             ]
@@ -80,7 +83,10 @@ export type AdlerEscrow = {
                   117,
                   110,
                   116,
-                  121
+                  121,
+                  95,
+                  118,
+                  50
                 ]
               },
               {
@@ -151,7 +157,10 @@ export type AdlerEscrow = {
                   110,
                   102,
                   105,
-                  103
+                  103,
+                  95,
+                  118,
+                  50
                 ]
               }
             ]
@@ -170,7 +179,10 @@ export type AdlerEscrow = {
                   117,
                   110,
                   116,
-                  121
+                  121,
+                  95,
+                  118,
+                  50
                 ]
               },
               {
@@ -207,14 +219,6 @@ export type AdlerEscrow = {
         {
           "name": "amountLamports",
           "type": "u64"
-        },
-        {
-          "name": "mode",
-          "type": "u8"
-        },
-        {
-          "name": "submissionWindowSecs",
-          "type": "u32"
         }
       ]
     },
@@ -251,7 +255,10 @@ export type AdlerEscrow = {
                   110,
                   102,
                   105,
-                  103
+                  103,
+                  95,
+                  118,
+                  50
                 ]
               }
             ]
@@ -270,10 +277,6 @@ export type AdlerEscrow = {
       "args": [
         {
           "name": "admin",
-          "type": "pubkey"
-        },
-        {
-          "name": "verifierPubkey",
           "type": "pubkey"
         },
         {
@@ -318,7 +321,10 @@ export type AdlerEscrow = {
                   110,
                   102,
                   105,
-                  103
+                  103,
+                  95,
+                  118,
+                  50
                 ]
               }
             ]
@@ -337,7 +343,10 @@ export type AdlerEscrow = {
                   117,
                   110,
                   116,
-                  121
+                  121,
+                  95,
+                  118,
+                  50
                 ]
               },
               {
@@ -420,7 +429,10 @@ export type AdlerEscrow = {
                   110,
                   102,
                   105,
-                  103
+                  103,
+                  95,
+                  118,
+                  50
                 ]
               }
             ]
@@ -438,118 +450,6 @@ export type AdlerEscrow = {
         {
           "name": "paused",
           "type": "bool"
-        }
-      ]
-    },
-    {
-      "name": "settleAutoBounty",
-      "discriminator": [
-        100,
-        186,
-        88,
-        99,
-        6,
-        180,
-        124,
-        167
-      ],
-      "accounts": [
-        {
-          "name": "config",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  98,
-                  111,
-                  117,
-                  110,
-                  116,
-                  121,
-                  95,
-                  99,
-                  111,
-                  110,
-                  102,
-                  105,
-                  103
-                ]
-              }
-            ]
-          }
-        },
-        {
-          "name": "escrow",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  98,
-                  111,
-                  117,
-                  110,
-                  116,
-                  121
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "poster"
-              },
-              {
-                "kind": "arg",
-                "path": "bountyId"
-              }
-            ]
-          }
-        },
-        {
-          "name": "poster",
-          "writable": true,
-          "relations": [
-            "escrow"
-          ]
-        },
-        {
-          "name": "verifier",
-          "docs": [
-            "Custodial verifier keypair held by the Cloud Function. Must equal",
-            "`config.verifier_pubkey`."
-          ],
-          "signer": true
-        },
-        {
-          "name": "winner",
-          "docs": [
-            "submitter's pubkey after Gemini Vision passes the photo against the",
-            "bounty prompt."
-          ],
-          "writable": true
-        },
-        {
-          "name": "feeTreasury",
-          "writable": true,
-          "relations": [
-            "escrow"
-          ]
-        },
-        {
-          "name": "systemProgram",
-          "address": "11111111111111111111111111111111"
-        }
-      ],
-      "args": [
-        {
-          "name": "bountyId",
-          "type": {
-            "array": [
-              "u8",
-              32
-            ]
-          }
         }
       ]
     },
@@ -585,7 +485,10 @@ export type AdlerEscrow = {
                   110,
                   102,
                   105,
-                  103
+                  103,
+                  95,
+                  118,
+                  50
                 ]
               }
             ]
@@ -604,7 +507,10 @@ export type AdlerEscrow = {
                   117,
                   110,
                   116,
-                  121
+                  121,
+                  95,
+                  118,
+                  50
                 ]
               },
               {
@@ -690,7 +596,10 @@ export type AdlerEscrow = {
                   110,
                   102,
                   105,
-                  103
+                  103,
+                  95,
+                  118,
+                  50
                 ]
               }
             ]
@@ -752,66 +661,41 @@ export type AdlerEscrow = {
     },
     {
       "code": 6001,
-      "name": "invalidMode",
-      "msg": "Mode must be 0 (Manual) or 1 (Auto)."
-    },
-    {
-      "code": 6002,
-      "name": "invalidSubmissionWindow",
-      "msg": "Submission window must be 3, 7, or 30 days (in seconds)."
-    },
-    {
-      "code": 6003,
       "name": "protocolPaused",
       "msg": "Protocol is paused."
     },
     {
-      "code": 6004,
+      "code": 6002,
       "name": "bountyExpired",
       "msg": "Bounty has expired; only refund is allowed."
     },
     {
-      "code": 6005,
+      "code": 6003,
       "name": "refundBeforeExpiry",
       "msg": "Bounty has not yet expired; refund is not allowed."
     },
     {
-      "code": 6006,
-      "name": "wrongVerifier",
-      "msg": "Wrong verifier signer; must equal config.verifier_pubkey."
-    },
-    {
-      "code": 6007,
+      "code": 6004,
       "name": "bountyIdMismatch",
       "msg": "bounty_id arg does not match the PDA's bounty_id."
     },
     {
-      "code": 6008,
+      "code": 6005,
       "name": "posterMismatch",
       "msg": "Poster pubkey on the instruction does not match the PDA's poster."
     },
     {
-      "code": 6009,
+      "code": 6006,
       "name": "feeTreasuryMismatch",
       "msg": "Fee treasury pubkey does not match ProtocolConfig.fee_treasury."
     },
     {
-      "code": 6010,
-      "name": "notAutoMode",
-      "msg": "This instruction is for auto-mode bounties only."
-    },
-    {
-      "code": 6011,
-      "name": "notManualMode",
-      "msg": "This instruction is for manual-mode bounties only."
-    },
-    {
-      "code": 6012,
+      "code": 6007,
       "name": "overflow",
       "msg": "Arithmetic overflow."
     },
     {
-      "code": 6013,
+      "code": 6008,
       "name": "alreadyInitialized",
       "msg": "Singleton PDA is already initialized."
     }
@@ -823,7 +707,7 @@ export type AdlerEscrow = {
         "Per-bounty escrow PDA. Holds `amount + fee + rent` lamports until",
         "terminal (settle or refund — both close the PDA).",
         "",
-        "Seeds: `[b\"bounty\", poster.key().as_ref(), &bounty_id]`."
+        "Seeds: `[b\"bounty_v2\", poster.key().as_ref(), &bounty_id]`."
       ],
       "type": {
         "kind": "struct",
@@ -865,25 +749,9 @@ export type AdlerEscrow = {
             "type": "pubkey"
           },
           {
-            "name": "mode",
-            "docs": [
-              "0 = Manual (poster signs settle), 1 = Auto (verifier_pubkey signs)."
-            ],
-            "type": "u8"
-          },
-          {
-            "name": "submissionWindowSecs",
-            "docs": [
-              "Submission window in seconds (one of `SUBMISSION_WINDOW_*_SECS`).",
-              "Snapshotted at create time so clients can render the original choice.",
-              "`submission_ends_at = expires_at - REVIEW_WINDOW_SECS`."
-            ],
-            "type": "u32"
-          },
-          {
             "name": "expiresAt",
             "docs": [
-              "`now + submission_window_secs + REVIEW_WINDOW_SECS` at create.",
+              "`now + SUBMISSION_WINDOW_SECS + REVIEW_WINDOW_SECS` at create.",
               "After this slot timestamp, `refund_bounty` can be called by anyone."
             ],
             "type": "i64"
@@ -906,15 +774,6 @@ export type AdlerEscrow = {
         "variants": [
           {
             "name": "admin",
-            "fields": [
-              {
-                "name": "value",
-                "type": "pubkey"
-              }
-            ]
-          },
-          {
-            "name": "verifierPubkey",
             "fields": [
               {
                 "name": "value",
@@ -947,7 +806,7 @@ export type AdlerEscrow = {
       "name": "protocolConfig",
       "docs": [
         "Singleton protocol policy. Stores tunable fields and the kill switch.",
-        "Seeds: `[b\"config\"]`."
+        "Seeds: `[b\"bounty_config_v2\"]`."
       ],
       "type": {
         "kind": "struct",
@@ -956,15 +815,6 @@ export type AdlerEscrow = {
             "name": "admin",
             "docs": [
               "Pubkey allowed to call `update_protocol_field` and `set_paused`."
-            ],
-            "type": "pubkey"
-          },
-          {
-            "name": "verifierPubkey",
-            "docs": [
-              "Custodial verifier keypair held by the off-chain Cloud Function.",
-              "Required signer for `settle_auto_bounty`. Set at init; rotatable via",
-              "`update_protocol_field`."
             ],
             "type": "pubkey"
           },

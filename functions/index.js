@@ -34,8 +34,8 @@ const REFUND_CALLER_KEYPAIR_BASE58 = defineSecret('VERIFIER_KEYPAIR_BASE58');
 const SUPER_ADMIN_UID = defineSecret('SUPER_ADMIN_UID');
 
 const PROGRAM_ID = new PublicKey('BArnn6qEM45LMxntW2eBKc5icsZGGqaLiDFCSTFx1uZr');
-const BOUNTY_ESCROW_SEED = Buffer.from('bounty');
-const PROTOCOL_CONFIG_SEED = Buffer.from('bounty_config');
+const BOUNTY_ESCROW_SEED = Buffer.from('bounty_v2');
+const PROTOCOL_CONFIG_SEED = Buffer.from('bounty_config_v2');
 const REPORT_HIDE_THRESHOLD = 100;
 
 // ─── JWKS / Privy auth ────────────────────────────────────────────────────

@@ -21,6 +21,3 @@ export const REVIEW_WINDOW_SECS = 90 * 24 * 60 * 60;
 
 /** Hard cap: one submission per user per bounty. */
 export const MAX_SUBMISSIONS_PER_USER = 1;
-
-/** Mode byte passed to the on-chain `create_bounty` ix. Manual only in v1. */
-export const BOUNTY_MODE_MANUAL = 0;

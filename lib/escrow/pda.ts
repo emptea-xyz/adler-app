@@ -31,12 +31,12 @@ export function deriveBountyEscrowPda(
     bountyIdBytes: Uint8Array,
 ): PublicKey {
     const [pda] = PublicKey.findProgramAddressSync(
-        [Buffer.from('bounty'), new PublicKey(posterWalletAddress).toBuffer(), Buffer.from(bountyIdBytes)],
+        [Buffer.from('bounty_v2'), new PublicKey(posterWalletAddress).toBuffer(), Buffer.from(bountyIdBytes)],
         V1_PROGRAM_ID,
     );
     return pda;
 }
 
 export function deriveProtocolConfigPda(): PublicKey {
-    return PublicKey.findProgramAddressSync([Buffer.from('bounty_config')], V1_PROGRAM_ID)[0];
+    return PublicKey.findProgramAddressSync([Buffer.from('bounty_config_v2')], V1_PROGRAM_ID)[0];
 }
