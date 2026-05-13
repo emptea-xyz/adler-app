@@ -30,3 +30,11 @@ export interface GroupMember {
   /** v1: super-admin writes 'admin' directly via Firestore. No in-app flow. */
   role: GroupRole;
 }
+
+export interface JoinRequest {
+  /** Doc id is `${groupId}_${uid}`. */
+  id: string;
+  groupId: string;
+  uid: string;
+  createdAt: number;
+}

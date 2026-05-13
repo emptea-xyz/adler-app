@@ -36,6 +36,10 @@ export const qk = {
     members: (groupId: string) => ['groups', 'members', groupId] as const,
     list: () => ['groups', 'list'] as const,
     search: (q: string) => ['groups', 'search', q] as const,
+    joinRequests: (groupId: string) =>
+      ['groups', 'joinRequests', groupId] as const,
+    myJoinRequest: (groupId: string, uid: string) =>
+      ['groups', 'myJoinRequest', groupId, uid] as const,
   },
   notifications: {
     list: (uid: string) => ['notifications', 'list', uid] as const,

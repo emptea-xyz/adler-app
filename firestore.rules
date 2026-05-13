@@ -17,6 +17,18 @@ service cloud.firestore {
              && exists(/databases/$(database)/documents/groupMembers/$(groupId + '_' + request.auth.uid));
     }
 
+    function isGroupAdmin(groupId) {
+      return isAuthed()
+             && groupId is string
+             && exists(/databases/$(database)/documents/groupMembers/$(groupId + '_' + request.auth.uid))
+             && get(/databases/$(database)/documents/groupMembers/$(groupId + '_' + request.auth.uid)).data.role == 'admin';
+    }
+
+    function groupIsActive(groupId) {
+      return exists(/databases/$(database)/documents/groups/$(groupId))
+             && get(/databases/$(database)/documents/groups/$(groupId)).data.status == 'active';
+    }
+
     // ── Profiles ────────────────────────────────────────────────────────
     // Public read; owner-only write with field validation.
     function validUsername(v) {
@@ -346,13 +358,23 @@ service cloud.firestore {
     }
 
     match /groupMembers/{compoundId} {
-      // Members read their own membership doc; admins read any in their group.
+      // Any authed user can read members of an active group — the members
+      // list is public surface inside a group.
+      allow read: if isAuthed() && groupIsActive(resource.data.groupId);
+      // Server-only writes via addGroupMember / removeGroupMember /
+      // approveJoinRequest Cloud Functions.
+      allow create, update, delete: if false;
+    }
+
+    // ── Join requests ──────────────────────────────────────────────────
+    // Doc id format: `${groupId}_${uid}` — deterministic so a user can't
+    // queue multiple pending requests for the same group.
+    match /joinRequests/{id} {
       allow read: if isAuthed()
                   && (resource.data.uid == request.auth.uid
-                      || (exists(/databases/$(database)/documents/groupMembers/$(resource.data.groupId + '_' + request.auth.uid))
-                          && get(/databases/$(database)/documents/groupMembers/$(resource.data.groupId + '_' + request.auth.uid)).data.role == 'admin'));
-      // V2 admin-managed: addGroupMember / removeGroupMember CFs handle all
-      // writes. Super-admin seeds the first admin via createGroup CF.
+                      || isGroupAdmin(resource.data.groupId));
+      // All writes go through requestToJoinGroup /
+      // approveJoinRequest / rejectJoinRequest Cloud Functions.
       allow create, update, delete: if false;
     }
 

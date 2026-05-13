@@ -16,10 +16,12 @@ import type {
     GroupMember,
     GroupRole,
     GroupStatus,
+    JoinRequest,
 } from '@/lib/types/group';
 
 const GROUPS = 'groups';
 const GROUP_MEMBERS = 'groupMembers';
+const JOIN_REQUESTS = 'joinRequests';
 
 function rowToGroup(id: string, data: Record<string, unknown>): Group {
     return {
@@ -43,6 +45,15 @@ function rowToMember(id: string, data: Record<string, unknown>): GroupMember {
         uid: (data.uid as string) ?? '',
         joinedAt: tsMs(data.joinedAt) || Date.now(),
         role: (data.role as GroupRole) ?? 'member',
+    };
+}
+
+function rowToJoinRequest(id: string, data: Record<string, unknown>): JoinRequest {
+    return {
+        id,
+        groupId: (data.groupId as string) ?? '',
+        uid: (data.uid as string) ?? '',
+        createdAt: tsMs(data.createdAt) || Date.now(),
     };
 }
 
@@ -132,5 +143,55 @@ export async function removeGroupMember(input: {
     uid: string;
 }): Promise<void> {
     const fn = httpsCallable(functions, 'removeGroupMember');
+    await fn(input);
+}
+
+// ── Join requests ──────────────────────────────────────────────────────
+
+export async function listJoinRequests(groupId: string, max = 100): Promise<JoinRequest[]> {
+    const snap = await getDocs(
+        query(
+            collection(db, JOIN_REQUESTS),
+            where('groupId', '==', groupId),
+            orderBy('createdAt', 'asc'),
+            limit(max),
+        ),
+    );
+    return snap.docs.map((d) => rowToJoinRequest(d.id, d.data() as Record<string, unknown>));
+}
+
+export async function getMyJoinRequest(
+    groupId: string,
+    uid: string,
+): Promise<JoinRequest | null> {
+    const snap = await getDoc(doc(db, JOIN_REQUESTS, `${groupId}_${uid}`));
+    if (!snap.exists()) return null;
+    return rowToJoinRequest(snap.id, snap.data() as Record<string, unknown>);
+}
+
+export async function requestToJoinGroup(input: {
+    groupId: string;
+}): Promise<{ ok: boolean; alreadyPending: boolean }> {
+    const fn = httpsCallable<typeof input, { ok: boolean; alreadyPending: boolean }>(
+        functions,
+        'requestToJoinGroup',
+    );
+    const res = await fn(input);
+    return res.data;
+}
+
+export async function approveJoinRequest(input: {
+    groupId: string;
+    uid: string;
+}): Promise<void> {
+    const fn = httpsCallable(functions, 'approveJoinRequest');
+    await fn(input);
+}
+
+export async function rejectJoinRequest(input: {
+    groupId: string;
+    uid: string;
+}): Promise<void> {
+    const fn = httpsCallable(functions, 'rejectJoinRequest');
     await fn(input);
 }

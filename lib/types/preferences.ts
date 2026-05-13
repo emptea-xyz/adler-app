@@ -16,6 +16,7 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   bounty_lost: true,
   bounty_expired_refund: true,
   bounty_hidden_by_reports: true,
+  group_join_requested: true,
   group_join_approved: true,
   group_join_rejected: true,
   system: true,
@@ -67,8 +68,13 @@ export const NOTIFICATION_KIND_GROUPS: NotificationKindGroup[] = [
   },
   {
     label: 'Groups',
-    description: 'Membership decisions on groups you requested to join.',
+    description: 'Membership activity for groups you run or want to join.',
     kinds: [
+      {
+        kind: 'group_join_requested',
+        label: 'New join requests',
+        description: 'Pings you when someone asks to join a group you admin.',
+      },
       {
         kind: 'group_join_approved',
         label: 'Join request approved',
@@ -76,7 +82,7 @@ export const NOTIFICATION_KIND_GROUPS: NotificationKindGroup[] = [
       },
       {
         kind: 'group_join_rejected',
-        label: 'Join request rejected',
+        label: 'Join request declined',
         description: 'Pings you when a group admin declines your request.',
       },
     ],

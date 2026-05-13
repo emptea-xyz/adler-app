@@ -17,6 +17,7 @@ const KINDS: NotificationKind[] = [
     'bounty_lost',
     'bounty_expired_refund',
     'bounty_hidden_by_reports',
+    'group_join_requested',
     'group_join_approved',
     'group_join_rejected',
     'system',

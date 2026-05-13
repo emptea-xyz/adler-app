@@ -49,6 +49,11 @@ export const EMPTY_GROUP_MEMBERS = {
   description: 'Add the first member from this group.',
 } as const;
 
+export const EMPTY_GROUP_JOIN_REQUESTS = {
+  title: 'No pending requests',
+  description: "When someone asks to join, you'll see them here.",
+} as const;
+
 export const GROUP_NOT_READY = {
   title: "This group isn't ready yet",
   description:

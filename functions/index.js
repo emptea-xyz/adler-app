@@ -1249,3 +1249,168 @@ export const activateGroup = onCall(async (request) => {
   }
   return { ok: true };
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+// Join requests (V3 self-service):
+//   - Any non-member of an active group can request to join.
+//   - Group admins approve or reject. Approve materialises a groupMembers
+//     doc; reject just deletes the request. Both notify the requester.
+//   - Doc id is `${groupId}_${uid}` so the same user can't queue multiple
+//     pending requests for the same group.
+// ─────────────────────────────────────────────────────────────────────────
+
+async function fanOutGroupAdmins(groupId, payload) {
+  const snap = await admin
+    .firestore()
+    .collection('groupMembers')
+    .where('groupId', '==', groupId)
+    .where('role', '==', 'admin')
+    .get();
+  await Promise.all(
+    snap.docs.map((d) =>
+      notifyUser({ ...payload, recipientId: d.data().uid }),
+    ),
+  );
+}
+
+// requestToJoinGroup({ groupId })
+export const requestToJoinGroup = onCall(async (request) => {
+  const callerUid = request.auth?.uid;
+  if (!callerUid) throw new HttpsError('unauthenticated', 'Sign-in required');
+  const groupId = requireString(request.data?.groupId, 'groupId');
+
+  const groupRef = admin.firestore().collection('groups').doc(groupId);
+  const memberRef = admin
+    .firestore()
+    .collection('groupMembers')
+    .doc(`${groupId}_${callerUid}`);
+  const requestRef = admin
+    .firestore()
+    .collection('joinRequests')
+    .doc(`${groupId}_${callerUid}`);
+
+  const [groupSnap, memberSnap, requestSnap, profileSnap] = await Promise.all([
+    groupRef.get(),
+    memberRef.get(),
+    requestRef.get(),
+    admin.firestore().collection('profiles').doc(callerUid).get(),
+  ]);
+  if (!groupSnap.exists) throw new HttpsError('not-found', 'Group not found');
+  if (groupSnap.data()?.status !== 'active') {
+    throw new HttpsError('failed-precondition', 'Group is not accepting requests yet');
+  }
+  if (memberSnap.exists) {
+    throw new HttpsError('already-exists', 'Already a member');
+  }
+  if (requestSnap.exists) {
+    return { ok: true, alreadyPending: true };
+  }
+
+  await requestRef.set({
+    groupId,
+    uid: callerUid,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+
+  const groupName = groupSnap.data()?.name ?? 'a group';
+  const profile = profileSnap.exists ? profileSnap.data() : null;
+  const requesterName =
+    profile?.displayName || profile?.username || callerUid.slice(0, 6);
+
+  await fanOutGroupAdmins(groupId, {
+    kind: 'group_join_requested',
+    title: 'New join request',
+    body: `${requesterName} wants to join ${groupName}.`,
+    href: `/(home)/group/${groupId}`,
+    refs: { groupId },
+  });
+
+  return { ok: true, alreadyPending: false };
+});
+
+// approveJoinRequest({ groupId, uid })
+//   Admin-only. Idempotent: if the user is already a member, the
+//   request is cleared and we return ok.
+export const approveJoinRequest = onCall(async (request) => {
+  const callerUid = request.auth?.uid;
+  const groupId = requireString(request.data?.groupId, 'groupId');
+  const targetUid = requireString(request.data?.uid, 'uid');
+  await assertGroupAdmin(callerUid, groupId);
+
+  const requestRef = admin
+    .firestore()
+    .collection('joinRequests')
+    .doc(`${groupId}_${targetUid}`);
+  const memberRef = admin
+    .firestore()
+    .collection('groupMembers')
+    .doc(`${groupId}_${targetUid}`);
+  const groupRef = admin.firestore().collection('groups').doc(groupId);
+
+  let groupName = 'a group';
+  await admin.firestore().runTransaction(async (tx) => {
+    const [groupSnap, memberSnap, requestSnap] = await Promise.all([
+      tx.get(groupRef),
+      tx.get(memberRef),
+      tx.get(requestRef),
+    ]);
+    if (!groupSnap.exists) throw new HttpsError('not-found', 'Group not found');
+    if (typeof groupSnap.data()?.name === 'string') groupName = groupSnap.data().name;
+
+    if (memberSnap.exists) {
+      if (requestSnap.exists) tx.delete(requestRef);
+      return;
+    }
+    tx.set(memberRef, {
+      groupId,
+      uid: targetUid,
+      joinedAt: admin.firestore.FieldValue.serverTimestamp(),
+      role: 'member',
+    });
+    tx.update(groupRef, {
+      memberCount: admin.firestore.FieldValue.increment(1),
+    });
+    if (requestSnap.exists) tx.delete(requestRef);
+  });
+
+  await notifyUser({
+    recipientId: targetUid,
+    kind: 'group_join_approved',
+    title: 'Join request approved',
+    body: `You're in ${groupName}.`,
+    href: `/(home)/group/${groupId}`,
+    refs: { groupId },
+  });
+
+  return { ok: true };
+});
+
+// rejectJoinRequest({ groupId, uid })
+export const rejectJoinRequest = onCall(async (request) => {
+  const callerUid = request.auth?.uid;
+  const groupId = requireString(request.data?.groupId, 'groupId');
+  const targetUid = requireString(request.data?.uid, 'uid');
+  await assertGroupAdmin(callerUid, groupId);
+
+  const requestRef = admin
+    .firestore()
+    .collection('joinRequests')
+    .doc(`${groupId}_${targetUid}`);
+  const snap = await requestRef.get();
+  if (!snap.exists) {
+    return { ok: true, alreadyResolved: true };
+  }
+  await requestRef.delete();
+
+  const groupSnap = await admin.firestore().collection('groups').doc(groupId).get();
+  const groupName = groupSnap.data()?.name ?? 'a group';
+  await notifyUser({
+    recipientId: targetUid,
+    kind: 'group_join_rejected',
+    title: 'Join request declined',
+    body: `Your request to join ${groupName} wasn't accepted.`,
+    refs: { groupId },
+  });
+
+  return { ok: true, alreadyResolved: false };
+});
