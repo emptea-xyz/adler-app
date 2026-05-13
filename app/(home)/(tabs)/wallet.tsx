@@ -180,10 +180,10 @@ export default function WalletScreen() {
                     </View>
                     <View style={{ flexBasis: '48%', flexGrow: 1 }}>
                         <ActionTile
-                            icon="plus"
+                            icon="drop.fill"
                             iconBgColor={TailwindColors.emerald[500]}
                             iconPosition="top-right"
-                            title="Buy SOL"
+                            title="Airdrop SOL"
                             subtitle="Devnet faucet"
                             onPress={openFaucet}
                             disabled={!walletAddress}
