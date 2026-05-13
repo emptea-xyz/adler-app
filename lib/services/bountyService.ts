@@ -65,6 +65,7 @@ function rowToBounty(id: string, data: Record<string, unknown>): Bounty {
         groupId: (data.groupId as string | null) ?? null,
         winnerId: (data.winnerId as string | null) ?? null,
         winningSubmissionId: (data.winningSubmissionId as string | null) ?? null,
+        settledAt: tsMs(data.settledAt) || null,
         txSignature: (data.txSignature as string | null) ?? null,
         reportCount: typeof data.reportCount === 'number' ? data.reportCount : 0,
         contractIdHex: (data.contractIdHex as string) ?? '',
@@ -195,6 +196,19 @@ export async function listOpenPublicBounties(max = 50): Promise<Bounty[]> {
             where('scope', '==', 'public'),
             where('status', '==', 'open'),
             orderBy('createdAt', 'desc'),
+            limit(max),
+        ),
+    );
+    return snap.docs.map((d) => rowToBounty(d.id, d.data() as Record<string, unknown>));
+}
+
+export async function listRecentSettledPublic(max = 15): Promise<Bounty[]> {
+    const snap = await getDocs(
+        query(
+            collection(db, BOUNTIES),
+            where('scope', '==', 'public'),
+            where('status', '==', 'settled'),
+            orderBy('settledAt', 'desc'),
             limit(max),
         ),
     );

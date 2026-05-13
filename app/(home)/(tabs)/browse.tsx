@@ -8,6 +8,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { ThemedView } from '@/components/base/ThemedView';
 import { ThemedText } from '@/components/base/ThemedText';
 import { AdlerHomeHeader } from '@/components/features/home/AdlerHomeHeader';
+import { LiveActivityTicker } from '@/components/features/home/LiveActivityTicker';
 import { CircleIconButton } from '@/components/ui/CircleIconButton';
 import { SegmentedToggle } from '@/components/ui/SegmentedToggle';
 import { Pill } from '@/components/ui/Pill';
@@ -114,6 +115,8 @@ export default function BrowseScreen() {
                     />
                 </View>
             </View>
+
+            <LiveActivityTicker />
 
             {isLoading ? (
                 <View style={{ paddingHorizontal: 16, gap: 12, paddingTop: 8 }}>

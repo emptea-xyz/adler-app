@@ -44,6 +44,8 @@ export interface Bounty {
     groupId: string | null;
     winnerId: string | null;
     winningSubmissionId: string | null;
+    /** Set when status === 'settled'. */
+    settledAt: number | null;
     /** Settle/refund tx signature on devnet. */
     txSignature: string | null;
     reportCount: number;

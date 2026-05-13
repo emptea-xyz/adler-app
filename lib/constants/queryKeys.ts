@@ -19,6 +19,7 @@ export const qk = {
     listGroup: (groupIds: string[], status: BountyStatus = 'open') =>
       ['bounties', 'list', 'group', [...groupIds].sort(), status] as const,
     byPoster: (uid: string) => ['bounties', 'byPoster', uid] as const,
+    recentSettled: () => ['bounties', 'recentSettled'] as const,
   },
   submissions: {
     all: () => ['submissions'] as const,
