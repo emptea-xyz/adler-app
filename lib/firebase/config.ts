@@ -4,7 +4,6 @@ import { getStorage } from 'firebase/storage';
 import { getFunctions } from 'firebase/functions';
 // @ts-ignore - Firebase types for RN interactions can be tricky
 import { getAuth, initializeAuth, type Auth, getReactNativePersistence } from 'firebase/auth';
-import { initializeAppCheck, ReCaptchaEnterpriseProvider, getToken as getAppCheckTokenInternal, type AppCheck } from 'firebase/app-check';
 import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
@@ -35,96 +34,12 @@ const firebaseConfig = {
 
 let app;
 let auth: Auth;
-let appCheckInstance: AppCheck | null = null;
 
 if (getApps().length === 0) {
     app = initializeApp(firebaseConfig);
-    // Initialize Auth with persistence
     auth = initializeAuth(app, {
         persistence: getReactNativePersistence(ReactNativeAsyncStorage)
     });
-
-    // App Check.
-    //
-    // We use the JS SDK throughout the app (firebase/firestore, firebase/auth,
-    // firebase/functions, firebase/storage), so we need a CustomProvider that
-    // bridges to the native @react-native-firebase/app-check module — it's the
-    // only path that gives us real Apple App Attest tokens on iOS.
-    //
-    // On simulators (no App Attest hardware), the debug provider is used.
-    // Grab the debug token Firebase prints to the console on first launch and
-    // register it under "Debug tokens" in the App Check Firebase Console.
-    //
-    // Until App Check is enabled in the Firebase Console (Monitor mode is the
-    // safe first step), this is a no-op for our backends — they don't yet
-    // require tokens. Defer enforcement until you've confirmed legit clients
-    // are passing in Monitor mode.
-    if (Platform.OS === 'ios' && !__DEV__) {
-        // Lazy require keeps the JS-only web bundle happy + survives test runs
-        // where the native module isn't linked.
-        try {
-            // eslint-disable-next-line @typescript-eslint/no-require-imports
-            const rnAppCheck = require('@react-native-firebase/app-check');
-            const {
-                ReactNativeFirebaseAppCheckProvider,
-                initializeAppCheck: rnInitializeAppCheck,
-                getToken: rnGetToken,
-            } = rnAppCheck;
-
-            const rnfbProvider = new ReactNativeFirebaseAppCheckProvider();
-            rnfbProvider.configure({
-                apple: { provider: 'appAttestWithDeviceCheckFallback' },
-                isTokenAutoRefreshEnabled: true,
-            });
-
-            const rnAppCheckInstance = rnInitializeAppCheck(undefined, {
-                provider: rnfbProvider,
-                isTokenAutoRefreshEnabled: true,
-            });
-
-            // eslint-disable-next-line @typescript-eslint/no-require-imports
-            const { CustomProvider } = require('firebase/app-check');
-            const bridgeProvider = new CustomProvider({
-                getToken: async () => {
-                    const instance = await rnAppCheckInstance;
-                    const { token, expireTimeMillis } = await rnGetToken(instance);
-                    return { token, expireTimeMillis };
-                },
-            });
-            appCheckInstance = initializeAppCheck(app, {
-                provider: bridgeProvider,
-                isTokenAutoRefreshEnabled: true,
-            });
-        } catch (err) {
-            if (__DEV__) console.warn('App Check init failed', err);
-        }
-    } else if (Platform.OS === 'web') {
-        if (!__DEV__) {
-            // M11: real ReCaptcha Enterprise site key. If unset (or still
-            // the literal placeholder), skip web App Check setup entirely
-            // rather than silently failing-open with a bogus site key.
-            const siteKey = process.env.EXPO_PUBLIC_RECAPTCHA_ENTERPRISE_SITE_KEY;
-            if (!siteKey || siteKey === 'RECAPTCHA_ENTERPRISE_SITE_KEY') {
-                if (__DEV__) {
-                    console.warn(
-                        'App Check (web): EXPO_PUBLIC_RECAPTCHA_ENTERPRISE_SITE_KEY unset; skipping init.',
-                    );
-                }
-            } else {
-                appCheckInstance = initializeAppCheck(app, {
-                    provider: new ReCaptchaEnterpriseProvider(siteKey),
-                    isTokenAutoRefreshEnabled: true,
-                });
-            }
-        } else {
-            // @ts-ignore - App Check debug token for local development
-            self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
-            appCheckInstance = initializeAppCheck(app, {
-                provider: new ReCaptchaEnterpriseProvider('debug'),
-                isTokenAutoRefreshEnabled: true,
-            });
-        }
-    }
 } else {
     app = getApp();
     auth = getAuth(app);
@@ -132,9 +47,7 @@ if (getApps().length === 0) {
 
 // Firestore JS SDK only ships IndexedDB-backed persistence; React Native
 // has no IndexedDB, so persistentLocalCache logs a noisy warning before
-// falling back to memory. Skip it entirely on native — we get the same
-// memory cache without the warning, and TanStack Query already handles
-// offline reads at the application layer.
+// falling back to memory. Skip it entirely on native.
 const db =
     Platform.OS === 'web'
         ? initializeFirestore(app, {
@@ -145,16 +58,5 @@ const db =
         : initializeFirestore(app, {});
 const storage = getStorage(app);
 const functions = getFunctions(app);
-
-export async function getAppCheckTokenString(): Promise<string | null> {
-    if (!appCheckInstance) return null;
-    try {
-        const { token } = await getAppCheckTokenInternal(appCheckInstance, /* forceRefresh */ false);
-        return token || null;
-    } catch (err) {
-        if (__DEV__) console.warn('getAppCheckTokenString failed', err);
-        return null;
-    }
-}
 
 export { auth, db, storage, functions };

@@ -49,21 +49,7 @@
         "expo-build-properties",
         {
           "ios": {
-            "deploymentTarget": "15.1",
-            "extraPods": [
-              {
-                "name": "FirebaseCore",
-                "modular_headers": true
-              },
-              {
-                "name": "FirebaseCoreInternal",
-                "modular_headers": true
-              },
-              {
-                "name": "GoogleUtilities",
-                "modular_headers": true
-              }
-            ]
+            "deploymentTarget": "15.1"
           }
         }
       ],
@@ -83,9 +69,6 @@
           "faceIDPermission": "Adler uses Face ID to keep your wallet secure."
         }
       ],
-      "@react-native-firebase/app",
-      "@react-native-firebase/app-check",
-      "expo-video",
       [
         "expo-notifications",
         {

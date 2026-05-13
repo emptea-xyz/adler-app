@@ -1,5 +1,5 @@
 import { Text, type TextProps } from 'react-native';
-import { cn } from '@/components/utils/cn';
+import { cn } from '@/lib/utils/cn';
 import { useTheme } from '@/contexts/ThemeContext';
 import type { ThemePalette } from '@/constants/ThemePalettes';
 

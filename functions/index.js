@@ -318,23 +318,8 @@ export const solanaRpcProxyDevnet = onRequest(
       res.status(405).send('POST only');
       return;
     }
-    // M10 layer 1: App Check (skipped in the emulator).
-    if (!process.env.FUNCTIONS_EMULATOR) {
-      const appCheckToken = req.header('X-Firebase-AppCheck');
-      if (!appCheckToken) {
-        res.status(401).send('Missing App Check token');
-        return;
-      }
-      try {
-        await admin.appCheck().verifyToken(appCheckToken);
-      } catch (err) {
-        console.warn('App Check verification failed', err);
-        res.status(401).send('Invalid App Check token');
-        return;
-      }
-    }
 
-    // M10 layer 2: method allowlist (reject batch JSON-RPC too).
+    // Method allowlist (reject batch JSON-RPC too).
     const body = req.body;
     if (Array.isArray(body)) {
       res.status(400).send('Batch RPC not supported');
@@ -349,7 +334,7 @@ export const solanaRpcProxyDevnet = onRequest(
       return;
     }
 
-    // M10 layer 3: per-IP daily quota.
+    // Per-IP daily quota.
     const ip = clientIp(req);
     try {
       const quota = await bumpRpcQuota(ip);
@@ -359,8 +344,7 @@ export const solanaRpcProxyDevnet = onRequest(
       }
     } catch (err) {
       // Quota bookkeeping failed (Firestore down?). Fail open rather
-      // than break the mobile app — App Check + method allowlist still
-      // gate the request.
+      // than break the mobile app — method allowlist still gates the request.
       console.warn('RPC quota bump failed', err);
     }
 

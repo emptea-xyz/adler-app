@@ -1,6 +1,6 @@
 import { Pressable, PressableProps, View, StyleProp, TextStyle, ActivityIndicator, type ViewStyle } from "react-native";
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from "react-native-reanimated";
-import { cn } from "../utils/cn";
+import { cn } from "@/lib/utils/cn";
 import React from "react";
 
 import { ThemedText } from "@/components/base/ThemedText";

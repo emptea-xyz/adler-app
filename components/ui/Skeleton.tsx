@@ -8,7 +8,7 @@ import Animated, {
   withTiming,
   Easing,
 } from 'react-native-reanimated';
-import { cn } from '@/components/utils/cn';
+import { cn } from '@/lib/utils/cn';
 import { AnimationDuration } from '@/constants/LayoutConstants';
 import { useTheme } from '@/contexts/ThemeContext';
 

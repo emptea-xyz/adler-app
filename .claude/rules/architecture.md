@@ -8,8 +8,8 @@
 - **State**: TanStack Query 5 (server state) + React Context (global state) + useState (local)
 - **Auth**: Privy (`@privy-io/expo`) with embedded Solana wallets, bridged to Firebase Auth via a Cloud Function
 - **Payments**: Anchor program `adler-escrow` on Solana devnet — funded bounty escrows, manual settlement (poster picks winner), refund + cancel paths
-- **Backend**: Firebase 12 (Firestore + Storage + Functions + App Check). No analytics/crash reporting on the client in v1.
-- **Animations**: `react-native-reanimated` 4 + `@shopify/react-native-skia` (TabBar, ProgressBar, EagleLoader, ArrowProgress)
+- **Backend**: Firebase 12 (Firestore + Storage + Functions). No analytics/crash reporting on the client in v1.
+- **Animations**: `react-native-reanimated` 4 + `@shopify/react-native-skia` (TabBar, EagleLoader)
 - **Icons**: `lucide-react-native` (via `components/ui/Icon.tsx`)
 - **Fonts**: Geist (400 Regular, 600 SemiBold) via `expo-google-fonts`
 - **Haptics**: `expo-haptics` (vocabulary in `lib/utils/haptic.ts`)
@@ -23,7 +23,6 @@ import 'react-native-get-random-values';
 import { Buffer } from 'buffer';
 global.Buffer = Buffer;
 import 'fast-text-encoding';
-import '@ethersproject/shims';
 
 import 'expo-router/entry';
 ```
@@ -68,8 +67,7 @@ app/                              # Expo Router file-based routing
 
 components/
 ├── base/                         # ThemedText, ThemedView, ScreenHeader, ErrorBoundary, OfflineBanner, SectionLabel, LoadingScreen, InitialLoadingScreen
-├── ui/                           # Generic primitives — Button, Card, BottomSheet, Skeleton, NumberInput, TextInput, Avatar, Dropdown, Alert, EmptyState, ErrorState, PopoverMenu, Pill, ProgressBar, SegmentedToggle, ToastConfig, TabBar, ActionTile, CircleIconButton, AdlerEagleLogo, EagleLoader, Icon, SolanaIcon
-│   └── icons/                    # ArrowProgress
+├── ui/                           # Generic primitives — Button, Card, BottomSheet, Skeleton, NumberInput, TextInput, Avatar, Alert, EmptyState, PopoverMenu, Pill, SegmentedToggle, ToastConfig, TabBar, ActionTile, CircleIconButton, AdlerEagleLogo, EagleLoader, Icon, SolanaIcon
 └── features/
     ├── account/                  # DeleteAccountSheet, SignOutSheet
     ├── bounty/                   # BountyItemCard, BountyStatusIcon, BountyTags, PostBountySheet
@@ -91,7 +89,7 @@ hooks/
 └── useDebounce.ts
 
 lib/
-├── firebase/config.ts            # Firebase Auth + Firestore + Storage + Functions + App Check singleton
+├── firebase/config.ts            # Firebase Auth + Firestore + Storage + Functions singleton
 ├── solana/
 │   ├── connection.ts             # `Connection` + lamport↔SOL helpers + explorer URL builders
 │   └── transferSol.ts            # Build, sign, send a SystemProgram.transfer via Privy wallet provider (used by Send sheet)

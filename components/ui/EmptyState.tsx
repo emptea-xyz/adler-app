@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, ViewStyle } from 'react-native';
-import { cn } from '@/components/utils/cn';
+import { cn } from '@/lib/utils/cn';
 import { ThemedText } from '@/components/base/ThemedText';
 import { Button } from './Button';
 import { useTheme } from '@/contexts/ThemeContext';

@@ -17,7 +17,7 @@ import { ThemedText } from "@/components/base/ThemedText";
 import { AnimationDuration } from "@/constants/LayoutConstants";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { cn } from "@/components/utils/cn";
+import { cn } from "@/lib/utils/cn";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   useSharedValue,

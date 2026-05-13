@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { TextInput as RNTextInput, TextInputProps as RNTextInputProps, View } from 'react-native';
-import { cn } from '@/components/utils/cn';
+import { cn } from '@/lib/utils/cn';
 import { Status } from '@/constants/StatusColors';
 import { useTheme } from '@/contexts/ThemeContext';
 

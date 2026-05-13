@@ -9,8 +9,8 @@ Compressed ruleset for the submission push. Long reference docs (`ux-principles.
 - TanStack Query 5 (server) + Context (global) + useState (local)
 - Privy embedded Solana wallets → Firebase Auth bridge via `mintFirebaseToken` Cloud Function
 - Solana **devnet** · `@solana/web3.js` + `@coral-xyz/anchor` · **Anchor escrow program** (`adler-escrow`, id in `lib/constants/escrow.ts`) — funded bounties, manual settlement only (poster picks winner), refund + cancel paths
-- Firestore + Storage + Functions + App Check · no analytics/Sentry on v1
-- Skia for TabBar / ProgressBar / EagleLoader / ArrowProgress · Reanimated 4 · Lucide icons · Geist font
+- Firestore + Storage + Functions · no analytics/Sentry on v1
+- Skia for TabBar / EagleLoader · Reanimated 4 · Lucide icons · Geist font
 
 ## iOS-only (hard rule)
 Never reintroduce Android: no `Platform.OS === 'android'` branches, no Android deps, no `npm run android`, no `android/` folder. `app.json` is `["ios", "web"]`.

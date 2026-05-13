@@ -1,7 +1,7 @@
 import React from "react";
 import { Pressable, View } from "react-native";
 import { Icon, type IconName } from "@/components/ui/Icon";
-import { cn } from "@/components/utils/cn";
+import { cn } from "@/lib/utils/cn";
 import { ThemedText } from "@/components/base/ThemedText";
 import { Status } from "@/constants/StatusColors";
 import { useTheme } from "@/contexts/ThemeContext";

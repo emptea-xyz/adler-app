@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Pressable, type ViewProps, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { type AnimatedProps } from 'react-native-reanimated';
-import { cn } from '@/components/utils/cn';
+import { cn } from '@/lib/utils/cn';
 import { useTheme } from '@/contexts/ThemeContext';
 
 const AnimatedView = Animated.createAnimatedComponent(View);
