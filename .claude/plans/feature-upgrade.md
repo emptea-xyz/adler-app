@@ -84,7 +84,7 @@ profile badges for top finishers.
 
 | Phase | Status | Plan |
 |------|--------|------|
-| 1. Winner share card | in progress | [feature-share-card.md](feature-share-card.md) |
+| 1. Winner share card | done | [feature-share-card.md](feature-share-card.md) |
 | 2. Total SOL paid out | not started | — |
 | 3. Live activity ticker | not started | — |
 | 4. OG previews | not started | — |
