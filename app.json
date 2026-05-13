@@ -76,6 +76,7 @@
         }
       ],
       "expo-asset",
+      "expo-apple-authentication",
       [
         "expo-secure-store",
         {

@@ -2,6 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { View, Pressable, ActivityIndicator, Linking, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLoginWithOAuth } from '@privy-io/expo';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
 import Animated, {
   Easing,
@@ -19,7 +20,7 @@ import { TailwindColors } from '@/constants/TailwindColors';
 import { toast } from '@/lib/utils/toast';
 import { haptic } from '@/lib/utils/haptic';
 
-type Provider = 'google';
+type Provider = 'google' | 'apple';
 
 function SkyHalo() {
   return (
@@ -40,7 +41,7 @@ function SkyHalo() {
 }
 
 export default function SignInScreen() {
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const [pending, setPending] = useState<Provider | null>(null);
   const [transitioning, setTransitioning] = useState(false);
 
@@ -85,6 +86,8 @@ export default function SignInScreen() {
   const contentStyle = useAnimatedStyle(() => ({ opacity: contentOpacity.value }));
   const loaderStyle = useAnimatedStyle(() => ({ opacity: loaderOpacity.value }));
 
+  const otherPending = (mine: Provider) => pending && pending !== mine;
+
   return (
     <ThemedView className="flex-1">
       <Animated.View style={[StyleSheet.absoluteFillObject, contentStyle]}>
@@ -104,18 +107,38 @@ export default function SignInScreen() {
             </View>
 
             <View style={{ gap: 12 }}>
+              <View
+                style={{
+                  height: 56,
+                  opacity: otherPending('apple') ? 0.5 : 1,
+                }}
+                pointerEvents={pending || transitioning ? 'none' : 'auto'}
+              >
+                <AppleAuthentication.AppleAuthenticationButton
+                  buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                  buttonStyle={
+                    isDark
+                      ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
+                      : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
+                  }
+                  cornerRadius={16}
+                  style={{ width: '100%', height: 56 }}
+                  onPress={() => onSocialPress('apple')}
+                />
+              </View>
+
               <Pressable
                 onPress={() => onSocialPress('google')}
                 disabled={!!pending || transitioning}
                 className="rounded-card h-14 flex-row items-center justify-center"
                 style={{
                   backgroundColor: theme[950],
-                  opacity: pending && pending !== 'google' ? 0.5 : 1,
+                  opacity: otherPending('google') ? 0.5 : 1,
                 }}
                 accessibilityRole="button"
                 accessibilityLabel="Sign in with Google"
               >
-                {pending === 'google' || transitioning ? (
+                {pending === 'google' ? (
                   <ActivityIndicator size="small" color={theme[50]} />
                 ) : (
                   <ThemedText type="body-lg-semibold" style={{ color: theme[50] }}>
