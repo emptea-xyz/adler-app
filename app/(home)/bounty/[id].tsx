@@ -26,6 +26,7 @@ import {
 } from '@/components/features/bounty/BountyItemCard';
 import { Avatar } from '@/components/ui/Avatar';
 import { SolanaIcon } from '@/components/ui/SolanaIcon';
+import { WonCard } from '@/components/features/bounty/WonCard';
 import { TailwindColors } from '@/constants/TailwindColors';
 import { Radius } from '@/constants/LayoutConstants';
 import { useBounty } from '@/hooks/useBounty';
@@ -37,7 +38,6 @@ import {
 import { getProfile } from '@/lib/services/profileService';
 import { reportBounty, hasReported } from '@/lib/services/reportService';
 import { qk } from '@/lib/constants/queryKeys';
-import { explorerTxUrl } from '@/lib/solana/connection';
 import { formatSol } from '@/lib/utils/formatNumber';
 import { formatRelative, formatRemaining } from '@/lib/utils/dates';
 import { haptic } from '@/lib/utils/haptic';
@@ -74,6 +74,16 @@ export default function BountyDetailScreen() {
         staleTime: 5 * 60_000,
     });
     const poster = posterQuery.data ?? null;
+
+    const winnerQuery = useQuery({
+        queryKey: bounty?.winnerId
+            ? qk.profiles.detail(bounty.winnerId)
+            : ['profiles', 'detail', 'no-winner'],
+        queryFn: () => (bounty?.winnerId ? getProfile(bounty.winnerId) : Promise.resolve(null)),
+        enabled: !!bounty?.winnerId,
+        staleTime: 5 * 60_000,
+    });
+    const winner = winnerQuery.data ?? null;
 
     // Poster sees the full submission list to pick a winner; everyone else
     // sees only a count. The list is therefore only fetched for the poster.
@@ -282,23 +292,8 @@ export default function BountyDetailScreen() {
                     </View>
                 </View>
 
-                {bounty.txSignature ? (
-                    <Pressable onPress={() => Linking.openURL(explorerTxUrl(bounty.txSignature!))}>
-                        <Card variant="border-bottom">
-                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                                    <Icon name="trophy.fill" size={22} color={theme[700]} />
-                                    <View>
-                                        <SectionLabel label={bounty.status === 'refunded' ? 'REFUNDED' : 'SETTLED'} />
-                                        <ThemedText type="body-md-semibold" style={{ color: theme[950] }}>
-                                            View on Solscan
-                                        </ThemedText>
-                                    </View>
-                                </View>
-                                <Icon name="arrow.up.forward.square" size={16} color={theme[400]} />
-                            </View>
-                        </Card>
-                    </Pressable>
+                {bounty.status === 'settled' || bounty.status === 'refunded' ? (
+                    <WonCard bounty={bounty} winner={winner} />
                 ) : null}
 
                 {/* Poster sees the full submission list to pick a winner.
