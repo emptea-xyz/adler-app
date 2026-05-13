@@ -410,6 +410,25 @@ export default function GroupDetailScreen() {
                                             <Skeleton key={k} height={56} />
                                         ))}
                                     </View>
+                                ) : membersQuery.isError ? (
+                                    <View style={{ paddingHorizontal: 16, paddingVertical: 12 }}>
+                                        <ThemedText
+                                            type="body-sm"
+                                            style={{ color: theme[500] }}
+                                        >
+                                            Couldn&apos;t load members. Pull to retry.
+                                        </ThemedText>
+                                        {__DEV__ ? (
+                                            <ThemedText
+                                                type="caption"
+                                                style={{ color: theme[400], marginTop: 4 }}
+                                            >
+                                                {membersQuery.error instanceof Error
+                                                    ? membersQuery.error.message
+                                                    : String(membersQuery.error)}
+                                            </ThemedText>
+                                        ) : null}
+                                    </View>
                                 ) : (membersQuery.data ?? []).length === 0 ? (
                                     <EmptyState
                                         title={EMPTY_GROUP_MEMBERS.title}
