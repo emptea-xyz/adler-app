@@ -140,6 +140,11 @@ export default function SettingsIndexScreen() {
             title: 'Notifications',
             onPress: () => router.push('/settings/notifications'),
         },
+        {
+            icon: 'circle.lefthalf.filled',
+            title: 'Appearance',
+            onPress: () => router.push('/settings/appearance'),
+        },
     ];
 
     const supportRows: RowSpec[] = [
