@@ -44,113 +44,43 @@ Privy issues a JWT for the authenticated user; we mint a Firebase custom token f
 ## Directory Structure
 
 ```
-app/                              # Expo Router file-based routing
-├── (auth)/                       # Pre-auth
-│   ├── _layout.tsx
-│   └── sign-in.tsx               # Privy email-OTP login
-├── (home)/                       # Authenticated app
-│   ├── _layout.tsx               # Routes guard: needs user
-│   ├── (tabs)/                   # Browse / Inbox / Wallet / Profile
-│   │   ├── _layout.tsx
-│   │   ├── browse.tsx
-│   │   ├── inbox.tsx
-│   │   ├── wallet.tsx
-│   │   └── profile.tsx
-│   ├── bounty/[id].tsx           # Bounty detail (submissions + settle / refund / cancel)
-│   ├── bounty/[id]/submit.tsx    # Submission composer
-│   ├── notifications.tsx
-│   ├── wallet/activity.tsx       # Recent on-chain activity
-│   └── settings/                 # account, profile, notifications, about, index
-├── _layout.tsx                   # Root: ErrorBoundary → GestureHandlerRootView → PrivyProvider → QueryProvider → ThemeProvider → AuthProvider → UserProvider
+app/
+├── (auth)/sign-in.tsx
+├── (home)/
+│   ├── (tabs)/        browse · inbox · wallet · profile
+│   ├── bounty/[id].tsx · [id]/submit.tsx
+│   ├── notifications.tsx · wallet/activity.tsx
+│   └── settings/      account · profile · notifications · about · index
+├── _layout.tsx        root provider tree (see § Provider Tree)
 ├── +not-found.tsx
-└── index.tsx                     # Two-state routing: no-user → sign-in; user → browse
+└── index.tsx          two-state routing (see § Navigation)
 
 components/
-├── base/                         # ThemedText, ThemedView, ScreenHeader, ErrorBoundary, OfflineBanner, SectionLabel, LoadingScreen, InitialLoadingScreen
-├── ui/                           # Generic primitives — Button, Card, BottomSheet, Skeleton, NumberInput, TextInput, Avatar, Alert, EmptyState, PopoverMenu, Pill, SegmentedToggle, ToastConfig, TabBar, ActionTile, CircleIconButton, AdlerEagleLogo, EagleLoader, Icon, SolanaIcon
+├── base/      ThemedText/View · ScreenHeader · ErrorBoundary · OfflineBanner · SectionLabel · LoadingScreens
+├── ui/        Button · Card · BottomSheet · Skeleton · NumberInput · TextInput · Avatar · Alert · EmptyState · PopoverMenu · Pill · SegmentedToggle · ToastConfig · TabBar · ActionTile · CircleIconButton · AdlerEagleLogo · EagleLoader · Icon · SolanaIcon
 └── features/
-    ├── account/                  # DeleteAccountSheet, SignOutSheet
-    ├── bounty/                   # BountyItemCard, BountyStatusIcon, BountyTags, PostBountySheet
-    ├── groups/                   # GroupsSearchSheet
-    ├── home/                     # AdlerHomeHeader (greeting + wallet pill on Browse)
-    ├── notifications/            # PushPermissionPrompt
-    └── wallet/                   # ConnectivitySheet, ReceiveSheet, SendSheet
+    ├── account/       DeleteAccountSheet · SignOutSheet
+    ├── bounty/        BountyItemCard · BountyStatusIcon · BountyTags · PostBountySheet
+    ├── groups/        GroupsSearchSheet
+    ├── home/          AdlerHomeHeader
+    ├── notifications/ PushPermissionPrompt
+    └── wallet/        ConnectivitySheet · ReceiveSheet · SendSheet
 
-contexts/
-├── AuthContext.tsx               # Privy ↔ Firebase orchestration, walletAddress, runIfOnline, NetInfo debounce
-├── UserContext.tsx               # Profile loader, SWR cache via AsyncStorage, profile bootstrap on first sign-in
-├── ThemeContext.tsx              # Theme palette + light/dark mode
-├── OverlaySheetsContext.tsx      # Imperative open/close for shared bottom sheets
-└── QueryProvider.tsx             # TanStack Query client
-
-hooks/
-├── useBounty.ts                  # Single-bounty query
-├── useBountyEscrow.ts            # post / settleManual / refund / cancel — wraps Firestore service + on-chain escrow call
-└── useDebounce.ts
+contexts/    Auth · User · Theme · OverlaySheets · QueryProvider
+hooks/       useBounty · useBountyEscrow · useDebounce
 
 lib/
-├── firebase/config.ts            # Firebase Auth + Firestore + Storage + Functions singleton
-├── solana/
-│   ├── connection.ts             # `Connection` + lamport↔SOL helpers + explorer URL builders
-│   └── transferSol.ts            # Build, sign, send a SystemProgram.transfer via Privy wallet provider (used by Send sheet)
-├── anchor/
-│   ├── idl.ts                    # Auto-generated IDL (sync via adler-program/scripts/sync-idl.sh)
-│   ├── idl-types.ts              # Matching TS types
-│   ├── program.ts                # `getProgram()` — anchor Program<AdlerEscrow> bound to current connection
-│   └── useFeeTreasury.ts         # Fetch protocol_config.fee_treasury (cached)
-├── escrow/
-│   ├── _send.ts                  # Sign + send raw instruction batch via Privy embedded wallet provider
-│   ├── pda.ts                    # deriveBountyEscrowPda, deriveProtocolConfigPda, contractIdFromHex
-│   ├── createBounty.ts           # `create_bounty` instruction
-│   ├── settleManualBounty.ts     # `settle_manual_bounty` instruction
-│   ├── refundBounty.ts           # `refund_bounty` (post-expiry, anyone can call)
-│   └── cancelBounty.ts           # `cancel_bounty` (poster only, before submissions)
-├── services/
-│   ├── privyAuthService.ts       # Privy JWT → Firebase custom token + signInWithCustomToken
-│   ├── profileService.ts         # ensureProfileExists (transactional), updates, walletAddress, pushToken
-│   ├── bountyService.ts          # CRUD + listPublic / listByPoster / listByGroup + draftBounty / persistBounty / markManualSettled / start|finish|abortCancel
-│   ├── bountyMediaUploadService.ts # Bounty cover / brief media uploads
-│   ├── submissionService.ts      # Submit + report + winner marking
-│   ├── groupService.ts           # Group CRUD + join requests + memberships
-│   ├── reportService.ts          # Submission reports
-│   ├── notificationsService.ts   # In-app inbox feed
-│   ├── preferencesService.ts     # User preferences doc
-│   ├── pushService.ts            # Expo push token registration + foreground handler
-│   └── imageUploadService.ts     # Generic Firebase Storage upload + image compression
-├── constants/
-│   ├── queryKeys.ts              # Centralized TanStack key factory under `qk` (bounties / submissions / groups / profiles / wallet / notifications / preferences)
-│   ├── storageKeys.ts            # AsyncStorage keys
-│   ├── featureGates.ts           # SOLANA_NETWORK / SOLANA_RPC_URL / SOLANA_EXPLORER_BASE / IS_DEVNET_LIKE / PROTOCOL_FEE_BPS / computeFeeLamports / computeFeeSol / SOLANA_CHAIN_ID
-│   └── escrow.ts                 # V1_PROGRAM_ID, SUBMISSION_WINDOW_SECS (30d), REVIEW_WINDOW_SECS (90d), MAX_SUBMISSIONS_PER_USER
-├── types/
-│   ├── bounty.ts                 # Bounty, BountyStatus, BountyScope, BountySubmissionKind
-│   ├── submission.ts             # Submission, SubmissionStatus
-│   ├── group.ts                  # Group, GroupMember, JoinRequest
-│   ├── profile.ts                # Profile, location, push prefs
-│   ├── notification.ts
-│   └── preferences.ts
-└── utils/
-    ├── cn.ts                     # Tailwind class merger
-    ├── dates.ts · formatNumber.ts · firestoreTimestamp.ts · firestore.ts · array.ts
-    ├── withTimeout.ts            # Promise timeout wrapper
-    ├── toast.ts                  # Centralized toast API
-    ├── haptic.ts                 # Haptic vocabulary
-    ├── avatars.ts                # Avatar URL resolver
-    └── copy.ts                   # Centralized empty-state strings
+├── firebase/   config.ts (Auth + Firestore + Storage + Functions)
+├── solana/     connection · transferSol
+├── anchor/     idl · idl-types · program · useFeeTreasury
+├── escrow/     _send · pda · create/settleManual/refund/cancelBounty
+├── services/   privyAuth · profile · bounty · bountyMediaUpload · submission · group · report · notifications · preferences · push · imageUpload
+├── constants/  queryKeys · storageKeys · featureGates · escrow
+├── types/      bounty · submission · group · profile · notification · preferences
+└── utils/      cn · dates · formatNumber · firestoreTimestamp · firestore · array · withTimeout · toast · haptic · avatars · copy
 
-constants/                        # Top-level theme / layout tokens
-├── ThemePalettes.ts              # MONO_PALETTE + invertPalette + Accent palette
-├── ThemeColors.ts                # Semantic tokens
-├── NeutralColors.ts              # Theme-invariant white/black/whiteSoft/blackSoft
-├── StatusColors.ts               # success / error / warning / info
-├── LayoutConstants.ts            # TAB_BAR_HEIGHT, BottomInset, AnimationDuration
-├── TailwindColors.ts             # Tailwind palette references
-└── Colors.ts
-
-functions/
-├── index.js                      # mintFirebaseToken, solanaRpcProxyDevnet/Mainnet, expireBounties, push fan-out
-├── idl.json                      # IDL mirror for server-side escrow reconciliation
-└── package.json
+constants/   ThemePalettes · ThemeColors · NeutralColors · StatusColors · LayoutConstants · TailwindColors · Colors
+functions/   index.js · idl.json · package.json
 ```
 
 ## Firestore Collections
