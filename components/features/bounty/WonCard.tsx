@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { Linking, Pressable, View } from 'react-native';
+import { router } from 'expo-router';
 import { ThemedText } from '@/components/base/ThemedText';
 import { SectionLabel } from '@/components/base/SectionLabel';
 import { Avatar } from '@/components/ui/Avatar';
@@ -83,7 +84,22 @@ export function WonCard({ bounty, winner }: WonCardProps) {
                         </View>
                     </View>
                 ) : (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <Pressable
+                        onPress={
+                            winner ? () => router.push(`/profile/${winner.id}`) : undefined
+                        }
+                        disabled={!winner}
+                        accessibilityRole={winner ? 'button' : undefined}
+                        accessibilityLabel={
+                            winner ? `Open profile for @${winner.username}` : undefined
+                        }
+                        style={({ pressed }) => ({
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 12,
+                            opacity: pressed && winner ? 0.7 : 1,
+                        })}
+                    >
                         {winner ? (
                             <Avatar
                                 size="md"
@@ -107,7 +123,7 @@ export function WonCard({ bounty, winner }: WonCardProps) {
                             </ThemedText>
                             <SolanaIcon size={14} color={theme[950]} />
                         </View>
-                    </View>
+                    </Pressable>
                 )}
 
                 {!isRefunded ? (

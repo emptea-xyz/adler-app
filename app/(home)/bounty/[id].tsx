@@ -235,7 +235,20 @@ export default function BountyDetailScreen() {
                         {bounty.title}
                     </ThemedText>
                     {poster ? (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Pressable
+                            onPress={() => {
+                                haptic('light');
+                                router.push(`/profile/${poster.id}`);
+                            }}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Open profile for @${poster.username}`}
+                            style={({ pressed }) => ({
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                gap: 8,
+                                opacity: pressed ? 0.7 : 1,
+                            })}
+                        >
                             <Avatar
                                 size="sm"
                                 avatarUrl={poster.avatarUrl}
@@ -253,7 +266,7 @@ export default function BountyDetailScreen() {
                                     @{poster.username}
                                 </ThemedText>
                             </View>
-                        </View>
+                        </Pressable>
                     ) : null}
                     <ThemedText type="body-md" style={{ color: theme[700], lineHeight: 22 }}>
                         {bounty.prompt}
