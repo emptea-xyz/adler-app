@@ -49,15 +49,14 @@ export const formatSol = (sol: number): string => {
  *   formatSolParts(0)        === { whole: '0', decimal: '00' }
  *   formatSolParts(1)        === { whole: '1', decimal: '0000' }
  *   formatSolParts(1.5)      === { whole: '1', decimal: '5000' }
- *   formatSolParts(1234.567) === { whole: '1,234', decimal: '5670' }
+ *   formatSolParts(1234.567) === { whole: '1234', decimal: '5670' }
  */
 export const formatSolParts = (sol: number): { whole: string; decimal: string } => {
   if (!Number.isFinite(sol)) return { whole: '—', decimal: '' };
   const isZero = sol === 0;
   const fixed = sol.toFixed(isZero ? 2 : 4);
   const [wholeRaw, decimalRaw = ''] = fixed.split('.');
-  const whole = Number(wholeRaw).toLocaleString('en-US');
-  return { whole, decimal: decimalRaw };
+  return { whole: String(Number(wholeRaw)), decimal: decimalRaw };
 };
 
 /**
@@ -67,14 +66,13 @@ export const formatSolParts = (sol: number): { whole: string; decimal: string } 
  *
  *   formatUsdParts(0)       === { whole: '0', decimal: '00' }
  *   formatUsdParts(12.5)    === { whole: '12', decimal: '50' }
- *   formatUsdParts(1234.5)  === { whole: '1,234', decimal: '50' }
+ *   formatUsdParts(1234.5)  === { whole: '1234', decimal: '50' }
  */
 export const formatUsdParts = (usd: number): { whole: string; decimal: string } => {
   if (!Number.isFinite(usd)) return { whole: '—', decimal: '' };
   const fixed = usd.toFixed(2);
   const [wholeRaw, decimalRaw = '00'] = fixed.split('.');
-  const whole = Number(wholeRaw).toLocaleString('en-US');
-  return { whole, decimal: decimalRaw };
+  return { whole: String(Number(wholeRaw)), decimal: decimalRaw };
 };
 
 /**

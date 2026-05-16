@@ -129,14 +129,9 @@ export default function WalletScreen() {
                             style={{ flexDirection: 'row', alignItems: 'baseline' }}
                         >
                             <RollingNumber
-                                value={whole}
+                                value={`${whole}.${decimal}`}
                                 color={theme[950]}
-                                fontSize={56}
-                                lineHeight={64}
-                            />
-                            <RollingNumber
-                                value={`.${decimal}`}
-                                color={theme[400]}
+                                decimalColor={theme[400]}
                                 fontSize={56}
                                 lineHeight={64}
                             />
