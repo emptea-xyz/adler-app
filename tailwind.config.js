@@ -26,9 +26,9 @@ module.exports = {
         '3xl': '32px',    // Section spacing
         '4xl': '48px',    // Large section spacing
         // Semantic aliases
-        'screen': '16px', // Screen horizontal padding (px-screen)
+        'screen': '8px',  // Screen horizontal padding (px-screen)
         'section': '24px', // Gap between sections (gap-section)
-        'item': '8px',   // Gap between list items (gap-item)
+        'item': '4px',   // Gap between list items (gap-item)
       },
       // ─────────────────────────────────────────────────────────────────
       // BORDER RADIUS TOKENS (matches LayoutConstants.ts)

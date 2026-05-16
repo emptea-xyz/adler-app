@@ -120,7 +120,7 @@ export default function SignInScreen() {
           {/* Top strip */}
           <View
             className="flex-row items-center"
-            style={{ gap: 8, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: 'transparent' }}
+            style={{ gap: 8, paddingHorizontal: 8, paddingVertical: 12, backgroundColor: 'transparent' }}
           >
             <AdlerEagleLogo size={28} />
             <ThemedText type="body-lg-semibold" style={{ color: Neutral.black }}>
@@ -198,7 +198,7 @@ export default function SignInScreen() {
           </View>
 
           {/* Bottom CTA */}
-          <View style={{ paddingHorizontal: 16, gap: 12, paddingBottom: 8 }}>
+          <View style={{ paddingHorizontal: 8, gap: 12, paddingBottom: 8 }}>
             <View style={{ gap: 12 }}>
               <Pressable
                 onPress={() => onSocialPress('apple')}

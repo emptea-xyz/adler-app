@@ -63,7 +63,7 @@ export function ConnectivitySheet({ visible, onClose }: Props) {
                             alignItems: 'center',
                             gap: 10,
                             paddingVertical: 14,
-                            paddingHorizontal: 16,
+                            paddingHorizontal: 8,
                             borderRadius: 14,
                             backgroundColor: theme[100],
                         }}

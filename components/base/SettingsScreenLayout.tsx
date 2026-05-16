@@ -16,7 +16,7 @@ interface SettingsScreenLayoutProps {
 }
 
 const DEFAULT_CONTENT_STYLE: ViewStyle = {
-    paddingHorizontal: 16,
+    paddingHorizontal: 8,
     paddingTop: 16,
     paddingBottom: 40,
 };

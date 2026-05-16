@@ -53,7 +53,7 @@ function ErrorFallback({
         backgroundColor: c.bg,
         justifyContent: 'center',
         alignItems: 'center',
-        paddingHorizontal: 16,
+        paddingHorizontal: 8,
         paddingVertical: 24,
       }}
     >

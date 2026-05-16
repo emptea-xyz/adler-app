@@ -75,7 +75,7 @@ export default function SettingsAccountScreen() {
             <SettingsScreenLayout
                 title="Account"
                 contentContainerStyle={{
-                    paddingHorizontal: 16,
+                    paddingHorizontal: 8,
                     paddingTop: 16,
                     paddingBottom: 40,
                     gap: 20,

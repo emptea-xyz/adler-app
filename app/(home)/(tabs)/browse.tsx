@@ -106,7 +106,7 @@ export default function BrowseScreen() {
                         />
                     }
                 />
-                <View style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
+                <View style={{ paddingHorizontal: 8, paddingVertical: 8 }}>
                     <SegmentedToggle
                         tabs={['Public', 'My Groups'] as const}
                         activeTab={tab === 'public' ? 'Public' : 'My Groups'}
@@ -119,7 +119,7 @@ export default function BrowseScreen() {
             <LiveActivityTicker />
 
             {isLoading ? (
-                <View style={{ paddingHorizontal: 16, gap: 12, paddingTop: 8 }}>
+                <View style={{ paddingHorizontal: 8, gap: 12, paddingTop: 8 }}>
                     {[0, 1, 2, 3].map((k) => (
                         <Skeleton key={k} height={84} />
                     ))}
@@ -168,7 +168,7 @@ function MyGroupsStrip({ groups }: { groups: Group[] }) {
                 style={{
                     color: theme[500],
                     letterSpacing: 0.6,
-                    paddingHorizontal: 16,
+                    paddingHorizontal: 8,
                 }}
             >
                 YOUR GROUPS
@@ -176,7 +176,7 @@ function MyGroupsStrip({ groups }: { groups: Group[] }) {
             <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}
+                contentContainerStyle={{ paddingHorizontal: 8, gap: 10 }}
             >
                 {groups.map((g) => (
                     <Pressable

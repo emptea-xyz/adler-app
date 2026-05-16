@@ -68,7 +68,7 @@ export default function SettingsNotificationsScreen() {
             title="Notifications"
             loading={prefsQuery.isLoading}
             contentContainerStyle={{
-                paddingHorizontal: 16,
+                paddingHorizontal: 8,
                 paddingTop: 16,
                 paddingBottom: 40,
                 gap: 20,

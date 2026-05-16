@@ -117,7 +117,7 @@ export function LiveActivityTicker() {
             <View
                 style={{
                     height: TICKER_HEIGHT,
-                    paddingHorizontal: 16,
+                    paddingHorizontal: 8,
                     justifyContent: 'center',
                 }}
             >
@@ -226,7 +226,7 @@ function TickerItem({
             style={{
                 flexDirection: 'row',
                 alignItems: 'center',
-                paddingHorizontal: 16,
+                paddingHorizontal: 8,
                 gap: 8,
             }}
         >

@@ -179,7 +179,7 @@ export default function SubmitScreen() {
         <ThemedView style={{ flex: 1, paddingTop: insets.top }}>
             <ScreenHeader title="Submit" />
             {bounty ? (
-                <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
+                <View style={{ paddingHorizontal: 8, paddingTop: 8 }}>
                     <ThemedText type="caption-semibold" style={{ color: theme[500] }}>PROMPT</ThemedText>
                     <ThemedText type="body-md" style={{ color: theme[800], marginTop: 4 }} numberOfLines={3}>
                         {bounty.prompt}

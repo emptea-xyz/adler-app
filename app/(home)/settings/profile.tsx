@@ -140,7 +140,7 @@ export default function SettingsProfileScreen() {
         <ThemedView style={{ flex: 1 }}>
             <SafeAreaView edges={['top']} style={{ flex: 1 }}>
                 <ScreenHeader title="Profile" />
-                <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 240 }}>
+                <ScrollView contentContainerStyle={{ paddingHorizontal: 8, paddingTop: 16, paddingBottom: 240 }}>
                     <View style={{ alignItems: 'center', gap: 12, marginBottom: 24 }}>
                         <Pressable onPress={onPickAvatar} accessibilityRole="button">
                             {profile.avatarUrl ? (

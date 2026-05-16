@@ -69,7 +69,7 @@ export default function WalletActivityScreen() {
                     alignItems: 'center',
                     gap: 12,
                     paddingVertical: 14,
-                    paddingHorizontal: 16,
+                    paddingHorizontal: 8,
                     borderBottomWidth: 1,
                     borderBottomColor: theme[100],
                 }}

@@ -15,7 +15,7 @@ export default function AboutScreen() {
     return (
         <SettingsScreenLayout
             title="About"
-            contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 24, gap: 16 }}
+            contentContainerStyle={{ paddingHorizontal: 8, paddingTop: 24, gap: 16 }}
         >
             <View>
                 <SectionLabel label="App" />

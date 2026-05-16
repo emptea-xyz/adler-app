@@ -119,7 +119,7 @@ export function ScreenHeader({
         alignItems: "center",
         gap: 8,
         height: 48,
-        paddingHorizontal: 12,
+        paddingHorizontal: 8,
       }}
     >
       {renderLeft()}

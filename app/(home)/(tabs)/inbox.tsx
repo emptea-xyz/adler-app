@@ -109,7 +109,7 @@ export default function InboxScreen() {
         <ThemedView style={{ flex: 1 }}>
             <View style={{ paddingTop: insets.top }}>
                 <AdlerHomeHeader title="Inbox" />
-                <View style={{ paddingHorizontal: 16, paddingVertical: 8 }}>
+                <View style={{ paddingHorizontal: 8, paddingVertical: 8 }}>
                     <SegmentedToggle
                         tabs={TAB_LABELS}
                         activeTab={labelFromTab(tab)}
@@ -120,7 +120,7 @@ export default function InboxScreen() {
             </View>
 
             {loading ? (
-                <View style={{ paddingHorizontal: 16, gap: 12, paddingTop: 8 }}>
+                <View style={{ paddingHorizontal: 8, gap: 12, paddingTop: 8 }}>
                     {[0, 1, 2].map((k) => (
                         <Skeleton key={k} height={100} />
                     ))}
@@ -198,7 +198,7 @@ function NotificationRow({ notification }: { notification: AdlerNotification }) 
         <Pressable
             onPress={onPress}
             style={{
-                paddingHorizontal: 16,
+                paddingHorizontal: 8,
                 paddingVertical: 14,
                 flexDirection: 'row',
                 alignItems: 'flex-start',

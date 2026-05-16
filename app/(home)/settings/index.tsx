@@ -121,7 +121,7 @@ export default function SettingsIndexScreen() {
         <>
             <SettingsScreenLayout
                 title="Settings"
-                contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 48, gap: 24 }}
+                contentContainerStyle={{ paddingHorizontal: 8, paddingTop: 16, paddingBottom: 48, gap: 24 }}
             >
                 <View style={{ gap: 8 }}>
                     <SectionLabel label="Account" />

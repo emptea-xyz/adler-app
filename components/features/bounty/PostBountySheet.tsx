@@ -202,7 +202,7 @@ export function PostBountySheet({ visible, onClose }: PostBountySheetProps) {
             keyboardAware
         >
             {({ close }) => (
-                <View style={{ flex: 1, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 16, gap: 16 }}>
+                <View style={{ flex: 1, paddingHorizontal: 8, paddingTop: 16, paddingBottom: 16, gap: 16 }}>
                     {/* Reward KPI — single horizontal group, auto-shrinks */}
                     <View
                         style={{

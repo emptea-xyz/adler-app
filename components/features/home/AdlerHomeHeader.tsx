@@ -18,7 +18,7 @@ export function AdlerHomeHeader({ title, rightSlot }: AdlerHomeHeaderProps) {
                 flexDirection: 'row',
                 alignItems: 'flex-end',
                 justifyContent: 'space-between',
-                paddingHorizontal: 16,
+                paddingHorizontal: 8,
                 paddingVertical: 8,
                 backgroundColor: theme[50],
             }}

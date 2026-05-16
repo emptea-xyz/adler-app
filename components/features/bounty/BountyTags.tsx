@@ -205,7 +205,7 @@ function BountyTagSheet({ tag, onClose }: { tag: TagDescriptor | null; onClose: 
     return (
         <BottomSheet visible={!!tag} onClose={onClose} title={tag?.title ?? ''} height={300}>
             {() => (
-                <View style={{ paddingHorizontal: 16, paddingTop: 8, gap: 16 }}>
+                <View style={{ paddingHorizontal: 8, paddingTop: 8, gap: 16 }}>
                     {tag ? (
                         tag.groupAvatar ? (
                             <GroupLogoDot

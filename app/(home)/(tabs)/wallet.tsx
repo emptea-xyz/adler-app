@@ -82,7 +82,7 @@ export default function WalletScreen() {
 
             <ScrollView
                 contentContainerStyle={{
-                    paddingHorizontal: 16,
+                    paddingHorizontal: 8,
                     paddingTop: 24,
                     paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 24,
                     gap: 24,

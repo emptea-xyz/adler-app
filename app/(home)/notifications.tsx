@@ -107,7 +107,7 @@ export default function NotificationsScreen() {
                         data={notifications}
                         keyExtractor={(item) => item.id}
                         contentContainerStyle={{
-                            paddingHorizontal: 16,
+                            paddingHorizontal: 8,
                             paddingTop: 12,
                             paddingBottom: 32,
                             gap: 10,

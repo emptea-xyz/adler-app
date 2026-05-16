@@ -271,7 +271,7 @@ export default function GroupDetailScreen() {
                         {/* Header */}
                         <View
                             style={{
-                                paddingHorizontal: 16,
+                                paddingHorizontal: 8,
                                 paddingTop: 8,
                                 paddingBottom: 16,
                                 gap: 12,
@@ -337,7 +337,7 @@ export default function GroupDetailScreen() {
 
                         {/* Tabs (members tab only for non-members) */}
                         {tabs.length > 1 ? (
-                            <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
+                            <View style={{ paddingHorizontal: 8, paddingBottom: 8 }}>
                                 <SegmentedToggle
                                     tabs={tabs}
                                     activeTab={activeTabLabel as (typeof tabs)[number]}
@@ -356,7 +356,7 @@ export default function GroupDetailScreen() {
                                     <View style={{ paddingBottom: 8 }}>
                                         <View
                                             style={{
-                                                paddingHorizontal: 16,
+                                                paddingHorizontal: 8,
                                                 paddingTop: 4,
                                                 paddingBottom: 8,
                                             }}
@@ -370,11 +370,11 @@ export default function GroupDetailScreen() {
                                             />
                                         </View>
                                         {joinRequestsQuery.isLoading ? (
-                                            <View style={{ paddingHorizontal: 16, gap: 12 }}>
+                                            <View style={{ paddingHorizontal: 8, gap: 12 }}>
                                                 <Skeleton height={56} />
                                             </View>
                                         ) : pendingRequests.length === 0 ? (
-                                            <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
+                                            <View style={{ paddingHorizontal: 8, paddingBottom: 8 }}>
                                                 <ThemedText
                                                     type="body-sm"
                                                     style={{ color: theme[500] }}
@@ -393,7 +393,7 @@ export default function GroupDetailScreen() {
                                         )}
                                         <View
                                             style={{
-                                                paddingHorizontal: 16,
+                                                paddingHorizontal: 8,
                                                 paddingTop: 16,
                                                 paddingBottom: 8,
                                             }}
@@ -404,13 +404,13 @@ export default function GroupDetailScreen() {
                                 ) : null}
 
                                 {membersQuery.isLoading ? (
-                                    <View style={{ paddingHorizontal: 16, gap: 12 }}>
+                                    <View style={{ paddingHorizontal: 8, gap: 12 }}>
                                         {[0, 1, 2].map((k) => (
                                             <Skeleton key={k} height={56} />
                                         ))}
                                     </View>
                                 ) : membersQuery.isError ? (
-                                    <View style={{ paddingHorizontal: 16, paddingVertical: 12 }}>
+                                    <View style={{ paddingHorizontal: 8, paddingVertical: 12 }}>
                                         <ThemedText
                                             type="body-sm"
                                             style={{ color: theme[500] }}
@@ -455,7 +455,7 @@ export default function GroupDetailScreen() {
                                             flexDirection: 'row',
                                             alignItems: 'center',
                                             gap: 12,
-                                            paddingHorizontal: 16,
+                                            paddingHorizontal: 8,
                                             paddingVertical: 14,
                                             borderBottomWidth: 1,
                                             borderBottomColor: theme[100],
@@ -561,7 +561,7 @@ function MemberRow({
                 flexDirection: 'row',
                 alignItems: 'center',
                 gap: 12,
-                paddingHorizontal: 16,
+                paddingHorizontal: 8,
                 paddingVertical: 10,
                 borderBottomWidth: 1,
                 borderBottomColor: theme[100],
@@ -682,7 +682,7 @@ function JoinRequestRow({ request, group }: { request: JoinRequest; group: Group
                 flexDirection: 'row',
                 alignItems: 'center',
                 gap: 12,
-                paddingHorizontal: 16,
+                paddingHorizontal: 8,
                 paddingVertical: 10,
                 borderBottomWidth: 1,
                 borderBottomColor: theme[100],

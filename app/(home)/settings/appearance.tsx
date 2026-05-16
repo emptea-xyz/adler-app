@@ -56,7 +56,7 @@ export default function SettingsAppearanceScreen() {
             title="Appearance"
             contentContainerStyle={{ paddingTop: 16, paddingBottom: 40, gap: 8 }}
         >
-            <View style={{ paddingHorizontal: 16 }}>
+            <View style={{ paddingHorizontal: 8 }}>
                 <SectionLabel label="Theme" />
             </View>
             <View
@@ -83,7 +83,7 @@ export default function SettingsAppearanceScreen() {
                                     alignItems: 'center',
                                     gap: 14,
                                     minHeight: 56,
-                                    paddingHorizontal: 16,
+                                    paddingHorizontal: 8,
                                     paddingVertical: 12,
                                     borderBottomWidth: i === OPTIONS.length - 1 ? 0 : 1,
                                     borderBottomColor: theme[200],

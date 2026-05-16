@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'flex-start',
         paddingTop: 18,
-        paddingHorizontal: 16,
+        paddingHorizontal: 8,
     },
     tabSlot: {
         flex: 1,
