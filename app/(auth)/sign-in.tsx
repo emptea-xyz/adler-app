@@ -122,12 +122,9 @@ export default function SignInScreen() {
           {/* Top strip */}
           <View
             className="flex-row items-center"
-            style={{ gap: 8, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: 'transparent' }}
+            style={{ paddingHorizontal: 16, paddingVertical: 12, backgroundColor: 'transparent' }}
           >
             <AdlerEagleLogo size={28} />
-            <ThemedText type="body-lg-semibold" style={{ color: theme[950] }}>
-              Adler
-            </ThemedText>
           </View>
 
           {/* Slideshow */}
@@ -201,41 +198,45 @@ export default function SignInScreen() {
 
           {/* Bottom CTA */}
           <View style={{ paddingHorizontal: 16, gap: 12, paddingBottom: 8 }}>
-            <View
-              style={{
-                height: 56,
-                opacity: otherPending('apple') ? 0.5 : 1,
-              }}
-              pointerEvents={pending || transitioning ? 'none' : 'auto'}
-            >
-              <AppleAuthentication.AppleAuthenticationButton
-                buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-                cornerRadius={16}
-                style={{ width: '100%', height: 56 }}
-                onPress={() => onSocialPress('apple')}
-              />
-            </View>
+            <View className="flex-row" style={{ gap: 12 }}>
+              <View
+                style={{
+                  flex: 1,
+                  height: 56,
+                  opacity: otherPending('apple') ? 0.5 : 1,
+                }}
+                pointerEvents={pending || transitioning ? 'none' : 'auto'}
+              >
+                <AppleAuthentication.AppleAuthenticationButton
+                  buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                  buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                  cornerRadius={16}
+                  style={{ width: '100%', height: 56 }}
+                  onPress={() => onSocialPress('apple')}
+                />
+              </View>
 
-            <Pressable
-              onPress={() => onSocialPress('google')}
-              disabled={!!pending || transitioning}
-              className="rounded-card h-14 flex-row items-center justify-center"
-              style={{
-                backgroundColor: theme[950],
-                opacity: otherPending('google') ? 0.5 : 1,
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Sign in with Google"
-            >
-              {pending === 'google' ? (
-                <ActivityIndicator size="small" color={theme[50]} />
-              ) : (
-                <ThemedText type="body-lg-semibold" style={{ color: theme[50] }}>
-                  Sign in with Google
-                </ThemedText>
-              )}
-            </Pressable>
+              <Pressable
+                onPress={() => onSocialPress('google')}
+                disabled={!!pending || transitioning}
+                className="rounded-card h-14 flex-row items-center justify-center"
+                style={{
+                  flex: 1,
+                  backgroundColor: theme[950],
+                  opacity: otherPending('google') ? 0.5 : 1,
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Sign in with Google"
+              >
+                {pending === 'google' ? (
+                  <ActivityIndicator size="small" color={theme[50]} />
+                ) : (
+                  <ThemedText type="body-lg-semibold" style={{ color: theme[50] }}>
+                    Google
+                  </ThemedText>
+                )}
+              </Pressable>
+            </View>
 
             <ThemedText
               type="body-xs"
