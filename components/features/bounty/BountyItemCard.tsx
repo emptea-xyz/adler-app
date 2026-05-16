@@ -12,6 +12,7 @@ import {
     type BountyItemStatus,
 } from '@/components/features/bounty/BountyStatusIcon';
 import { GroupLogoDot } from '@/components/features/bounty/BountyTags';
+import { Icon } from '@/components/ui/Icon';
 import { SolanaIcon } from '@/components/ui/SolanaIcon';
 import { qk } from '@/lib/constants/queryKeys';
 import { getGroup } from '@/lib/services/groupService';
@@ -106,7 +107,18 @@ function BountyItemCard({
                             {group.name}
                         </ThemedText>
                     </View>
-                ) : null}
+                ) : (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Icon name="globe" size={14} color={theme[500]} />
+                        <ThemedText
+                            type="caption-semibold"
+                            style={{ color: theme[500] }}
+                            numberOfLines={1}
+                        >
+                            Public
+                        </ThemedText>
+                    </View>
+                )}
 
                 <ThemedText
                     type="body-md-semibold"
