@@ -123,6 +123,12 @@ export default function SignInScreen() {
             style={{ paddingHorizontal: 16, paddingVertical: 12, backgroundColor: 'transparent' }}
           >
             <AdlerEagleLogo size={28} />
+            <ThemedText
+              type="body-lg-semibold"
+              style={{ marginLeft: 'auto', color: Neutral.black }}
+            >
+              Adler
+            </ThemedText>
           </View>
 
           {/* Slideshow */}
