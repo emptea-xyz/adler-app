@@ -1,11 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { FlatList, Pressable, View } from 'react-native';
+import { FlatList, View } from 'react-native';
 import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import TextInput from '@/components/ui/TextInput';
-import { ThemedText } from '@/components/base/ThemedText';
 import { Icon } from '@/components/ui/Icon';
+import { ListRow } from '@/components/ui/ListRow';
 import { Pill } from '@/components/ui/Pill';
 import { Skeleton } from '@/components/ui/Skeleton';
 import EmptyState from '@/components/ui/EmptyState';
@@ -116,31 +116,19 @@ function GroupRow({
     onOpen: () => void;
 }) {
     const { theme } = useTheme();
+    const memberLabel = `${group.memberCount} ${group.memberCount === 1 ? 'member' : 'members'}`;
     return (
-        <Pressable
+        <ListRow
+            title={group.name}
+            subtitle={memberLabel}
             onPress={onOpen}
-            style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                paddingVertical: 12,
-                borderBottomWidth: 1,
-                borderBottomColor: theme[100],
-                gap: 12,
-            }}
-            accessibilityRole="button"
             accessibilityLabel={`Open ${group.name}`}
-        >
-            <View style={{ flex: 1, gap: 2 }}>
-                <ThemedText type="body-md-semibold" style={{ color: theme[950] }} numberOfLines={1}>
-                    {group.name}
-                </ThemedText>
-                <ThemedText type="caption" style={{ color: theme[500] }}>
-                    {group.memberCount} {group.memberCount === 1 ? 'member' : 'members'}
-                </ThemedText>
-            </View>
-            {joined ? <Pill intent="success" label="JOINED" icon="checkmark.circle.fill" /> : null}
-            <Icon name="chevron.right" size={16} color={theme[400]} />
-        </Pressable>
+            trailing={
+                <>
+                    {joined ? <Pill intent="success" label="JOINED" icon="checkmark.circle.fill" /> : null}
+                    <Icon name="chevron.right" size={16} color={theme[400]} />
+                </>
+            }
+        />
     );
 }
