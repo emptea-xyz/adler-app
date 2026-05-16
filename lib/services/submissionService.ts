@@ -9,8 +9,9 @@ import {
     setDoc,
     where,
 } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase/config';
+import { db } from '@/lib/firebase/config';
 import { tsMs } from '@/lib/utils/firestoreTimestamp';
+import { requireAuth } from '@/lib/utils/requireAuth';
 import {
     uploadBountySubmissionPhoto,
     uploadBountySubmissionVideo,
@@ -87,8 +88,7 @@ export interface CreateSubmissionInput {
  * the bounty poster.
  */
 export async function createSubmission(input: CreateSubmissionInput): Promise<Submission> {
-    const uid = auth.currentUser?.uid;
-    if (!uid) throw new Error('Sign-in required');
+    const uid = requireAuth();
     const bounty = await requireSubmittableBounty(input.bountyId);
     const { url, path } = await uploadBountySubmissionPhoto(input.photoUri);
     const id = `${input.bountyId}_${uid}`;
@@ -134,8 +134,7 @@ export interface CreateVideoSubmissionInput {
 export async function createVideoSubmission(
     input: CreateVideoSubmissionInput,
 ): Promise<Submission> {
-    const uid = auth.currentUser?.uid;
-    if (!uid) throw new Error('Sign-in required');
+    const uid = requireAuth();
     const bounty = await requireSubmittableBounty(input.bountyId);
     const { url, path } = await uploadBountySubmissionVideo(input.videoUri, input.mimeType);
     const id = `${input.bountyId}_${uid}`;
@@ -173,8 +172,7 @@ export async function createLinkSubmission(input: {
     bountyId: string;
     linkUrl: string;
 }): Promise<Submission> {
-    const uid = auth.currentUser?.uid;
-    if (!uid) throw new Error('Sign-in required');
+    const uid = requireAuth();
     const bounty = await requireSubmittableBounty(input.bountyId);
     // L19 / M4: mirror the rule check so non-UI callers get a clean
     // client-side error instead of an opaque permission-denied.

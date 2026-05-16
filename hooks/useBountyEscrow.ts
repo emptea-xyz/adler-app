@@ -14,7 +14,7 @@ import {
     abortCancel,
 } from '@/lib/services/bountyService';
 import { getProfile } from '@/lib/services/profileService';
-import { auth } from '@/lib/firebase/config';
+import { requireAuth } from '@/lib/utils/requireAuth';
 import type {
     Bounty,
     BountyStatus,
@@ -88,8 +88,7 @@ export function useBountyEscrow(): UseBountyEscrowReturn {
             // Privy rotated the embedded wallet between mount and now, the
             // on-chain signer would mismatch the profile and the bounty doc
             // would carry a wallet the user can't sign for. Reject early.
-            const uid = auth.currentUser?.uid;
-            if (!uid) throw new Error('Sign-in required');
+            const uid = requireAuth();
             const profile = await getProfile(uid);
             if (!profile?.walletAddress) {
                 throw new Error('Profile wallet not set — sign in again');

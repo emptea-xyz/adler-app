@@ -9,8 +9,9 @@
 // stray uploads by non-admins are harmless garbage.
 
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { storage, auth } from '@/lib/firebase/config';
+import { storage } from '@/lib/firebase/config';
 import { compressImageForUpload, uriToBlob } from '@/lib/utils/mediaUpload';
+import { requireAuth } from '@/lib/utils/requireAuth';
 
 /**
  * Upload a group logo and return the download URL. Caller is responsible
@@ -21,7 +22,7 @@ import { compressImageForUpload, uriToBlob } from '@/lib/utils/mediaUpload';
  * clients; storage GC of orphans is out of scope for v1.
  */
 export async function uploadGroupLogo(groupId: string, localUri: string): Promise<string> {
-    if (!auth.currentUser) throw new Error('Not signed in');
+    requireAuth();
     const compressedUri = await compressImageForUpload(localUri, 400);
     const blob = await uriToBlob(compressedUri);
     const fileName = `${Date.now()}.jpg`;

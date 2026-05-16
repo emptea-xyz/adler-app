@@ -12,8 +12,9 @@
 
 import * as ImagePicker from 'expo-image-picker';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { storage, auth } from '@/lib/firebase/config';
+import { storage } from '@/lib/firebase/config';
 import { compressImageForUpload as compressImage, uriToBlob } from '@/lib/utils/mediaUpload';
+import { requireAuth } from '@/lib/utils/requireAuth';
 
 async function ensureMediaLibraryPermission(): Promise<void> {
     const current = await ImagePicker.getMediaLibraryPermissionsAsync();
@@ -57,19 +58,13 @@ export async function pickImages(opts?: { selectionLimit?: number; quality?: num
     return result.assets.map((a) => a.uri);
 }
 
-function requireUid(): string {
-    const uid = auth.currentUser?.uid;
-    if (!uid) throw new Error('Not signed in');
-    return uid;
-}
-
 /**
  * Upload an avatar to `profilePictures/{uid}.jpg`. Resizes to ≤ 400 px on
  * the longest edge and re-encodes JPEG before upload to stay under the
  * 2 MB storage-rule cap.
  */
 export async function uploadProfilePicture(localUri: string): Promise<string> {
-    const uid = requireUid();
+    const uid = requireAuth();
     const compressedUri = await compressImage(localUri, 400);
     const blob = await uriToBlob(compressedUri);
     const storageRef = ref(storage, `profilePictures/${uid}.jpg`);

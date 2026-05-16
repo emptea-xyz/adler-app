@@ -12,7 +12,7 @@ import {
     updateDoc,
     where,
 } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase/config';
+import { db } from '@/lib/firebase/config';
 import {
     DEFAULT_LOCATION,
     USERNAME_COOLDOWN_MS,
@@ -20,6 +20,7 @@ import {
     type ProfileLocation,
 } from '@/lib/types/profile';
 import { tsMs } from '@/lib/utils/firestoreTimestamp';
+import { requireAuthAs } from '@/lib/utils/requireAuth';
 
 // IMPORTANT: collection name + document shape must stay in lockstep with
 // the deployed firestore.rules. Any divergence triggers
@@ -85,13 +86,6 @@ function rowToProfile(uid: string, data: Record<string, unknown>): Profile {
         updatedAt: tsMs(data.updatedAt) || Date.now(),
         lastUsernameChangeAt: tsMs(data.lastUsernameChangeAt),
     };
-}
-
-function assertCurrentUser(userId: string): void {
-    const current = auth.currentUser?.uid;
-    if (!current || current !== userId) {
-        throw new Error('Profile mutation requires authentication');
-    }
 }
 
 export async function isUsernameAvailable(
@@ -239,7 +233,7 @@ export async function updateProfileBasics(
     userId: string,
     patch: { displayName?: string; bio?: string },
 ): Promise<void> {
-    assertCurrentUser(userId);
+    requireAuthAs(userId);
     const update: Record<string, unknown> = { updatedAt: serverTimestamp() };
     if (patch.displayName !== undefined) update.displayName = patch.displayName;
     if (patch.bio !== undefined) update.bio = patch.bio;
@@ -250,7 +244,7 @@ export async function setLocation(
     userId: string,
     location: ProfileLocation,
 ): Promise<void> {
-    assertCurrentUser(userId);
+    requireAuthAs(userId);
     const sanitized: ProfileLocation =
         location.kind === 'country' && location.country && location.country.length === 2
             ? { kind: 'country', country: location.country.toUpperCase() }
@@ -265,7 +259,7 @@ export async function setAvatarUrl(
     userId: string,
     avatarUrl: string | null,
 ): Promise<void> {
-    assertCurrentUser(userId);
+    requireAuthAs(userId);
     await updateDoc(doc(db, COLLECTION, userId), {
         avatarUrl,
         updatedAt: serverTimestamp(),
@@ -280,7 +274,7 @@ export async function setAvatarUrl(
  * Throws on: bad format, taken slug, cooldown active, or profile missing.
  */
 export async function changeUsername(userId: string, newUsername: string): Promise<void> {
-    assertCurrentUser(userId);
+    requireAuthAs(userId);
     const slug = newUsername.trim().toLowerCase();
     if (!USERNAME_REGEX.test(slug)) {
         throw new Error('Username must be 3–20 chars: lowercase letters, digits, underscores.');
@@ -324,7 +318,7 @@ export async function changeUsername(userId: string, newUsername: string): Promi
 }
 
 export async function setPushToken(userId: string, pushToken: string): Promise<void> {
-    assertCurrentUser(userId);
+    requireAuthAs(userId);
     await setDoc(
         doc(db, PRIVATE_COLLECTION, userId),
         { pushToken, updatedAt: serverTimestamp() },
@@ -333,7 +327,7 @@ export async function setPushToken(userId: string, pushToken: string): Promise<v
 }
 
 export async function clearPushToken(userId: string): Promise<void> {
-    assertCurrentUser(userId);
+    requireAuthAs(userId);
     await setDoc(
         doc(db, PRIVATE_COLLECTION, userId),
         { pushToken: null, updatedAt: serverTimestamp() },

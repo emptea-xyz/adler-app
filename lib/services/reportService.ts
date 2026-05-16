@@ -1,11 +1,11 @@
 import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase/config';
+import { db } from '@/lib/firebase/config';
+import { requireAuth } from '@/lib/utils/requireAuth';
 
 const REPORTS = 'reports';
 
 export async function reportBounty(bountyId: string, reason: string): Promise<void> {
-    const uid = auth.currentUser?.uid;
-    if (!uid) throw new Error('Sign-in required');
+    const uid = requireAuth();
     const id = `${bountyId}_${uid}`;
     const ref = doc(db, REPORTS, id);
     // Idempotent: rule denies re-create, but we still short-circuit client-side.

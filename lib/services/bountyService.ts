@@ -13,8 +13,9 @@ import {
     updateDoc,
     where,
 } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase/config';
+import { db } from '@/lib/firebase/config';
 import { tsMs } from '@/lib/utils/firestoreTimestamp';
+import { requireAuth } from '@/lib/utils/requireAuth';
 import { deriveBountyId } from '@/lib/escrow/pda';
 import { REVIEW_WINDOW_SECS, SUBMISSION_WINDOW_SECS } from '@/lib/constants/escrow';
 import { getProfile } from '@/lib/services/profileService';
@@ -76,12 +77,6 @@ function rowToBounty(id: string, data: Record<string, unknown>): Bounty {
     };
 }
 
-function assertCurrentUser(): string {
-    const uid = auth.currentUser?.uid;
-    if (!uid) throw new Error('Sign-in required');
-    return uid;
-}
-
 interface DraftBountyInput {
     title: string;
     prompt: string;
@@ -107,7 +102,7 @@ export interface DraftBountyArtifact {
  * `expireBounties` sweep can reconcile (no ghost-escrow).
  */
 export async function draftBounty(): Promise<DraftBountyArtifact> {
-    assertCurrentUser();
+    requireAuth();
     const docRef = doc(collection(db, BOUNTIES));
     const id = await deriveBountyId(docRef.id);
     const now = Date.now();
@@ -137,7 +132,7 @@ export interface PersistBountyInput extends DraftBountyInput {
  * the flag to `true`.
  */
 export async function persistBounty(input: PersistBountyInput): Promise<Bounty> {
-    const uid = assertCurrentUser();
+    const uid = requireAuth();
     const profile = await getProfile(uid);
     if (!profile?.walletAddress) {
         throw new Error('Profile wallet not set — sign in again');
@@ -177,7 +172,7 @@ export async function persistBounty(input: PersistBountyInput): Promise<Bounty> 
  * mark `cancelled` (no funds to refund).
  */
 export async function markEscrowFunded(bountyId: string): Promise<void> {
-    assertCurrentUser();
+    requireAuth();
     await updateDoc(doc(db, BOUNTIES, bountyId), {
         escrowFunded: true,
     });
@@ -266,7 +261,7 @@ export async function listMyPostedBounties(uid: string, max = 50): Promise<Bount
  *    On error → `abortCancel` rolls status back to the recorded prior.
  */
 export async function startCancel(bountyId: string): Promise<{ from: BountyStatus }> {
-    assertCurrentUser();
+    requireAuth();
     const ref = doc(db, BOUNTIES, bountyId);
     return await runTransaction(db, async (tx) => {
         const snap = await tx.get(ref);
@@ -290,7 +285,7 @@ export async function finishCancel(
     bountyId: string,
     txSignature: string,
 ): Promise<void> {
-    assertCurrentUser();
+    requireAuth();
     await updateDoc(doc(db, BOUNTIES, bountyId), {
         status: 'refunded',
         txSignature,
@@ -303,7 +298,7 @@ export async function abortCancel(
     bountyId: string,
     revertTo: BountyStatus,
 ): Promise<void> {
-    assertCurrentUser();
+    requireAuth();
     await updateDoc(doc(db, BOUNTIES, bountyId), {
         status: revertTo,
         cancellingFromStatus: deleteField(),
@@ -321,7 +316,7 @@ export async function markManualSettled(
     winningSubmissionId: string,
     txSignature: string,
 ): Promise<void> {
-    assertCurrentUser();
+    requireAuth();
     await updateDoc(doc(db, BOUNTIES, bountyId), {
         status: 'settled',
         winnerId,

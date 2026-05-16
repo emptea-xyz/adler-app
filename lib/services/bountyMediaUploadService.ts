@@ -1,6 +1,7 @@
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { auth, storage } from '@/lib/firebase/config';
+import { storage } from '@/lib/firebase/config';
 import { compressImageForUpload, uriToBlob } from '@/lib/utils/mediaUpload';
+import { requireAuth } from '@/lib/utils/requireAuth';
 
 export interface UploadedMedia {
     url: string;
@@ -8,8 +9,7 @@ export interface UploadedMedia {
 }
 
 export async function uploadBountySubmissionPhoto(localUri: string): Promise<UploadedMedia> {
-    const uid = auth.currentUser?.uid;
-    if (!uid) throw new Error('Sign-in required');
+    const uid = requireAuth();
     const compressedUri = await compressImageForUpload(localUri, 1600);
     const blob = await uriToBlob(compressedUri);
     const fileName = `${Date.now()}.jpg`;
@@ -24,8 +24,7 @@ export async function uploadBountySubmissionVideo(
     localUri: string,
     mimeType = 'video/mp4',
 ): Promise<UploadedMedia> {
-    const uid = auth.currentUser?.uid;
-    if (!uid) throw new Error('Sign-in required');
+    const uid = requireAuth();
     const blob = await uriToBlob(localUri);
     const ext = mimeType === 'video/quicktime' ? 'mov' : 'mp4';
     const fileName = `${Date.now()}.${ext}`;
