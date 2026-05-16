@@ -25,7 +25,8 @@ import Animated, {
 import { ThemedText } from '@/components/base/ThemedText';
 import { AdlerEagleLogo } from '@/components/ui/AdlerEagleLogo';
 import { Spinner } from '@/components/ui/Spinner';
-import { useTheme } from '@/contexts/ThemeContext';
+import { Neutral } from '@/constants/NeutralColors';
+import { MONO_PALETTE } from '@/constants/ThemePalettes';
 import { toast } from '@/lib/utils/toast';
 import { haptic } from '@/lib/utils/haptic';
 
@@ -56,7 +57,7 @@ const SLIDES: Slide[] = [
 ];
 
 export default function SignInScreen() {
-  const { theme, isDark } = useTheme();
+  const theme = MONO_PALETTE;
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
   const [pending, setPending] = useState<Provider | null>(null);
@@ -115,7 +116,7 @@ export default function SignInScreen() {
   const otherPending = (mine: Provider) => pending && pending !== mine;
 
   return (
-    <View style={{ flex: 1, backgroundColor: theme[50] }}>
+    <View style={{ flex: 1, backgroundColor: Neutral.white }}>
       <Animated.View style={[StyleSheet.absoluteFillObject, contentStyle]}>
         <View style={{ flex: 1, paddingTop: insets.top, paddingBottom: insets.bottom }}>
           {/* Top strip */}
@@ -157,12 +158,12 @@ export default function SignInScreen() {
                       >
                         <Defs>
                           <SvgLinearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
-                            <Stop offset="0" stopColor={theme[50]} stopOpacity="1" />
-                            <Stop offset="0.05" stopColor={theme[50]} stopOpacity="0.2" />
-                            <Stop offset="0.1" stopColor={theme[50]} stopOpacity="0" />
-                            <Stop offset="0.9" stopColor={theme[50]} stopOpacity="0" />
-                            <Stop offset="0.95" stopColor={theme[50]} stopOpacity="0.2" />
-                            <Stop offset="1" stopColor={theme[50]} stopOpacity="1" />
+                            <Stop offset="0" stopColor={Neutral.white} stopOpacity="1" />
+                            <Stop offset="0.05" stopColor={Neutral.white} stopOpacity="0.2" />
+                            <Stop offset="0.1" stopColor={Neutral.white} stopOpacity="0" />
+                            <Stop offset="0.9" stopColor={Neutral.white} stopOpacity="0" />
+                            <Stop offset="0.95" stopColor={Neutral.white} stopOpacity="0.2" />
+                            <Stop offset="1" stopColor={Neutral.white} stopOpacity="1" />
                           </SvgLinearGradient>
                         </Defs>
                         <Rect x="0" y="0" width="1" height="1" fill="url(#fade)" />
@@ -209,11 +210,7 @@ export default function SignInScreen() {
             >
               <AppleAuthentication.AppleAuthenticationButton
                 buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-                buttonStyle={
-                  isDark
-                    ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
-                    : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
-                }
+                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
                 cornerRadius={16}
                 style={{ width: '100%', height: 56 }}
                 onPress={() => onSocialPress('apple')}
