@@ -56,12 +56,18 @@ function RollingDigit({ digit, height, color, fontSize }: RollingDigitProps) {
         fontSize,
         lineHeight: height,
         height,
-        letterSpacing: fontSize * LETTER_SPACING_RATIO,
     };
 
     return (
+        // Invisible sizer sets the cell width to the current digit's
+        // natural glyph width; the slot-machine column floats absolutely
+        // above it so wider digits passing through don't blow the column
+        // out (and narrow ones like '1' don't leave dead space).
         <View style={{ height, overflow: 'hidden' }}>
-            <Animated.View style={animatedStyle}>
+            <ThemedText type="h1" style={[textStyle, { opacity: 0 }]}>
+                {digit}
+            </ThemedText>
+            <Animated.View style={[{ position: 'absolute', top: 0, left: 0 }, animatedStyle]}>
                 {DIGITS.map((d) => (
                     <ThemedText key={d} type="h1" style={textStyle}>
                         {d}
@@ -100,6 +106,7 @@ export function RollingNumber({
     // re-keying the existing ones-place digit. The eye tracks value, not
     // index.
     const anchor = dotIdx >= 0 ? dotIdx : chars.length;
+    const tracking = fontSize * LETTER_SPACING_RATIO;
     return (
         <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
             {chars.map((ch, i) => {
@@ -115,6 +122,11 @@ export function RollingNumber({
                         layout={cellTransition}
                         entering={cellEntering}
                         exiting={cellExiting}
+                        // letterSpacing only affects glyphs inside a single
+                        // text run; between sibling cells we approximate
+                        // the same -3% tracking with a negative left
+                        // margin on every cell after the first.
+                        style={i > 0 ? { marginLeft: tracking } : undefined}
                     >
                         {isDigit ? (
                             <RollingDigit
@@ -130,7 +142,6 @@ export function RollingNumber({
                                     color: c,
                                     fontSize,
                                     lineHeight,
-                                    letterSpacing: fontSize * LETTER_SPACING_RATIO,
                                 }}
                             >
                                 {ch}
