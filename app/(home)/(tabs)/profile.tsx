@@ -110,36 +110,58 @@ export default function ProfileScreen() {
                     paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 24,
                 }}
             >
-                <View style={{ alignItems: 'center', paddingHorizontal: 24, gap: 12 }}>
+                <View style={{ alignItems: 'center', paddingHorizontal: 24, gap: 10 }}>
                     <Avatar
                         size="xl"
                         avatarUrl={profile.avatarUrl}
                         initial={profile.displayName.charAt(0)}
                     />
-                    <View style={{ alignItems: 'center' }}>
+                    <View style={{ alignItems: 'center', gap: 2 }}>
                         <ThemedText type="h3" style={{ color: theme[950], textAlign: 'center' }}>
-                            {profile.displayName}
+                            @{profile.username}
                         </ThemedText>
                         <ThemedText
                             type="body-sm"
-                            style={{ color: theme[300], textAlign: 'center' }}
+                            style={{ color: theme[400], textAlign: 'center' }}
                         >
-                            @{profile.username}
+                            {profile.displayName}
                         </ThemedText>
                     </View>
+
+                    <View
+                        style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            marginTop: 14,
+                        }}
+                    >
+                        <ProfileStat label="Wins" value={wonCount} />
+                        <StatDivider />
+                        <ProfileStat label="Created" value={createdCount} />
+                        <StatDivider />
+                        <ProfileStat label="Submitted" value={participatedCount} />
+                        <StatDivider />
+                        <ProfileStat
+                            label="Win rate"
+                            value={winRatePct == null ? '—' : `${winRatePct}%`}
+                        />
+                    </View>
+
                     {profile.bio ? (
                         <ThemedText
                             type="body-sm"
-                            style={{ color: theme[500], textAlign: 'center' }}
+                            style={{
+                                color: theme[500],
+                                textAlign: 'center',
+                                marginTop: 12,
+                                paddingHorizontal: 8,
+                            }}
                             numberOfLines={3}
                         >
                             {profile.bio}
                         </ThemedText>
                     ) : null}
-                </View>
-
-                <View style={{ marginTop: 20, paddingHorizontal: 24 }}>
-                    <WinRateBlock winRatePct={winRatePct} wonCount={wonCount} participatedCount={participatedCount} />
                 </View>
 
                 <View style={{ marginTop: 20 }}>
@@ -159,32 +181,26 @@ export default function ProfileScreen() {
     );
 }
 
-function WinRateBlock({
-    winRatePct,
-    wonCount,
-    participatedCount,
-}: {
-    winRatePct: number | null;
-    wonCount: number;
-    participatedCount: number;
-}) {
+function ProfileStat({ label, value }: { label: string; value: number | string }) {
     const { theme } = useTheme();
     return (
-        <View style={{ alignItems: 'center', gap: 2 }}>
+        <View style={{ alignItems: 'center', minWidth: 64, paddingHorizontal: 8 }}>
+            <ThemedText type="h4" style={{ color: theme[950] }}>
+                {value}
+            </ThemedText>
             <ThemedText
-                type="caption-semibold"
-                style={{ color: theme[400], letterSpacing: 0.6 }}
+                type="caption"
+                style={{ color: theme[500], marginTop: 2 }}
             >
-                WIN RATE
-            </ThemedText>
-            <ThemedText type="h1" style={{ color: theme[950] }}>
-                {winRatePct == null ? '—' : `${winRatePct}%`}
-            </ThemedText>
-            <ThemedText type="body-xs" style={{ color: theme[500] }}>
-                {wonCount} won · {participatedCount} submitted
+                {label}
             </ThemedText>
         </View>
     );
+}
+
+function StatDivider() {
+    const { theme } = useTheme();
+    return <View style={{ width: 1, height: 24, backgroundColor: theme[200] }} />;
 }
 
 function FullWidthUnderlineTabs<T extends string>({

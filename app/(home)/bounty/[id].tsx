@@ -35,6 +35,7 @@ import {
     listMySubmissionsForBounty,
 } from '@/lib/services/submissionService';
 import { getProfile } from '@/lib/services/profileService';
+import { listMyMemberships } from '@/lib/services/groupService';
 import { reportBounty, hasReported } from '@/lib/services/reportService';
 import { qk } from '@/lib/constants/queryKeys';
 import { formatSol } from '@/lib/utils/formatNumber';
@@ -110,10 +111,25 @@ export default function BountyDetailScreen() {
     const mineCount = (mySubmissionsQuery.data ?? []).length;
     const mine = mySubmissionsQuery.data ?? [];
 
+    const isGroupBounty = !!bounty && bounty.scope === 'group' && !!bounty.groupId;
+    const membershipsQuery = useQuery({
+        queryKey: user ? qk.groups.myMemberships(user.id) : ['groups', 'myMemberships', 'anon'],
+        queryFn: () => (user ? listMyMemberships(user.id) : Promise.resolve([])),
+        staleTime: 60_000,
+        enabled: !!user && isGroupBounty,
+    });
+    const isGroupMember =
+        !isGroupBounty ||
+        (membershipsQuery.data ?? []).some((m) => m.groupId === bounty?.groupId);
+
     const submissionWindowOpen = !!bounty && Date.now() < bounty.submissionEndsAt;
     const canSubmit =
         !!user && !!bounty && !isPoster && bounty.status === 'open' &&
-        submissionWindowOpen && mineCount < MAX_SUBMISSIONS_PER_USER;
+        submissionWindowOpen && mineCount < MAX_SUBMISSIONS_PER_USER &&
+        isGroupMember;
+    const blockedByGroup =
+        !!user && !!bounty && !isPoster && bounty.status === 'open' &&
+        submissionWindowOpen && isGroupBounty && !isGroupMember;
 
     const onRefresh = async () => {
         await Promise.all([
@@ -362,6 +378,23 @@ export default function BountyDetailScreen() {
                         }
                         onPress={() => router.push(`/bounty/${id}/submit`)}
                     />
+                </View>
+            ) : blockedByGroup ? (
+                <View
+                    style={{
+                        position: 'absolute',
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        padding: 16,
+                        paddingBottom: 16 + insets.bottom,
+                        backgroundColor: theme[50],
+                        alignItems: 'center',
+                    }}
+                >
+                    <ThemedText type="caption" style={{ color: theme[500], textAlign: 'center' }}>
+                        Members-only bounty. Join the group to submit.
+                    </ThemedText>
                 </View>
             ) : !isPoster
                 && bounty.status === 'in_review'

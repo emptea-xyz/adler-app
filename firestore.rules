@@ -166,12 +166,12 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/bounties/$(bountyId)).data;
     }
 
+    // Bounty reads are open to any authed user (non-hidden). Group-scoped
+    // bounties are publicly browseable for discovery; submitting is the
+    // gated action (see canSubmitToBounty).
     function canReadBountyData(bounty) {
       return isOwner(bounty.posterId)
-             || (isAuthed()
-                 && bounty.status != 'hidden'
-                 && (bounty.scope == 'public'
-                     || isGroupMember(bounty.groupId)));
+             || (isAuthed() && bounty.status != 'hidden');
     }
 
     function canReadBountyId(bountyId) {
@@ -184,7 +184,9 @@ service cloud.firestore {
              && bounty.status == 'open'
              && bounty.get('escrowFunded', false) == true
              && bounty.submissionEndsAt is int
-             && bounty.submissionEndsAt > request.time.toMillis();
+             && bounty.submissionEndsAt > request.time.toMillis()
+             // Group-scoped bounties only accept submissions from members.
+             && (bounty.scope == 'public' || isGroupMember(bounty.groupId));
     }
 
     function validSubmissionPreview(d) {

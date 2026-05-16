@@ -184,11 +184,12 @@ export async function getBounty(id: string): Promise<Bounty | null> {
     return rowToBounty(snap.id, snap.data() as Record<string, unknown>);
 }
 
+// Returns all open bounties (public + group). Group bounties are
+// publicly browseable for discovery; submissions are gated to members.
 export async function listOpenPublicBounties(max = 50): Promise<Bounty[]> {
     const snap = await getDocs(
         query(
             collection(db, BOUNTIES),
-            where('scope', '==', 'public'),
             where('status', '==', 'open'),
             orderBy('createdAt', 'desc'),
             limit(max),
