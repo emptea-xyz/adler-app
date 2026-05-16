@@ -410,11 +410,15 @@ export default function BountyDetailScreen() {
 // favourable state: a win trumps a loss, an active "judging" trumps a stale
 // "pending", and so on.
 const STATUS_RANK: Record<BountyItemStatus, number> = {
-    won: 5,
-    processing: 4,
-    pending: 3,
-    open: 2,
-    lost: 1,
+    won: 9,
+    settled: 8,
+    judging: 7,
+    pending: 6,
+    open: 5,
+    lost: 4,
+    refunded: 3,
+    cancelled: 2,
+    hidden: 1,
     closed: 0,
 };
 function pickBestSubmissionStatus(

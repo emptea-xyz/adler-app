@@ -3,6 +3,7 @@ import { View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useTheme } from '@/contexts/ThemeContext';
 import { ThemedText } from '@/components/base/ThemedText';
+import { Icon } from '@/components/ui/Icon';
 import { Radius } from '@/constants/LayoutConstants';
 
 // Status glyphs for the BountyItemCard. SVG path strings are copied
@@ -12,12 +13,16 @@ import { Radius } from '@/constants/LayoutConstants';
 // the Figma variable bindings (amber/400, sky/400, emerald/500, red/500).
 
 export type BountyItemStatus =
-    | 'open' // bounty status === 'open' / available
-    | 'closed' // bounty hidden, refunded, otherwise inaccessible
-    | 'pending' // submission with no AI verdict yet
-    | 'processing' // submission passed AI, awaiting poster pick / auto-settle
-    | 'won' // bounty settled to me, or settled (from poster's view)
-    | 'lost'; // submission failed, or settled to someone else
+    | 'open' // submission window active
+    | 'judging' // window closed, poster reviewing (was 'processing')
+    | 'settled' // poster picked a winner — bounty paid out
+    | 'refunded' // window expired with no winner, funds returned
+    | 'cancelled' // poster cancelled before any submission
+    | 'hidden' // moderation removed
+    | 'pending' // submitter view: submitted, awaiting review
+    | 'won' // submitter view: I was picked
+    | 'lost' // submitter view: someone else was picked
+    | 'closed'; // generic fallback (legacy / unknown)
 
 const OPEN_CIRCLE =
     'M6.99941 14C10.8643 14 14 10.8641 14 7C14 3.13596 10.8643 0 6.99941 0C3.13569 0 0 3.13596 0 7C0 10.8641 3.13569 14 6.99941 14ZM6.99941 12.6211C3.89149 12.6211 1.37879 10.1082 1.37879 7C1.37879 3.89182 3.89149 1.3789 6.99941 1.3789C10.1073 1.3789 12.6213 3.89182 12.6213 7C12.6213 10.1082 10.1073 12.6211 6.99941 12.6211Z';
@@ -102,7 +107,7 @@ function BountyStatusIcon({ status, size = 14 }: BountyStatusIconProps) {
                     <Path d={HOURGLASS} fill={tw.amber[400]} />
                 </Svg>
             );
-        case 'processing':
+        case 'judging':
             // Two-gear glyph; native viewBox 18×14 — wider than tall.
             return (
                 <Svg width={(size * 18) / 14} height={size} viewBox="0 0 18 14">
@@ -111,6 +116,16 @@ function BountyStatusIcon({ status, size = 14 }: BountyStatusIconProps) {
                     ))}
                 </Svg>
             );
+        case 'settled':
+            return <Icon name="checkmark.seal.fill" size={size} color={tw.emerald[500]} />;
+        case 'refunded':
+            return (
+                <Icon name="arrow.uturn.backward.circle.fill" size={size} color={tw.slate[500]} />
+            );
+        case 'cancelled':
+            return <Icon name="xmark.circle.fill" size={size} color={tw.slate[500]} />;
+        case 'hidden':
+            return <Icon name="eye.slash.fill" size={size} color={tw.slate[500]} />;
         case 'won':
             return (
                 <Svg width={size} height={size} viewBox="0 0 14 14">
@@ -135,11 +150,15 @@ function BountyStatusIcon({ status, size = 14 }: BountyStatusIconProps) {
 
 const STATUS_LABEL: Record<BountyItemStatus, string> = {
     open: 'Open',
-    closed: 'Closed',
+    judging: 'Judging',
+    settled: 'Settled',
+    refunded: 'Refunded',
+    cancelled: 'Cancelled',
+    hidden: 'Hidden',
     pending: 'Pending',
-    processing: 'Judging',
     won: 'Won',
     lost: 'Lost',
+    closed: 'Closed',
 };
 
 interface PillPalette {
@@ -151,12 +170,17 @@ function usePillPalette(status: BountyItemStatus): PillPalette {
     const { theme, tw } = useTheme();
     switch (status) {
         case 'open':
-        case 'closed':
             return { bg: theme[50], fg: theme[700] };
+        case 'closed':
+        case 'refunded':
+        case 'cancelled':
+        case 'hidden':
+            return { bg: theme[50], fg: theme[600] };
         case 'pending':
             return { bg: tw.amber[50], fg: tw.amber[700] };
-        case 'processing':
+        case 'judging':
             return { bg: tw.sky[50], fg: tw.sky[700] };
+        case 'settled':
         case 'won':
             return { bg: tw.emerald[50], fg: tw.emerald[700] };
         case 'lost':

@@ -173,13 +173,15 @@ export function bountyStatusToCard(b: Bounty): BountyItemStatus {
         case 'open':
             return 'open';
         case 'in_review':
-            return 'processing';
+            return 'judging';
         case 'cancelling':
+            return 'cancelled';
         case 'hidden':
+            return 'hidden';
         case 'refunded':
-            return 'closed';
+            return 'refunded';
         case 'settled':
-            return 'won';
+            return 'settled';
     }
 }
 
@@ -190,12 +192,13 @@ export function bountyStatusToCard(b: Bounty): BountyItemStatus {
 export function submissionStatusToCard(s: Submission, b?: Bounty): BountyItemStatus {
     const status = b?.status ?? s.bountyStatus;
     if (s.isWinner) return 'won';
-    // L3: 'lost' is reserved for "poster picked someone else." A refund
-    // means nobody won, so it's just 'closed' to the submitter.
+    // 'lost' is reserved for "poster picked someone else." A refund means
+    // nobody won — surface it as 'refunded' to the submitter rather than
+    // a generic close.
     if (status === 'settled') return 'lost';
-    if (status === 'refunded' || status === 'hidden' || status === 'cancelling') {
-        return 'closed';
-    }
+    if (status === 'refunded') return 'refunded';
+    if (status === 'cancelling') return 'cancelled';
+    if (status === 'hidden') return 'hidden';
     return 'pending';
 }
 
