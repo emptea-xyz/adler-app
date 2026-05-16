@@ -56,7 +56,6 @@ const SLIDES: Slide[] = [
 ];
 
 export default function SignInScreen() {
-  const theme = MONO_PALETTE;
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
   const [pending, setPending] = useState<Provider | null>(null);
@@ -168,10 +167,10 @@ export default function SignInScreen() {
                   </View>
 
                   <View style={{ alignSelf: 'flex-start', paddingBottom: 24, gap: 6 }}>
-                    <ThemedText type="h3" style={{ color: theme[950] }}>
+                    <ThemedText type="h3" style={{ color: Neutral.black }}>
                       {slide.title}
                     </ThemedText>
-                    <ThemedText type="body-md" style={{ color: theme[500] }}>
+                    <ThemedText type="body-md" style={{ color: MONO_PALETTE[500] }}>
                       {slide.body}
                     </ThemedText>
                   </View>
@@ -189,7 +188,7 @@ export default function SignInScreen() {
                   width: 8,
                   height: 8,
                   borderRadius: 4,
-                  backgroundColor: i === activeSlide ? theme[950] : theme[300],
+                  backgroundColor: i === activeSlide ? Neutral.black : MONO_PALETTE[300],
                 }}
               />
             ))}
@@ -204,16 +203,16 @@ export default function SignInScreen() {
                 className="rounded-card h-14 flex-row items-center justify-center"
                 style={{
                   flex: 1,
-                  backgroundColor: theme[950],
+                  backgroundColor: Neutral.black,
                   opacity: otherPending('apple') ? 0.5 : 1,
                 }}
                 accessibilityRole="button"
                 accessibilityLabel="Sign in with Apple"
               >
                 {pending === 'apple' ? (
-                  <ActivityIndicator size="small" color={theme[50]} />
+                  <ActivityIndicator size="small" color={Neutral.white} />
                 ) : (
-                  <ThemedText type="body-lg-semibold" style={{ color: theme[50] }}>
+                  <ThemedText type="body-lg-semibold" style={{ color: Neutral.white }}>
                     Apple
                   </ThemedText>
                 )}
@@ -225,16 +224,16 @@ export default function SignInScreen() {
                 className="rounded-card h-14 flex-row items-center justify-center"
                 style={{
                   flex: 1,
-                  backgroundColor: theme[950],
+                  backgroundColor: Neutral.black,
                   opacity: otherPending('google') ? 0.5 : 1,
                 }}
                 accessibilityRole="button"
                 accessibilityLabel="Sign in with Google"
               >
                 {pending === 'google' ? (
-                  <ActivityIndicator size="small" color={theme[50]} />
+                  <ActivityIndicator size="small" color={Neutral.white} />
                 ) : (
-                  <ThemedText type="body-lg-semibold" style={{ color: theme[50] }}>
+                  <ThemedText type="body-lg-semibold" style={{ color: Neutral.white }}>
                     Google
                   </ThemedText>
                 )}
@@ -245,7 +244,7 @@ export default function SignInScreen() {
               type="body-xs"
               align="center"
               className="px-4"
-              style={{ color: theme[500], paddingTop: 8 }}
+              style={{ color: MONO_PALETTE[500], paddingTop: 8 }}
             >
               By continuing you accept our{' '}
               <ThemedText
