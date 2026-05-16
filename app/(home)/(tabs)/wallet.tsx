@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { PublicKey } from '@solana/web3.js';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { Icon } from '@/components/ui/Icon';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -20,8 +21,9 @@ import { qk } from '@/lib/constants/queryKeys';
 import { TAB_BAR_HEIGHT } from '@/constants/LayoutConstants';
 import { TailwindColors } from '@/constants/TailwindColors';
 import { haptic } from '@/lib/utils/haptic';
-import { formatSolParts } from '@/lib/utils/formatNumber';
+import { formatSolParts, formatUsdParts } from '@/lib/utils/formatNumber';
 import { EMPTY_WALLET_BALANCE } from '@/lib/utils/copy';
+import { useSolPrice } from '@/hooks/useSolPrice';
 
 export default function WalletScreen() {
     const { theme } = useTheme();
@@ -32,6 +34,8 @@ export default function WalletScreen() {
     const [sendOpen, setSendOpen] = useState(false);
     const [receiveOpen, setReceiveOpen] = useState(false);
     const [connectivityOpen, setConnectivityOpen] = useState(false);
+    const [unit, setUnit] = useState<'SOL' | 'USD'>('SOL');
+    const priceQuery = useSolPrice();
 
     const balanceQuery = useQuery({
         queryKey: walletAddress ? qk.wallet.balance(walletAddress) : ['wallet', 'balance', 'none'],
@@ -47,12 +51,25 @@ export default function WalletScreen() {
 
     const balance = balanceQuery.data ?? 0;
     const isZero = balance === 0;
-    const { whole, decimal } = formatSolParts(balance);
+    const price = priceQuery.data;
+    const canShowUsd = typeof price === 'number';
+    const activeUnit = unit === 'USD' && !canShowUsd ? 'SOL' : unit;
+    const { whole, decimal } =
+        activeUnit === 'USD' && canShowUsd
+            ? formatUsdParts(balance * price)
+            : formatSolParts(balance);
 
     const refresh = () => {
         if (!walletAddress) return;
         haptic('light');
         queryClient.invalidateQueries({ queryKey: qk.wallet.balance(walletAddress) });
+        queryClient.invalidateQueries({ queryKey: qk.prices.sol() });
+    };
+
+    const toggleUnit = () => {
+        if (!canShowUsd) return;
+        haptic('light');
+        setUnit((u) => (u === 'SOL' ? 'USD' : 'SOL'));
     };
 
     const openFaucet = () => {
@@ -102,23 +119,40 @@ export default function WalletScreen() {
                         </View>
                     ) : (
                         <Pressable
-                            onPress={refresh}
-                            disabled={balanceQuery.isFetching}
+                            onPress={toggleUnit}
+                            onLongPress={refresh}
+                            disabled={!canShowUsd}
                             hitSlop={8}
-                            style={{ flexDirection: 'row', alignItems: 'baseline' }}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Balance in ${activeUnit}. Tap to switch units.`}
                         >
-                            <ThemedText type="h1" style={{ color: theme[950], fontSize: 56, lineHeight: 64 }}>
-                                {whole}
-                            </ThemedText>
-                            <ThemedText type="h1" style={{ color: theme[400], fontSize: 56, lineHeight: 64 }}>
-                                .{decimal}
-                            </ThemedText>
-                            <ThemedText
-                                type="body-md-semibold"
-                                style={{ color: theme[400], marginLeft: 6 }}
+                            <Animated.View
+                                key={activeUnit}
+                                entering={FadeIn.duration(220)}
+                                exiting={FadeOut.duration(180)}
+                                style={{ flexDirection: 'row', alignItems: 'baseline' }}
                             >
-                                SOL
-                            </ThemedText>
+                                {activeUnit === 'USD' && (
+                                    <ThemedText
+                                        type="h1"
+                                        style={{ color: theme[400], fontSize: 56, lineHeight: 64, marginRight: 2 }}
+                                    >
+                                        $
+                                    </ThemedText>
+                                )}
+                                <ThemedText type="h1" style={{ color: theme[950], fontSize: 56, lineHeight: 64 }}>
+                                    {whole}
+                                </ThemedText>
+                                <ThemedText type="h1" style={{ color: theme[400], fontSize: 56, lineHeight: 64 }}>
+                                    .{decimal}
+                                </ThemedText>
+                                <ThemedText
+                                    type="body-md-semibold"
+                                    style={{ color: theme[400], marginLeft: 6 }}
+                                >
+                                    {activeUnit}
+                                </ThemedText>
+                            </Animated.View>
                         </Pressable>
                     )}
                 </View>

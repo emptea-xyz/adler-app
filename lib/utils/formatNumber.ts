@@ -61,6 +61,23 @@ export const formatSolParts = (sol: number): { whole: string; decimal: string } 
 };
 
 /**
+ * Splits a USD amount into a whole part (grouped) and a 2-digit cents
+ * decimal — mirrors `formatSolParts` so the hero balance display can swap
+ * units without changing layout. Always shows two fractional digits.
+ *
+ *   formatUsdParts(0)       === { whole: '0', decimal: '00' }
+ *   formatUsdParts(12.5)    === { whole: '12', decimal: '50' }
+ *   formatUsdParts(1234.5)  === { whole: '1,234', decimal: '50' }
+ */
+export const formatUsdParts = (usd: number): { whole: string; decimal: string } => {
+  if (!Number.isFinite(usd)) return { whole: '—', decimal: '' };
+  const fixed = usd.toFixed(2);
+  const [wholeRaw, decimalRaw = '00'] = fixed.split('.');
+  const whole = Number(wholeRaw).toLocaleString('en-US');
+  return { whole, decimal: decimalRaw };
+};
+
+/**
  * Strict SOL amount parser. Accepts both `.` and `,` as decimal separator
  * (iOS `decimal-pad` shows `,` in DE/FR/CH locales). Returns null for any
  * malformed input — `parseFloat` quirks like `"1abc" → 1` are rejected.

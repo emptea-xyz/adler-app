@@ -54,4 +54,7 @@ export const qk = {
     activity: (address: string | null) =>
       ['wallet', 'activity', address ?? 'none'] as const,
   },
+  prices: {
+    sol: () => ['prices', 'sol'] as const,
+  },
 };
