@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ScrollView, View, ActivityIndicator, Pressable, Linking } from 'react-native';
+import { ScrollView, View, ActivityIndicator, Pressable, Linking, RefreshControl } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { PublicKey } from '@solana/web3.js';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -87,6 +87,13 @@ export default function WalletScreen() {
                     paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 24,
                     gap: 24,
                 }}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={balanceQuery.isFetching}
+                        onRefresh={refresh}
+                        tintColor={theme[950]}
+                    />
+                }
             >
                 <View style={{ gap: 4 }}>
                     {balanceQuery.isLoading || balanceQuery.data === undefined ? (
