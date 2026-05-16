@@ -12,7 +12,7 @@ import { updateGroup } from '@/lib/services/groupService';
 import { uploadGroupLogo } from '@/lib/services/groupMediaUploadService';
 import { pickImage } from '@/lib/services/imageUploadService';
 import { qk } from '@/lib/constants/queryKeys';
-import { toast } from '@/lib/utils/toast';
+import { toast, toastError } from '@/lib/utils/toast';
 import { haptic } from '@/lib/utils/haptic';
 import type { Group } from '@/lib/types/group';
 
@@ -62,8 +62,7 @@ export function GroupEditSheet({ visible, onClose, group }: GroupEditSheetProps)
             queryClient.invalidateQueries({ queryKey: ['groups'] });
         },
         onError: (err) => {
-            haptic('error');
-            toast.error(err instanceof Error ? err.message : 'Upload failed');
+            toastError(err, 'Upload failed');
         },
     });
 
@@ -87,8 +86,7 @@ export function GroupEditSheet({ visible, onClose, group }: GroupEditSheetProps)
             onClose();
         },
         onError: (err) => {
-            haptic('error');
-            toast.error(err instanceof Error ? err.message : 'Could not save');
+            toastError(err, 'Could not save');
         },
     });
 

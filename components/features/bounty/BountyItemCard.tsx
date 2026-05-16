@@ -17,7 +17,7 @@ import { qk } from '@/lib/constants/queryKeys';
 import { getGroup } from '@/lib/services/groupService';
 import { getProfile } from '@/lib/services/profileService';
 import { useBountyEscrow } from '@/hooks/useBountyEscrow';
-import { toast } from '@/lib/utils/toast';
+import { toast, toastError } from '@/lib/utils/toast';
 import type { Bounty } from '@/lib/types/bounty';
 import type { Submission } from '@/lib/types/submission';
 
@@ -231,9 +231,7 @@ export function BountyCardForBounty({ bounty }: { bounty: Bounty }) {
                                   toast.success('Bounty cancelled and refunded.');
                                   await queryClient.invalidateQueries({ queryKey: qk.bounties.all() });
                               } catch (e) {
-                                  haptic('error');
-                                  const msg = e instanceof Error ? e.message : String(e);
-                                  toast.error(msg || "Couldn't cancel bounty");
+                                  toastError(e, "Couldn't cancel bounty");
                               }
                           },
                       },

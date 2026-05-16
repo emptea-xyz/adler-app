@@ -123,8 +123,7 @@ export default function GroupDetailScreen() {
             queryClient.invalidateQueries({ queryKey: qk.groups.joinRequests(id) });
         },
         onError: (err) => {
-            haptic('error');
-            toast.error(err instanceof Error ? err.message : 'Could not send request');
+            toastError(err, 'Could not send request');
         },
     });
 
@@ -552,8 +551,7 @@ function MemberRow({
             queryClient.invalidateQueries({ queryKey: ['groups', 'myMemberships'] });
         },
         onError: (err) => {
-            haptic('error');
-            toast.error(err instanceof Error ? err.message : 'Could not remove');
+            toastError(err, 'Could not remove');
         },
     });
 
@@ -660,8 +658,7 @@ function JoinRequestRow({ request, group }: { request: JoinRequest; group: Group
             invalidate();
         },
         onError: (err) => {
-            haptic('error');
-            toast.error(err instanceof Error ? err.message : 'Could not approve');
+            toastError(err, 'Could not approve');
         },
     });
 
@@ -673,8 +670,7 @@ function JoinRequestRow({ request, group }: { request: JoinRequest; group: Group
             invalidate();
         },
         onError: (err) => {
-            haptic('error');
-            toast.error(err instanceof Error ? err.message : 'Could not decline');
+            toastError(err, 'Could not decline');
         },
     });
 

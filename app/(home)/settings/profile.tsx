@@ -23,7 +23,7 @@ import {
 } from '@/lib/services/profileService';
 import { USERNAME_COOLDOWN_MS } from '@/lib/types/profile';
 import { pickImage, uploadProfilePicture } from '@/lib/services/imageUploadService';
-import { toast } from '@/lib/utils/toast';
+import { toast, toastError } from '@/lib/utils/toast';
 import { haptic } from '@/lib/utils/haptic';
 import { useDebounce } from '@/hooks/useDebounce';
 import { COUNTRIES, codeToFlag, countryName } from '@/lib/constants/countries';
@@ -126,8 +126,7 @@ export default function SettingsProfileScreen() {
             toast.success('Profile updated');
             router.back();
         } catch (err) {
-            haptic('error');
-            toast.error(err instanceof Error ? err.message : 'Save failed');
+            toastError(err, 'Save failed');
         } finally {
             setSaving(false);
         }

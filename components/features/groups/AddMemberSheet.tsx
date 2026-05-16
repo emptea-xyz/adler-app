@@ -15,7 +15,7 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { addGroupMember, listGroupMembers } from '@/lib/services/groupService';
 import { searchProfilesByUsername } from '@/lib/services/profileService';
 import { qk } from '@/lib/constants/queryKeys';
-import { toast } from '@/lib/utils/toast';
+import { toast, toastError } from '@/lib/utils/toast';
 import { haptic } from '@/lib/utils/haptic';
 import type { Profile } from '@/lib/types/profile';
 
@@ -78,8 +78,7 @@ export function AddMemberSheet({ visible, onClose, groupId }: AddMemberSheetProp
             onClose();
         },
         onError: (err) => {
-            haptic('error');
-            toast.error(err instanceof Error ? err.message : 'Could not add');
+            toastError(err, 'Could not add');
         },
     });
 
