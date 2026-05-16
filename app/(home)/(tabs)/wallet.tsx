@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { PublicKey } from '@solana/web3.js';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import Animated, { Easing, FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
 import { Icon } from '@/components/ui/Icon';
 import { RollingNumber } from '@/components/ui/RollingNumber';
 import { useAuth } from '@/contexts/AuthContext';
@@ -137,12 +137,16 @@ export default function WalletScreen() {
                             />
                             <Animated.View
                                 key={activeUnit}
+                                layout={LinearTransition.duration(420).easing(
+                                    Easing.out(Easing.cubic),
+                                )}
                                 entering={FadeIn.duration(220)}
                                 exiting={FadeOut.duration(180)}
+                                style={{ marginLeft: 6 }}
                             >
                                 <ThemedText
                                     type="body-md-semibold"
-                                    style={{ color: theme[400], marginLeft: 6 }}
+                                    style={{ color: theme[400] }}
                                 >
                                     {activeUnit}
                                 </ThemedText>
