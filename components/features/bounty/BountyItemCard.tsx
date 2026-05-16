@@ -85,8 +85,8 @@ function BountyItemCard({
                 style={{
                     backgroundColor: theme[100],
                     minHeight: 100,
-                    marginHorizontal: 16,
-                    marginBottom: 8,
+                    marginHorizontal: 20,
+                    marginBottom: 10,
                     paddingHorizontal: 16,
                     paddingVertical: 12,
                     gap: 6,
