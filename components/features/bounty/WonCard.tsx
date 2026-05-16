@@ -58,34 +58,57 @@ export function WonCard({ bounty, winner }: WonCardProps) {
             >
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                     <SectionLabel label={isRefunded ? 'REFUNDED' : 'SETTLED'} />
-                    <Icon name="trophy.fill" size={18} color={theme[700]} />
+                    <Icon
+                        name={isRefunded ? 'arrow.uturn.backward.circle.fill' : 'trophy.fill'}
+                        size={18}
+                        color={theme[700]}
+                    />
                 </View>
 
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                    {winner ? (
-                        <Avatar
-                            size="md"
-                            avatarUrl={winner.avatarUrl}
-                            initial={winner.displayName?.charAt(0) ?? winner.username.charAt(0)}
-                        />
-                    ) : (
-                        <Avatar size="md" initial="?" />
-                    )}
-                    <View style={{ flex: 1 }}>
-                        <ThemedText type="body-md-semibold" style={{ color: theme[950] }} numberOfLines={1}>
-                            {winner?.displayName ?? 'Winner'}
-                        </ThemedText>
-                        <ThemedText type="caption" style={{ color: theme[500] }} numberOfLines={1}>
-                            {winner?.username ? `@${winner.username}` : 'awarded'}
-                        </ThemedText>
+                {isRefunded ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <View style={{ flex: 1, paddingRight: 12 }}>
+                            <ThemedText type="body-md-semibold" style={{ color: theme[950] }} numberOfLines={1}>
+                                Refunded to poster
+                            </ThemedText>
+                            <ThemedText type="caption" style={{ color: theme[500] }} numberOfLines={1}>
+                                No winner picked
+                            </ThemedText>
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <ThemedText type="body-lg-semibold" style={{ color: theme[950] }}>
+                                {formatSol(amountSol)}
+                            </ThemedText>
+                            <SolanaIcon size={14} color={theme[950]} />
+                        </View>
                     </View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <ThemedText type="body-lg-semibold" style={{ color: theme[950] }}>
-                            {formatSol(amountSol)}
-                        </ThemedText>
-                        <SolanaIcon size={14} color={theme[950]} />
+                ) : (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                        {winner ? (
+                            <Avatar
+                                size="md"
+                                avatarUrl={winner.avatarUrl}
+                                initial={winner.displayName?.charAt(0) ?? winner.username.charAt(0)}
+                            />
+                        ) : (
+                            <Avatar size="md" initial="?" />
+                        )}
+                        <View style={{ flex: 1 }}>
+                            <ThemedText type="body-md-semibold" style={{ color: theme[950] }} numberOfLines={1}>
+                                {winner?.displayName ?? 'Winner'}
+                            </ThemedText>
+                            <ThemedText type="caption" style={{ color: theme[500] }} numberOfLines={1}>
+                                {winner?.username ? `@${winner.username}` : 'awarded'}
+                            </ThemedText>
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <ThemedText type="body-lg-semibold" style={{ color: theme[950] }}>
+                                {formatSol(amountSol)}
+                            </ThemedText>
+                            <SolanaIcon size={14} color={theme[950]} />
+                        </View>
                     </View>
-                </View>
+                )}
 
                 {!isRefunded ? (
                     <AnimatedStateButton

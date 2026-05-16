@@ -284,7 +284,9 @@ export default function BountyDetailScreen() {
                             icon={<Icon name="person.2.fill" size={11} color={theme[700]} />}
                             label={`${submissionCount} ${submissionCount === 1 ? 'submission' : 'submissions'}`}
                         />
-                        <BountyStatusPill status={cardStatus} iconSize={12} />
+                        {bounty.status !== 'settled' && bounty.status !== 'refunded' ? (
+                            <BountyStatusPill status={cardStatus} iconSize={12} />
+                        ) : null}
                     </View>
                 </View>
 
@@ -300,7 +302,13 @@ export default function BountyDetailScreen() {
                         {submissions.length === 0 ? (
                             <View style={{ paddingVertical: 12 }}>
                                 <ThemedText type="body-sm" style={{ color: theme[500] }}>
-                                    No submissions yet. They appear here as soon as people enter.
+                                    {bounty.status === 'refunded'
+                                        ? 'No one entered before the window closed. Funds were refunded.'
+                                        : bounty.status === 'cancelling' || bounty.status === 'hidden'
+                                          ? 'No submissions on this bounty.'
+                                          : !submissionWindowOpen
+                                            ? 'No submissions came in before the window closed.'
+                                            : 'No submissions yet. They appear here as soon as people enter.'}
                                 </ThemedText>
                             </View>
                         ) : (
