@@ -1,92 +1,21 @@
 import React, { useCallback, useState } from 'react';
-import { View, Linking, Pressable } from 'react-native';
+import { View, Linking } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Icon, type IconName } from '@/components/ui/Icon';
-import { ThemedText } from '@/components/base/ThemedText';
 import { SettingsScreenLayout } from '@/components/base/SettingsScreenLayout';
 import { SectionLabel } from '@/components/base/SectionLabel';
+import {
+    SettingsGroup,
+    type SettingsRowSpec,
+} from '@/components/ui/SettingsRow';
 import { SignOutSheet } from '@/components/features/account/SignOutSheet';
 import { DeleteAccountSheet } from '@/components/features/account/DeleteAccountSheet';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTheme } from '@/contexts/ThemeContext';
-import { DESTRUCTIVE } from '@/constants/StatusColors';
 import { deleteAccount } from '@/lib/services/privyAuthService';
 import { toast } from '@/lib/utils/toast';
 
 const TERMS_URL = 'https://emptea.xyz/terms-of-service';
 const PRIVACY_URL = 'https://emptea.xyz/privacy-policy';
 const SUPPORT_EMAIL = 'support@emptea.xyz';
-
-type TrailingIcon = 'chevron' | 'external' | 'none';
-
-interface RowSpec {
-    icon: IconName;
-    title: string;
-    onPress: () => void;
-    trailing?: TrailingIcon;
-    destructive?: boolean;
-}
-
-function SettingsRow({
-    spec,
-    isLast,
-}: {
-    spec: RowSpec;
-    isLast: boolean;
-}) {
-    const { theme } = useTheme();
-    const tone = spec.destructive ? DESTRUCTIVE : theme[950];
-    const iconTone = spec.destructive ? DESTRUCTIVE : theme[700];
-    const trailing = spec.trailing ?? 'chevron';
-    return (
-        <Pressable
-            onPress={spec.onPress}
-            style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
-        >
-            <View
-                style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    minHeight: 56,
-                    paddingHorizontal: 16,
-                    paddingVertical: 14,
-                    borderBottomWidth: isLast ? 0 : 1,
-                    borderBottomColor: theme[200],
-                }}
-            >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-                    <Icon name={spec.icon} color={iconTone} size={22} />
-                    <ThemedText type="body-md-semibold" style={{ color: tone }}>
-                        {spec.title}
-                    </ThemedText>
-                </View>
-                {trailing === 'chevron' ? (
-                    <Icon name="chevron.right" color={theme[400]} size={18} />
-                ) : trailing === 'external' ? (
-                    <Icon name="arrow.up.forward.square" color={theme[400]} size={16} />
-                ) : null}
-            </View>
-        </Pressable>
-    );
-}
-
-function SettingsGroup({ rows }: { rows: RowSpec[] }) {
-    const { theme } = useTheme();
-    return (
-        <View
-            style={{
-                backgroundColor: theme[100],
-                borderRadius: 16,
-                overflow: 'hidden',
-            }}
-        >
-            {rows.map((row, i) => (
-                <SettingsRow key={row.title} spec={row} isLast={i === rows.length - 1} />
-            ))}
-        </View>
-    );
-}
 
 export default function SettingsIndexScreen() {
     const { signOut } = useAuth();
@@ -122,7 +51,7 @@ export default function SettingsIndexScreen() {
         }
     }, [signOut, router]);
 
-    const accountRows: RowSpec[] = [
+    const accountRows: SettingsRowSpec[] = [
         {
             icon: 'person.crop.circle.fill',
             title: 'Profile',
@@ -145,7 +74,7 @@ export default function SettingsIndexScreen() {
         },
     ];
 
-    const supportRows: RowSpec[] = [
+    const supportRows: SettingsRowSpec[] = [
         {
             icon: 'lifepreserver.fill',
             title: 'Contact support',
@@ -171,7 +100,7 @@ export default function SettingsIndexScreen() {
         },
     ];
 
-    const destructiveRows: RowSpec[] = [
+    const destructiveRows: SettingsRowSpec[] = [
         {
             icon: 'rectangle.portrait.and.arrow.right.fill',
             title: 'Sign out',
