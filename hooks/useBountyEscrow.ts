@@ -1,9 +1,11 @@
 import { useCallback, useState } from 'react';
 import { useEmbeddedSolanaWallet } from '@privy-io/expo';
-import { createBounty as escrowCreateBounty } from '@/lib/escrow/createBounty';
-import { settleManualBounty as escrowSettleManual } from '@/lib/escrow/settleManualBounty';
-import { refundBounty as escrowRefund } from '@/lib/escrow/refundBounty';
-import { cancelBounty as escrowCancel } from '@/lib/escrow/cancelBounty';
+import {
+    createBounty as escrowCreateBounty,
+    settleManualBounty as escrowSettleManual,
+    refundBounty as escrowRefund,
+    cancelBounty as escrowCancel,
+} from '@/lib/escrow/instructions';
 import {
     draftBounty,
     persistBounty,

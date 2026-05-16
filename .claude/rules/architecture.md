@@ -73,7 +73,7 @@ lib/
 ├── firebase/   config.ts (Auth + Firestore + Storage + Functions)
 ├── solana/     connection · transferSol
 ├── anchor/     idl · idl-types · program · useFeeTreasury
-├── escrow/     _send · pda · create/settleManual/refund/cancelBounty
+├── escrow/     _send · _build · pda · instructions (create / settleManual / refund / cancelBounty)
 ├── services/   privyAuth · profile · bounty · bountyMediaUpload · submission · group · report · notifications · preferences · push · imageUpload
 ├── constants/  queryKeys · storageKeys · featureGates · escrow
 ├── types/      bounty · submission · group · profile · notification · preferences
