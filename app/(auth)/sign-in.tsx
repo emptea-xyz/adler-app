@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLoginWithOAuth } from '@privy-io/expo';
-import * as AppleAuthentication from 'expo-apple-authentication';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop, Rect } from 'react-native-svg';
 import Animated, {
   Easing,
@@ -199,22 +198,26 @@ export default function SignInScreen() {
           {/* Bottom CTA */}
           <View style={{ paddingHorizontal: 16, gap: 12, paddingBottom: 8 }}>
             <View className="flex-row" style={{ gap: 12 }}>
-              <View
+              <Pressable
+                onPress={() => onSocialPress('apple')}
+                disabled={!!pending || transitioning}
+                className="rounded-card h-14 flex-row items-center justify-center"
                 style={{
                   flex: 1,
-                  height: 56,
+                  backgroundColor: theme[950],
                   opacity: otherPending('apple') ? 0.5 : 1,
                 }}
-                pointerEvents={pending || transitioning ? 'none' : 'auto'}
+                accessibilityRole="button"
+                accessibilityLabel="Sign in with Apple"
               >
-                <AppleAuthentication.AppleAuthenticationButton
-                  buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-                  buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-                  cornerRadius={16}
-                  style={{ width: '100%', height: 56 }}
-                  onPress={() => onSocialPress('apple')}
-                />
-              </View>
+                {pending === 'apple' ? (
+                  <ActivityIndicator size="small" color={theme[50]} />
+                ) : (
+                  <ThemedText type="body-lg-semibold" style={{ color: theme[50] }}>
+                    Apple
+                  </ThemedText>
+                )}
+              </Pressable>
 
               <Pressable
                 onPress={() => onSocialPress('google')}
