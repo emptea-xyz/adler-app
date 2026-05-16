@@ -122,12 +122,7 @@ function BountyItemCard({
 
                 <ThemedText
                     type="body-md-semibold"
-                    style={{
-                        color: theme[950],
-                        fontSize: 14,
-                        lineHeight: 18,
-                        letterSpacing: -0.36,
-                    }}
+                    style={{ color: theme[950] }}
                     numberOfLines={2}
                 >
                     {title}

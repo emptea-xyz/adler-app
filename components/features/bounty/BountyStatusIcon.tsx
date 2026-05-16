@@ -152,7 +152,7 @@ function usePillPalette(status: BountyItemStatus): PillPalette {
     switch (status) {
         case 'open':
         case 'closed':
-            return { bg: theme[100], fg: theme[700] };
+            return { bg: theme[50], fg: theme[700] };
         case 'pending':
             return { bg: tw.amber[50], fg: tw.amber[700] };
         case 'processing':
