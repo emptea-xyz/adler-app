@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { Icon } from '@/components/ui/Icon';
+import { RollingNumber } from '@/components/ui/RollingNumber';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { ThemedView } from '@/components/base/ThemedView';
@@ -125,27 +126,25 @@ export default function WalletScreen() {
                             hitSlop={8}
                             accessibilityRole="button"
                             accessibilityLabel={`Balance in ${activeUnit}. Tap to switch units.`}
+                            style={{ flexDirection: 'row', alignItems: 'baseline' }}
                         >
+                            <RollingNumber
+                                value={whole}
+                                color={theme[950]}
+                                fontSize={56}
+                                lineHeight={64}
+                            />
+                            <RollingNumber
+                                value={`.${decimal}`}
+                                color={theme[400]}
+                                fontSize={56}
+                                lineHeight={64}
+                            />
                             <Animated.View
                                 key={activeUnit}
                                 entering={FadeIn.duration(220)}
                                 exiting={FadeOut.duration(180)}
-                                style={{ flexDirection: 'row', alignItems: 'baseline' }}
                             >
-                                {activeUnit === 'USD' && (
-                                    <ThemedText
-                                        type="h1"
-                                        style={{ color: theme[400], fontSize: 56, lineHeight: 64, marginRight: 2 }}
-                                    >
-                                        $
-                                    </ThemedText>
-                                )}
-                                <ThemedText type="h1" style={{ color: theme[950], fontSize: 56, lineHeight: 64 }}>
-                                    {whole}
-                                </ThemedText>
-                                <ThemedText type="h1" style={{ color: theme[400], fontSize: 56, lineHeight: 64 }}>
-                                    .{decimal}
-                                </ThemedText>
                                 <ThemedText
                                     type="body-md-semibold"
                                     style={{ color: theme[400], marginLeft: 6 }}
