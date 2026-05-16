@@ -120,13 +120,10 @@ export default function SignInScreen() {
           {/* Top strip */}
           <View
             className="flex-row items-center"
-            style={{ paddingHorizontal: 16, paddingVertical: 12, backgroundColor: 'transparent' }}
+            style={{ gap: 8, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: 'transparent' }}
           >
             <AdlerEagleLogo size={28} />
-            <ThemedText
-              type="body-lg-semibold"
-              style={{ marginLeft: 'auto', color: Neutral.black }}
-            >
+            <ThemedText type="body-lg-semibold" style={{ color: Neutral.black }}>
               Adler
             </ThemedText>
           </View>
