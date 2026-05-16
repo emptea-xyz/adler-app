@@ -1,11 +1,9 @@
 import React, { useCallback, useState } from 'react';
-import { View, ScrollView, Linking, Pressable } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Linking, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { ThemedText } from '@/components/base/ThemedText';
-import { ThemedView } from '@/components/base/ThemedView';
-import { ScreenHeader } from '@/components/base/ScreenHeader';
+import { SettingsScreenLayout } from '@/components/base/SettingsScreenLayout';
 import { SectionLabel } from '@/components/base/SectionLabel';
 import { SignOutSheet } from '@/components/features/account/SignOutSheet';
 import { DeleteAccountSheet } from '@/components/features/account/DeleteAccountSheet';
@@ -191,24 +189,23 @@ export default function SettingsIndexScreen() {
     ];
 
     return (
-        <ThemedView className="flex-1">
-            <SafeAreaView edges={['top']} className="flex-1">
-                <ScreenHeader title="Settings" onBack={() => router.back()} />
+        <>
+            <SettingsScreenLayout
+                title="Settings"
+                contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 48, gap: 24 }}
+            >
+                <View style={{ gap: 8 }}>
+                    <SectionLabel label="Account" />
+                    <SettingsGroup rows={accountRows} />
+                </View>
 
-                <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 48, gap: 24 }}>
-                    <View style={{ gap: 8 }}>
-                        <SectionLabel label="Account" />
-                        <SettingsGroup rows={accountRows} />
-                    </View>
+                <View style={{ gap: 8 }}>
+                    <SectionLabel label="Support" />
+                    <SettingsGroup rows={supportRows} />
+                </View>
 
-                    <View style={{ gap: 8 }}>
-                        <SectionLabel label="Support" />
-                        <SettingsGroup rows={supportRows} />
-                    </View>
-
-                    <SettingsGroup rows={destructiveRows} />
-                </ScrollView>
-            </SafeAreaView>
+                <SettingsGroup rows={destructiveRows} />
+            </SettingsScreenLayout>
 
             <SignOutSheet
                 visible={signOutSheet}
@@ -223,6 +220,6 @@ export default function SettingsIndexScreen() {
                 onConfirm={onDeleteAccount}
                 submitting={deleting}
             />
-        </ThemedView>
+        </>
     );
 }

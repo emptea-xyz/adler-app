@@ -1,11 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { ScrollView, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ScreenHeader } from '@/components/base/ScreenHeader';
+import { SettingsScreenLayout } from '@/components/base/SettingsScreenLayout';
 import { SectionLabel } from '@/components/base/SectionLabel';
 import { ThemedText } from '@/components/base/ThemedText';
-import { ThemedView } from '@/components/base/ThemedView';
 import { SignOutSheet } from '@/components/features/account/SignOutSheet';
 import { Button } from '@/components/ui/Button';
 import TextInput from '@/components/ui/TextInput';
@@ -73,56 +71,54 @@ export default function SettingsAccountScreen() {
     };
 
     return (
-        <ThemedView className="flex-1">
-            <SafeAreaView edges={['top']} className="flex-1">
-                <ScreenHeader title="Account" onBack={() => router.back()} />
-                <ScrollView
-                    contentContainerStyle={{
-                        paddingHorizontal: 16,
-                        paddingTop: 16,
-                        paddingBottom: 40,
-                        gap: 20,
-                    }}
-                >
-                    <View style={{ borderRadius: 12, backgroundColor: theme[100], padding: 16, gap: 14 }}>
-                        <ReadoutRow label="Handle" value={profile?.username ? `@${profile.username}` : '—'} />
-                        <ReadoutRow label="Email" value={user?.email ?? '—'} />
-                        <ReadoutRow label="Wallet" value={walletAddress ?? '—'} />
-                    </View>
+        <>
+            <SettingsScreenLayout
+                title="Account"
+                contentContainerStyle={{
+                    paddingHorizontal: 16,
+                    paddingTop: 16,
+                    paddingBottom: 40,
+                    gap: 20,
+                }}
+            >
+                <View style={{ borderRadius: 12, backgroundColor: theme[100], padding: 16, gap: 14 }}>
+                    <ReadoutRow label="Handle" value={profile?.username ? `@${profile.username}` : '—'} />
+                    <ReadoutRow label="Email" value={user?.email ?? '—'} />
+                    <ReadoutRow label="Wallet" value={walletAddress ?? '—'} />
+                </View>
 
-                    <View style={{ gap: 10 }}>
-                        <SectionLabel label="Session" />
-                        <Button
-                            title="Sign out"
-                            variant="destructive"
-                            size="lg"
-                            onPress={() => setSignOutSheet(true)}
-                        />
-                    </View>
+                <View style={{ gap: 10 }}>
+                    <SectionLabel label="Session" />
+                    <Button
+                        title="Sign out"
+                        variant="destructive"
+                        size="lg"
+                        onPress={() => setSignOutSheet(true)}
+                    />
+                </View>
 
-                    <View style={{ gap: 10 }}>
-                        <SectionLabel label="Delete account" />
-                        <ThemedText type="body-sm" style={{ color: theme[500] }}>
-                            Type {expectedDeleteText || '@username'} to confirm permanent account deletion.
-                        </ThemedText>
-                        <TextInput
-                            value={confirmText}
-                            onChangeText={setConfirmText}
-                            autoCapitalize="none"
-                            autoCorrect={false}
-                            placeholder={expectedDeleteText || '@username'}
-                        />
-                        <Button
-                            title="Delete account"
-                            variant="destructive"
-                            size="lg"
-                            onPress={onDelete}
-                            loading={deleting}
-                            disabled={deleting || !canDelete}
-                        />
-                    </View>
-                </ScrollView>
-            </SafeAreaView>
+                <View style={{ gap: 10 }}>
+                    <SectionLabel label="Delete account" />
+                    <ThemedText type="body-sm" style={{ color: theme[500] }}>
+                        Type {expectedDeleteText || '@username'} to confirm permanent account deletion.
+                    </ThemedText>
+                    <TextInput
+                        value={confirmText}
+                        onChangeText={setConfirmText}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        placeholder={expectedDeleteText || '@username'}
+                    />
+                    <Button
+                        title="Delete account"
+                        variant="destructive"
+                        size="lg"
+                        onPress={onDelete}
+                        loading={deleting}
+                        disabled={deleting || !canDelete}
+                    />
+                </View>
+            </SettingsScreenLayout>
 
             <SignOutSheet
                 visible={signOutSheet}
@@ -130,6 +126,6 @@ export default function SettingsAccountScreen() {
                 onConfirm={onSignOut}
                 submitting={signingOut}
             />
-        </ThemedView>
+        </>
     );
 }
