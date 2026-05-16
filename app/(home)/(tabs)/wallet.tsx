@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { PublicKey } from '@solana/web3.js';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import Animated, { Easing, FadeIn, FadeOut, LinearTransition } from 'react-native-reanimated';
+import Animated, { Easing, Keyframe, LinearTransition } from 'react-native-reanimated';
 import { Icon } from '@/components/ui/Icon';
 import { RollingNumber } from '@/components/ui/RollingNumber';
 import { useAuth } from '@/contexts/AuthContext';
@@ -73,6 +73,17 @@ export default function WalletScreen() {
         setUnit((u) => (u === 'SOL' ? 'USD' : 'SOL'));
     };
 
+    // Unit label transitions vertically — new label rolls up from below,
+    // old label exits upward. Matches the digit slot-machine direction.
+    const unitEntering = new Keyframe({
+        0: { opacity: 0, transform: [{ translateY: 12 }] },
+        100: { opacity: 1, transform: [{ translateY: 0 }] },
+    }).duration(220);
+    const unitExiting = new Keyframe({
+        0: { opacity: 1, transform: [{ translateY: 0 }] },
+        100: { opacity: 0, transform: [{ translateY: -12 }] },
+    }).duration(220);
+
     const openFaucet = () => {
         if (!walletAddress) return;
         Linking.openURL(`https://faucet.solana.com/?address=${walletAddress}`);
@@ -140,8 +151,8 @@ export default function WalletScreen() {
                                 layout={LinearTransition.duration(420).easing(
                                     Easing.out(Easing.cubic),
                                 )}
-                                entering={FadeIn.duration(220)}
-                                exiting={FadeOut.duration(180)}
+                                entering={unitEntering}
+                                exiting={unitExiting}
                                 style={{ marginLeft: 6 }}
                             >
                                 <ThemedText
