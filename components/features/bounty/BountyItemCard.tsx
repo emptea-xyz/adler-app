@@ -85,10 +85,10 @@ function BountyItemCard({
             <View
                 style={{
                     backgroundColor: theme[100],
-                    marginHorizontal: 20,
-                    marginBottom: 10,
+                    marginHorizontal: 8,
+                    marginBottom: 8,
                     padding: 16,
-                    gap: 8,
+                    gap: 4,
                     borderRadius: 16,
                 }}
             >
