@@ -199,24 +199,23 @@ export default function SignInScreen() {
 
           {/* Bottom CTA */}
           <View style={{ paddingHorizontal: 16, gap: 12, paddingBottom: 8 }}>
-            <View className="flex-row" style={{ gap: 12 }}>
+            <View style={{ gap: 12 }}>
               <Pressable
                 onPress={() => onSocialPress('apple')}
                 disabled={!!pending || transitioning}
                 className="rounded-card h-14 flex-row items-center justify-center"
                 style={{
-                  flex: 1,
                   backgroundColor: Neutral.black,
                   opacity: otherPending('apple') ? 0.5 : 1,
                 }}
                 accessibilityRole="button"
-                accessibilityLabel="Sign in with Apple"
+                accessibilityLabel="Continue with Apple"
               >
                 {pending === 'apple' ? (
                   <ActivityIndicator size="small" color={Neutral.white} />
                 ) : (
                   <ThemedText type="body-lg-semibold" style={{ color: Neutral.white }}>
-                    Apple
+                    Continue with Apple
                   </ThemedText>
                 )}
               </Pressable>
@@ -226,18 +225,17 @@ export default function SignInScreen() {
                 disabled={!!pending || transitioning}
                 className="rounded-card h-14 flex-row items-center justify-center"
                 style={{
-                  flex: 1,
                   backgroundColor: Neutral.black,
                   opacity: otherPending('google') ? 0.5 : 1,
                 }}
                 accessibilityRole="button"
-                accessibilityLabel="Sign in with Google"
+                accessibilityLabel="Continue with Google"
               >
                 {pending === 'google' ? (
                   <ActivityIndicator size="small" color={Neutral.white} />
                 ) : (
                   <ThemedText type="body-lg-semibold" style={{ color: Neutral.white }}>
-                    Google
+                    Continue with Google
                   </ThemedText>
                 )}
               </Pressable>
