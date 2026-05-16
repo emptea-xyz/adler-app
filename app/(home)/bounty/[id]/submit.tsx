@@ -19,7 +19,7 @@ import {
 } from '@/lib/services/submissionService';
 import { qk } from '@/lib/constants/queryKeys';
 import { haptic } from '@/lib/utils/haptic';
-import { toast } from '@/lib/utils/toast';
+import { toast, toastError } from '@/lib/utils/toast';
 
 const URL_RE = /^https?:\/\/\S+\.\S+/i;
 
@@ -124,8 +124,7 @@ export default function SubmitScreen() {
             toast.success('Submitted. The poster will review your photo.');
             router.back();
         } catch (err) {
-            haptic('error');
-            toast.error(err instanceof Error ? err.message : 'Could not submit');
+            toastError(err, 'Could not submit');
         } finally {
             setPending(false);
         }
@@ -145,8 +144,7 @@ export default function SubmitScreen() {
             toast.success('Submitted. The poster will review your video.');
             router.back();
         } catch (err) {
-            haptic('error');
-            toast.error(err instanceof Error ? err.message : 'Could not submit');
+            toastError(err, 'Could not submit');
         } finally {
             setPending(false);
         }
@@ -171,8 +169,7 @@ export default function SubmitScreen() {
             toast.success('Submitted. The poster will review your link.');
             router.back();
         } catch (err) {
-            haptic('error');
-            toast.error(err instanceof Error ? err.message : 'Could not submit');
+            toastError(err, 'Could not submit');
         } finally {
             setPending(false);
         }

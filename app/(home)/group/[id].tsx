@@ -43,7 +43,7 @@ import {
     GROUP_CONTACT_MAILTO,
     GROUP_NOT_READY,
 } from '@/lib/utils/copy';
-import { toast } from '@/lib/utils/toast';
+import { toast, toastError } from '@/lib/utils/toast';
 import { haptic } from '@/lib/utils/haptic';
 import { TAB_BAR_HEIGHT } from '@/constants/LayoutConstants';
 import type { Group, GroupMember, JoinRequest } from '@/lib/types/group';

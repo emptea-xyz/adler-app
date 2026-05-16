@@ -1,4 +1,5 @@
 import { Toast } from 'toastify-react-native'
+import { haptic } from '@/lib/utils/haptic'
 
 type ToastPosition = 'top' | 'bottom' | 'center'
 
@@ -113,5 +114,21 @@ export const toast = {
   hide: () => {
     Toast.hide()
   },
+}
+
+/**
+ * Combined error haptic + toast for catch blocks. Extracts a readable
+ * message from `err` and falls back to `fallback` when no message is
+ * available.
+ */
+export function toastError(err: unknown, fallback: string): void {
+  haptic('error')
+  const msg =
+    err instanceof Error && err.message
+      ? err.message
+      : typeof err === 'string' && err
+        ? err
+        : fallback
+  toast.error(msg)
 }
 

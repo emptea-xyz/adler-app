@@ -40,7 +40,7 @@ import { qk } from '@/lib/constants/queryKeys';
 import { formatSol } from '@/lib/utils/formatNumber';
 import { formatRelative, formatRemaining } from '@/lib/utils/dates';
 import { haptic } from '@/lib/utils/haptic';
-import { toast } from '@/lib/utils/toast';
+import { toast, toastError } from '@/lib/utils/toast';
 import { MAX_SUBMISSIONS_PER_USER } from '@/lib/constants/escrow';
 import type { Submission } from '@/lib/types/submission';
 
@@ -136,9 +136,7 @@ export default function BountyDetailScreen() {
             setCancelOpen(false);
             router.back();
         } catch (e) {
-            haptic('error');
-            const msg = e instanceof Error ? e.message : String(e);
-            toast.error(msg || "Couldn't cancel bounty");
+            toastError(e, "Couldn't cancel bounty");
         }
     };
 
@@ -155,8 +153,7 @@ export default function BountyDetailScreen() {
             toast.success('Report submitted.');
             setReportOpen(false);
         } catch (err) {
-            haptic('error');
-            toast.error(err instanceof Error ? err.message : 'Could not submit report');
+            toastError(err, 'Could not submit report');
         }
     };
 
@@ -630,8 +627,7 @@ function PickWinnerSheet({
             toast.success('Winner paid.');
             onClose();
         } catch (err) {
-            haptic('error');
-            toast.error(err instanceof Error ? err.message : 'Settle failed');
+            toastError(err, 'Settle failed');
         }
     };
     return (
