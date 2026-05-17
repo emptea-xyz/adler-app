@@ -30,6 +30,11 @@ import type { Group } from '@/lib/types/group';
 // small priority-fee surprises.
 const BOUNTY_FEE_RESERVE_LAMPORTS = 2_000_000;
 const BOUNTY_FEE_RESERVE_SOL = BOUNTY_FEE_RESERVE_LAMPORTS / LAMPORTS_PER_SOL;
+// Mirrors the firestore.rules `bountyValidShape` floor (5_000_000
+// lamports = 0.005 SOL). Below this the 0.5% protocol fee dominates and
+// the prize is essentially unawardable.
+const MIN_BOUNTY_LAMPORTS = 5_000_000;
+const MIN_BOUNTY_SOL = MIN_BOUNTY_LAMPORTS / LAMPORTS_PER_SOL;
 const INSUFFICIENT_FUNDS_RE = /insufficient.*(fund|lamport|fee)|fee.*lamport/i;
 
 const KIND_TABS = ['Photo', 'Video', 'Link'] as const;
@@ -127,12 +132,13 @@ export function PostBountySheet({ visible, onClose }: PostBountySheetProps) {
     })();
     const exceedsBalance =
         balanceLoaded && amountSol !== null && amountSol > 0 && amountSol > maxBountySol;
+    const belowMin = amountSol !== null && amountSol > 0 && amountSol < MIN_BOUNTY_SOL;
     const canSubmit =
         !pending &&
         title.trim().length > 0 &&
         prompt.trim().length > 0 &&
         amountSol !== null &&
-        amountSol > 0 &&
+        amountSol >= MIN_BOUNTY_SOL &&
         !exceedsBalance;
 
     const fail = (msg: string) => {
@@ -238,6 +244,13 @@ export function PostBountySheet({ visible, onClose }: PostBountySheetProps) {
                         >
                             {`Reserve ~${BOUNTY_FEE_RESERVE_SOL.toFixed(3)} SOL for the network fee.`}
                         </ThemedText>
+                    ) : belowMin ? (
+                        <ThemedText
+                            type="body-sm"
+                            style={{ color: theme[500], textAlign: 'center', marginTop: -8 }}
+                        >
+                            {`Minimum bounty is ${MIN_BOUNTY_SOL} SOL.`}
+                        </ThemedText>
                     ) : null}
 
                     <View style={{ gap: 8 }}>
@@ -317,7 +330,11 @@ export function PostBountySheet({ visible, onClose }: PostBountySheetProps) {
                         onChangeText={setPrompt}
                         placeholder={promptPlaceholder}
                         multiline
-                        maxLength={300}
+                        // Matches firestore.rules `bountyValidShape`
+                        // (`prompt.size() <= 500`); was 300 — UI is the
+                        // strict-side mismatch that gets bumped, not the
+                        // rule.
+                        maxLength={500}
                         style={{ height: 88, textAlignVertical: 'top' }}
                     />
 
