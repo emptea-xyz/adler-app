@@ -37,6 +37,9 @@ export function ConnectivitySheet({ visible, onClose }: Props) {
     const pingQuery = useQuery({
         queryKey: ['solana', 'ping', SOLANA_RPC_URL],
         enabled: visible,
+        // Treat a fresh ping as good for 4s — re-opening the sheet within
+        // that window uses the cached result instead of re-pinging.
+        staleTime: 4_000,
         refetchInterval: visible ? 5_000 : false,
         queryFn: async () => {
             const start = Date.now();

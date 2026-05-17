@@ -60,6 +60,12 @@ export default function WalletScreen() {
         activeUnit === 'USD' && canShowUsd
             ? formatUsdParts(balance * price)
             : formatSolParts(balance);
+    // Surface a hint when the USD figure was last priced more than 5
+    // minutes ago — keeps the user from trusting a stale conversion if
+    // CoinGecko has been flaky.
+    const priceAgeMs =
+        priceQuery.dataUpdatedAt > 0 ? Date.now() - priceQuery.dataUpdatedAt : 0;
+    const priceStale = activeUnit === 'USD' && priceAgeMs > 5 * 60_000;
 
     const refresh = () => {
         if (!walletAddress) return;
@@ -119,7 +125,10 @@ export default function WalletScreen() {
                 }}
                 refreshControl={
                     <RefreshControl
-                        refreshing={balanceQuery.isFetching}
+                        // `isRefetching` only flips true on an active
+                        // refetch, not the 30s background polling — so the
+                        // spinner only shows on a real user pull.
+                        refreshing={balanceQuery.isRefetching}
                         onRefresh={refresh}
                         tintColor={theme[950]}
                     />
@@ -165,6 +174,14 @@ export default function WalletScreen() {
                             </Animated.View>
                         </Pressable>
                     )}
+                    {priceStale ? (
+                        <ThemedText
+                            type="caption"
+                            style={{ color: theme[500], paddingLeft: 8 }}
+                        >
+                            Price {Math.round(priceAgeMs / 60_000)}m ago · network slow
+                        </ThemedText>
+                    ) : null}
                 </View>
 
                 {isZero && !balanceQuery.isLoading && (

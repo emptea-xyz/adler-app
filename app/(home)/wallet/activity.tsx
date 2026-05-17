@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { FlatList, View, Linking, RefreshControl, Pressable, ActivityIndicator } from 'react-native';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import { useFocusEffect } from 'expo-router';
 import { PublicKey } from '@solana/web3.js';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedView } from '@/components/base/ThemedView';
@@ -21,6 +22,11 @@ interface ActivityItem {
     success: boolean;
 }
 
+interface ActivityPage {
+    items: ActivityItem[];
+    nextBefore: string | null;
+}
+
 const PAGE_LIMIT = 25;
 
 export default function WalletActivityScreen() {
@@ -29,28 +35,55 @@ export default function WalletActivityScreen() {
     const insets = useSafeAreaInsets();
     const queryClient = useQueryClient();
 
-    const activityQuery = useQuery<ActivityItem[]>({
+    const activityQuery = useInfiniteQuery<ActivityPage>({
         queryKey: walletAddress ? qk.wallet.activity(walletAddress) : qk.wallet.activity(null),
         enabled: !!walletAddress,
-        queryFn: async () => {
-            if (!walletAddress) return [];
+        initialPageParam: undefined as string | undefined,
+        queryFn: async ({ pageParam }) => {
+            if (!walletAddress) return { items: [], nextBefore: null };
             const sigs = await getConnection().getSignaturesForAddress(
                 new PublicKey(walletAddress),
-                { limit: PAGE_LIMIT },
+                { limit: PAGE_LIMIT, before: pageParam as string | undefined },
             );
-            return sigs.map((s) => ({
+            const items: ActivityItem[] = sigs.map((s) => ({
                 signature: s.signature,
                 blockTimeMs: s.blockTime ? s.blockTime * 1000 : null,
                 success: !s.err,
             }));
+            // Solana's getSignaturesForAddress returns up to `limit`; when
+            // the page is short we've reached the tail of history.
+            const nextBefore =
+                items.length === PAGE_LIMIT ? items[items.length - 1].signature : null;
+            return { items, nextBefore };
         },
+        getNextPageParam: (last) => last.nextBefore ?? undefined,
         staleTime: 30_000,
     });
+
+    const items = useMemo(
+        () => (activityQuery.data?.pages ?? []).flatMap((p) => p.items),
+        [activityQuery.data],
+    );
+
+    // Refetch on focus so the user sees the latest tx without having to
+    // pull. `staleTime: 30_000` keeps the call cheap.
+    useFocusEffect(
+        useCallback(() => {
+            if (!walletAddress) return;
+            queryClient.invalidateQueries({ queryKey: qk.wallet.activity(walletAddress) });
+        }, [queryClient, walletAddress]),
+    );
 
     const onRefresh = () => {
         if (!walletAddress) return;
         haptic('light');
         queryClient.invalidateQueries({ queryKey: qk.wallet.activity(walletAddress) });
+    };
+
+    const onEndReached = () => {
+        if (activityQuery.hasNextPage && !activityQuery.isFetchingNextPage) {
+            activityQuery.fetchNextPage();
+        }
     };
 
     const openTx = (signature: string) => {
@@ -116,18 +149,27 @@ export default function WalletActivityScreen() {
                 </View>
             ) : (
                 <FlatList
-                    data={activityQuery.data ?? []}
+                    data={items}
                     keyExtractor={(item) => item.signature}
                     renderItem={renderItem}
                     refreshControl={
                         <RefreshControl
-                            refreshing={activityQuery.isFetching && !activityQuery.isLoading}
+                            refreshing={activityQuery.isRefetching}
                             onRefresh={onRefresh}
                             tintColor={theme[500]}
                         />
                     }
+                    onEndReached={onEndReached}
+                    onEndReachedThreshold={0.4}
+                    ListFooterComponent={
+                        activityQuery.isFetchingNextPage ? (
+                            <View style={{ paddingVertical: 16, alignItems: 'center' }}>
+                                <ActivityIndicator color={theme[500]} />
+                            </View>
+                        ) : null
+                    }
                     contentContainerStyle={
-                        (activityQuery.data?.length ?? 0) === 0
+                        items.length === 0
                             ? { flexGrow: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }
                             : { paddingBottom: insets.bottom + 24 }
                     }
