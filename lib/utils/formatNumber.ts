@@ -77,12 +77,13 @@ export const formatUsdParts = (usd: number): { whole: string; decimal: string } 
 
 /**
  * Strict SOL amount parser. Accepts both `.` and `,` as decimal separator
- * (iOS `decimal-pad` shows `,` in DE/FR/CH locales). Returns null for any
+ * (iOS `decimal-pad` shows `,` in DE/FR/CH locales). Allows leading-dot
+ * decimals like ".5" (a common quick-entry pattern). Returns null for any
  * malformed input — `parseFloat` quirks like `"1abc" → 1` are rejected.
  */
 export const parseSolAmount = (raw: string): number | null => {
   const trimmed = raw.trim();
-  if (!/^\d+([.,]\d+)?$/.test(trimmed)) return null;
+  if (!/^(\d+([.,]\d+)?|[.,]\d+)$/.test(trimmed)) return null;
   const n = Number(trimmed.replace(',', '.'));
   return Number.isFinite(n) ? n : null;
 };

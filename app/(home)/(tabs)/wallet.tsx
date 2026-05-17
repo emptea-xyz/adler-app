@@ -25,6 +25,7 @@ import { haptic } from '@/lib/utils/haptic';
 import { formatSolParts, formatUsdParts } from '@/lib/utils/formatNumber';
 import { EMPTY_WALLET_BALANCE } from '@/lib/utils/copy';
 import { useSolPrice } from '@/hooks/useSolPrice';
+import { SOLANA_NETWORK } from '@/lib/constants/featureGates';
 
 export default function WalletScreen() {
     const { theme } = useTheme();
@@ -140,7 +141,7 @@ export default function WalletScreen() {
                             style={{ flexDirection: 'row', alignItems: 'baseline' }}
                         >
                             <RollingNumber
-                                value={`${whole}.${decimal}`}
+                                value={decimal ? `${whole}.${decimal}` : whole}
                                 color={theme[950]}
                                 decimalColor={theme[400]}
                                 fontSize={56}
@@ -228,17 +229,19 @@ export default function WalletScreen() {
                             onPress={() => router.push('/wallet/activity')}
                         />
                     </View>
-                    <View style={{ flexBasis: '48%', flexGrow: 1 }}>
-                        <ActionTile
-                            icon="drop.fill"
-                            iconBgColor={TailwindColors.emerald[500]}
-                            iconPosition="top-right"
-                            title="Airdrop SOL"
-                            subtitle="Devnet faucet"
-                            onPress={openFaucet}
-                            disabled={!walletAddress}
-                        />
-                    </View>
+                    {SOLANA_NETWORK === 'devnet' ? (
+                        <View style={{ flexBasis: '48%', flexGrow: 1 }}>
+                            <ActionTile
+                                icon="drop.fill"
+                                iconBgColor={TailwindColors.emerald[500]}
+                                iconPosition="top-right"
+                                title="Airdrop SOL"
+                                subtitle="Devnet faucet"
+                                onPress={openFaucet}
+                                disabled={!walletAddress}
+                            />
+                        </View>
+                    ) : null}
                     <View style={{ flexBasis: '48%', flexGrow: 1 }}>
                         <ActionTile
                             icon="arrow.up.right.square"
