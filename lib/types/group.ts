@@ -1,7 +1,8 @@
 // Mirror of the group-related Firestore docs. Sources of truth:
 // `match /groups/{id}`, `match /groupMembers/{compoundId}`,
-// `match /joinRequests/{id}`, `match /groupCreationRequests/{id}` in
-// firestore.rules.
+// `match /joinRequests/{id}` in firestore.rules. (There is no
+// `groupCreationRequests` collection — v1 has no self-service create
+// flow; super-admin provisions groups via `createGroup`.)
 
 export type GroupStatus = 'pending' | 'active';
 export type GroupRole = 'admin' | 'member';
@@ -27,7 +28,10 @@ export interface GroupMember {
   groupId: string;
   uid: string;
   joinedAt: number;
-  /** v1: super-admin writes 'admin' directly via Firestore. No in-app flow. */
+  /**
+   * Initial admin is seeded by super-admin via `createGroup`. Admins
+   * can promote/demote in-app via the `transferGroupOwnership` callable.
+   */
   role: GroupRole;
 }
 

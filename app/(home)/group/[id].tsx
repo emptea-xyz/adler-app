@@ -33,6 +33,7 @@ import {
     rejectJoinRequest,
     removeGroupMember,
     requestToJoinGroup,
+    transferGroupOwnership,
 } from '@/lib/services/groupService';
 import { listGroupBounties } from '@/lib/services/bountyService';
 import { getProfile } from '@/lib/services/profileService';
@@ -567,6 +568,23 @@ function MemberRow({
         },
     });
 
+    const promoteMutation = useMutation({
+        mutationFn: () =>
+            transferGroupOwnership({ groupId: group.id, toUid: member.uid }),
+        onSuccess: () => {
+            haptic('heavy');
+            toast.success(`${display} is now an admin`);
+            queryClient.invalidateQueries({ queryKey: qk.groups.members(group.id) });
+            queryClient.invalidateQueries({ queryKey: ['groups', 'myMemberships'] });
+        },
+        onError: (err) => {
+            toastError(err, 'Could not promote');
+        },
+    });
+
+    const canPromote =
+        viewerIsAdmin && !isSelf && member.role !== 'admin';
+
     return (
         <View
             style={{
@@ -600,14 +618,26 @@ function MemberRow({
                 ) : null}
             </View>
             {member.role === 'admin' ? <Pill intent="info" label="ADMIN" icon="shield.fill" /> : null}
-            {canRemove ? (
+            {canRemove || canPromote ? (
                 <PopoverMenu
                     items={[
-                        {
-                            label: isSelf ? 'Leave group' : 'Remove from group',
-                            destructive: true,
-                            onPress: () => setConfirmOpen(true),
-                        },
+                        ...(canPromote
+                            ? [
+                                  {
+                                      label: 'Make admin',
+                                      onPress: () => promoteMutation.mutate(),
+                                  },
+                              ]
+                            : []),
+                        ...(canRemove
+                            ? [
+                                  {
+                                      label: isSelf ? 'Leave group' : 'Remove from group',
+                                      destructive: true,
+                                      onPress: () => setConfirmOpen(true),
+                                  },
+                              ]
+                            : []),
                     ]}
                 >
                     <View

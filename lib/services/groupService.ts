@@ -163,6 +163,18 @@ export async function leaveGroup(input: { groupId: string }): Promise<void> {
     await fn(input);
 }
 
+/**
+ * Promote another member to admin and demote yourself in the same
+ * transaction. Auth: caller must already be an admin of the group.
+ */
+export async function transferGroupOwnership(input: {
+    groupId: string;
+    toUid: string;
+}): Promise<void> {
+    const fn = httpsCallable(functions, 'transferGroupOwnership');
+    await fn(input);
+}
+
 // ── Join requests ──────────────────────────────────────────────────────
 
 export async function listJoinRequests(groupId: string, max = 100): Promise<JoinRequest[]> {

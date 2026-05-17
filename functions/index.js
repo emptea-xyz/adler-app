@@ -1337,6 +1337,53 @@ export const removeGroupMember = onCall(async (request) => {
   return { ok: true };
 });
 
+// transferGroupOwnership({ groupId, toUid })
+//   Admin demotes self to 'member' and promotes a target member to
+//   'admin'. Last-admin protection is automatic because the demotion +
+//   promotion happen in the same transaction; the group always has at
+//   least one admin during and after.
+export const transferGroupOwnership = onCall(async (request) => {
+  const callerUid = request.auth?.uid;
+  const groupId = requireString(request.data?.groupId, 'groupId');
+  const toUid = requireString(request.data?.toUid, 'toUid');
+  await assertGroupAdmin(callerUid, groupId);
+  if (callerUid === toUid) {
+    throw new HttpsError('failed-precondition', 'Pick someone other than yourself');
+  }
+
+  const callerRef = admin
+    .firestore()
+    .collection('groupMembers')
+    .doc(`${groupId}_${callerUid}`);
+  const targetRef = admin
+    .firestore()
+    .collection('groupMembers')
+    .doc(`${groupId}_${toUid}`);
+
+  await admin.firestore().runTransaction(async (tx) => {
+    const targetSnap = await tx.get(targetRef);
+    if (!targetSnap.exists) {
+      throw new HttpsError('not-found', 'Target is not a member of this group');
+    }
+    const callerSnap = await tx.get(callerRef);
+    if (!callerSnap.exists) {
+      throw new HttpsError('failed-precondition', 'Caller is not a member');
+    }
+    tx.update(targetRef, { role: 'admin' });
+    tx.update(callerRef, { role: 'member' });
+  });
+
+  await notifyUser({
+    recipientId: toUid,
+    kind: 'group_promoted_admin',
+    title: 'You are a group admin',
+    body: 'You can now manage members and the group profile.',
+    refs: { groupId },
+  });
+
+  return { ok: true };
+});
+
 // leaveGroup({ groupId })
 //   Self-leave path for any signed-in member. An admin can leave too,
 //   but only if another admin remains. Mirrors the last-admin protection
