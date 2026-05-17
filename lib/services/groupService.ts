@@ -85,6 +85,17 @@ export async function searchGroups(q: string, max = 30): Promise<Group[]> {
     return all.filter((g) => g.name.toLowerCase().includes(needle)).slice(0, max);
 }
 
+/**
+ * Single-membership existence check. Cheaper than `listMyMemberships`
+ * when the caller only needs a yes/no for one group (e.g. gating the
+ * submit screen). Membership doc id is `${groupId}_${uid}` by
+ * convention.
+ */
+export async function isGroupMember(groupId: string, uid: string): Promise<boolean> {
+    const snap = await getDoc(doc(db, GROUP_MEMBERS, `${groupId}_${uid}`));
+    return snap.exists();
+}
+
 export async function listMyMemberships(uid: string): Promise<GroupMember[]> {
     const snap = await getDocs(
         query(

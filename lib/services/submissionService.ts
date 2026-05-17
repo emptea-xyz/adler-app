@@ -17,6 +17,8 @@ import {
     uploadBountySubmissionVideo,
 } from '@/lib/services/bountyMediaUploadService';
 import { getBounty } from '@/lib/services/bountyService';
+import { isGroupMember } from '@/lib/services/groupService';
+import { LINK_URL_RE } from '@/lib/constants/urlRegex';
 import type { Submission } from '@/lib/types/submission';
 import type { Bounty } from '@/lib/types/bounty';
 
@@ -67,13 +69,22 @@ function bountyPreviewFields(bounty: Bounty): Pick<
     };
 }
 
-async function requireSubmittableBounty(bountyId: string): Promise<Bounty> {
+async function requireSubmittableBounty(bountyId: string, uid: string): Promise<Bounty> {
     const bounty = await getBounty(bountyId);
     if (!bounty) throw new Error('Bounty not found');
     if (bounty.status !== 'open') throw new Error('This bounty is no longer accepting submissions.');
     if (!bounty.escrowFunded) throw new Error('This bounty is not funded yet.');
     if (bounty.submissionEndsAt <= Date.now()) {
         throw new Error('The submission window for this bounty has ended.');
+    }
+    // Mirror the firestore.rules `canSubmitToBounty` membership gate so
+    // non-UI callers get a clean error before they pay for a media upload
+    // and then bounce off Storage's permission-denied.
+    if (bounty.scope === 'group' && bounty.groupId) {
+        const member = await isGroupMember(bounty.groupId, uid);
+        if (!member) {
+            throw new Error('Members-only bounty — join the group to submit.');
+        }
     }
     return bounty;
 }
@@ -89,7 +100,7 @@ export interface CreateSubmissionInput {
  */
 export async function createSubmission(input: CreateSubmissionInput): Promise<Submission> {
     const uid = requireAuth();
-    const bounty = await requireSubmittableBounty(input.bountyId);
+    const bounty = await requireSubmittableBounty(input.bountyId, uid);
     const { url, path } = await uploadBountySubmissionPhoto(input.photoUri);
     const id = `${input.bountyId}_${uid}`;
     const ref = doc(db, SUBMISSIONS, id);
@@ -125,6 +136,8 @@ export interface CreateVideoSubmissionInput {
     bountyId: string;
     videoUri: string;
     mimeType?: string;
+    /** Optional callback for resumable upload progress (0..1). */
+    onProgress?: (fraction: number) => void;
 }
 
 /**
@@ -135,8 +148,12 @@ export async function createVideoSubmission(
     input: CreateVideoSubmissionInput,
 ): Promise<Submission> {
     const uid = requireAuth();
-    const bounty = await requireSubmittableBounty(input.bountyId);
-    const { url, path } = await uploadBountySubmissionVideo(input.videoUri, input.mimeType);
+    const bounty = await requireSubmittableBounty(input.bountyId, uid);
+    const { url, path } = await uploadBountySubmissionVideo(
+        input.videoUri,
+        input.mimeType,
+        input.onProgress,
+    );
     const id = `${input.bountyId}_${uid}`;
     const ref = doc(db, SUBMISSIONS, id);
     const payload = {
@@ -173,12 +190,12 @@ export async function createLinkSubmission(input: {
     linkUrl: string;
 }): Promise<Submission> {
     const uid = requireAuth();
-    const bounty = await requireSubmittableBounty(input.bountyId);
+    const bounty = await requireSubmittableBounty(input.bountyId, uid);
     // L19 / M4: mirror the rule check so non-UI callers get a clean
     // client-side error instead of an opaque permission-denied.
     const trimmedLink = input.linkUrl.trim();
-    if (!/^https?:\/\/.+/.test(trimmedLink)) {
-        throw new Error('Link must start with http:// or https://');
+    if (!LINK_URL_RE.test(trimmedLink)) {
+        throw new Error('Enter a full URL (https://example.com/…).');
     }
     if (trimmedLink.length > 2048) {
         throw new Error('Link is too long (max 2048 chars).');

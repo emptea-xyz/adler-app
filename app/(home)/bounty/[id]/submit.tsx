@@ -4,14 +4,18 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 import { Icon } from '@/components/ui/Icon';
 import { useTheme } from '@/contexts/ThemeContext';
 import { ThemedView } from '@/components/base/ThemedView';
 import { ThemedText } from '@/components/base/ThemedText';
 import { ScreenHeader } from '@/components/base/ScreenHeader';
+import EmptyState from '@/components/ui/EmptyState';
 import { Button } from '@/components/ui/Button';
 import TextInput from '@/components/ui/TextInput';
+import { useAuth } from '@/contexts/AuthContext';
 import { useBounty } from '@/hooks/useBounty';
+import { useMyGroupIds } from '@/hooks/useMyGroupIds';
 import {
     createSubmission,
     createVideoSubmission,
@@ -20,8 +24,10 @@ import {
 import { qk } from '@/lib/constants/queryKeys';
 import { haptic } from '@/lib/utils/haptic';
 import { toast, toastError } from '@/lib/utils/toast';
+import { LINK_URL_RE } from '@/lib/constants/urlRegex';
 
-const URL_RE = /^https?:\/\/\S+\.\S+/i;
+const URL_RE = LINK_URL_RE;
+const VIDEO_MAX_BYTES = 100 * 1024 * 1024; // mirrors storage.rules
 
 export default function SubmitScreen() {
     const { id: idParam } = useLocalSearchParams<{ id: string }>();
@@ -32,17 +38,26 @@ export default function SubmitScreen() {
     const bountyQuery = useBounty(id);
     const bounty = bountyQuery.data;
     const kind = bounty?.submissionKind ?? 'photo';
+    const { user } = useAuth();
+    const myGroupIds = useMyGroupIds();
+
+    const isGroupBounty = !!bounty && bounty.scope === 'group' && !!bounty.groupId;
+    const isPoster = !!user && !!bounty && bounty.posterId === user.id;
+    const blockedByGroup =
+        isGroupBounty && !isPoster && !myGroupIds.has(bounty!.groupId!);
 
     const [photoUri, setPhotoUri] = useState<string | null>(null);
     const [videoUri, setVideoUri] = useState<string | null>(null);
     const [videoMime, setVideoMime] = useState<string>('video/mp4');
     const [linkUrl, setLinkUrl] = useState('');
     const [pending, setPending] = useState(false);
+    const [videoProgress, setVideoProgress] = useState<number | null>(null);
 
     useEffect(() => {
         // Auto-launch the camera on mount for photo bounties; video + link
-        // bounties wait for the user to act.
-        if (kind !== 'photo' || photoUri) return;
+        // bounties wait for the user to act. Don't auto-launch if the
+        // viewer is blocked at the group-membership gate.
+        if (kind !== 'photo' || photoUri || blockedByGroup) return;
         (async () => {
             const perm = await ImagePicker.getCameraPermissionsAsync();
             if (!perm.granted) {
@@ -132,10 +147,33 @@ export default function SubmitScreen() {
 
     const onConfirmVideo = async () => {
         if (!videoUri || !id) return;
+        // Pre-check size client-side so a 200MB video doesn't lock the
+        // submit button for minutes only to fail at the Storage rule.
+        try {
+            const info = await FileSystem.getInfoAsync(videoUri);
+            // `size` is only populated on local file:// URIs (it is on
+            // iOS picker output). Best-effort: skip the check otherwise.
+            if (
+                info.exists &&
+                typeof (info as { size?: number }).size === 'number' &&
+                (info as { size: number }).size > VIDEO_MAX_BYTES
+            ) {
+                toast.error('Video is too large (max 100 MB). Trim it and try again.');
+                return;
+            }
+        } catch {
+            // Best-effort — if the size probe fails we still try the upload.
+        }
         setPending(true);
+        setVideoProgress(0);
         try {
             haptic('medium');
-            await createVideoSubmission({ bountyId: id, videoUri, mimeType: videoMime });
+            await createVideoSubmission({
+                bountyId: id,
+                videoUri,
+                mimeType: videoMime,
+                onProgress: (frac) => setVideoProgress(frac),
+            });
             haptic('heavy');
             await Promise.all([
                 queryClient.invalidateQueries({ queryKey: qk.submissions.byBounty(id) }),
@@ -147,6 +185,7 @@ export default function SubmitScreen() {
             toastError(err, 'Could not submit');
         } finally {
             setPending(false);
+            setVideoProgress(null);
         }
     };
 
@@ -175,6 +214,20 @@ export default function SubmitScreen() {
         }
     };
 
+    if (blockedByGroup) {
+        return (
+            <ThemedView style={{ flex: 1, paddingTop: insets.top }}>
+                <ScreenHeader title="Submit" />
+                <View style={{ flex: 1, justifyContent: 'center', padding: 24 }}>
+                    <EmptyState
+                        title="Members-only bounty"
+                        description="Join the group to submit. The poster will only accept submissions from members."
+                    />
+                </View>
+            </ThemedView>
+        );
+    }
+
     return (
         <ThemedView style={{ flex: 1, paddingTop: insets.top }}>
             <ScreenHeader title="Submit" />
@@ -202,6 +255,7 @@ export default function SubmitScreen() {
                     onPickFromLibrary={pickVideoFromLibrary}
                     onRecord={recordVideo}
                     pending={pending}
+                    progress={videoProgress}
                     onConfirm={onConfirmVideo}
                     insets={insets}
                 />
@@ -330,6 +384,7 @@ function VideoSubmitBody({
     onPickFromLibrary,
     onRecord,
     pending,
+    progress,
     onConfirm,
     insets,
 }: {
@@ -338,6 +393,7 @@ function VideoSubmitBody({
     onPickFromLibrary: () => void;
     onRecord: () => void;
     pending: boolean;
+    progress: number | null;
     onConfirm: () => void;
     insets: { bottom: number };
 }) {
@@ -420,7 +476,13 @@ function VideoSubmitBody({
                     <Button
                         size="lg"
                         variant="primary"
-                        title={pending ? 'Submitting…' : 'Confirm submission'}
+                        title={
+                            pending
+                                ? progress !== null && progress < 1
+                                    ? `Uploading ${Math.round(progress * 100)}%`
+                                    : 'Submitting…'
+                                : 'Confirm submission'
+                        }
                         loading={pending}
                         disabled={pending}
                         onPress={onConfirm}
