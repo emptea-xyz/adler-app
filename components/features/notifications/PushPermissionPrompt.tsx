@@ -45,10 +45,10 @@ export function PushPermissionPrompt({
                     </View>
                     <View style={{ gap: 8 }}>
                         <ThemedText type="h5" style={{ color: theme[950] }}>
-                            Get notified when buyers reach out
+                            Stay on top of your bounties
                         </ThemedText>
                         <ThemedText type="body-md" style={{ color: theme[500] }}>
-                            Adler can send order, message, and application updates as they happen.
+                            Adler can ping you about new submissions, awards, refunds, and group invites.
                         </ThemedText>
                     </View>
                 </View>

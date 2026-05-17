@@ -3,12 +3,17 @@ import { View, Pressable, StyleSheet, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Canvas, Rect, LinearGradient, vec } from '@shopify/react-native-skia';
+import { useQuery } from '@tanstack/react-query';
 import { Icon, type IconName } from '@/components/ui/Icon';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useOverlaySheets } from '@/contexts/OverlaySheetsContext';
 import { haptic } from '@/lib/utils/haptic';
 import { TAB_BAR_HEIGHT } from '@/constants/LayoutConstants';
 import { TailwindColors } from '@/constants/TailwindColors';
+import { Status } from '@/constants/StatusColors';
+import { qk } from '@/lib/constants/queryKeys';
+import { countUnread } from '@/lib/services/notificationsService';
 
 const ICONS: Record<string, IconName> = {
     browse: 'safari.fill',
@@ -31,6 +36,19 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
     const insets = useSafeAreaInsets();
     const { width } = useWindowDimensions();
     const { openPostBounty } = useOverlaySheets();
+    const { user } = useAuth();
+
+    // Single shared unread counter for the Inbox tab badge. 30s
+    // refetchInterval keeps the dot warm without being chatty; the inbox
+    // screen also invalidates this key when a notification is read.
+    const unreadQuery = useQuery({
+        queryKey: user ? [...qk.notifications.list(user.id), 'unread'] : ['notifications', 'unread', 'anon'],
+        queryFn: () => (user ? countUnread(user.id) : Promise.resolve(0)),
+        enabled: !!user,
+        refetchInterval: 30_000,
+        staleTime: 15_000,
+    });
+    const hasUnread = (unreadQuery.data ?? 0) > 0;
 
     const totalHeight = TAB_BAR_HEIGHT + insets.bottom;
 
@@ -107,13 +125,32 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
                 style={styles.tabSlot}
                 accessibilityRole="button"
                 accessibilityState={focusedRouteName === 'inbox' ? { selected: true } : {}}
-                accessibilityLabel={LABELS['inbox']}
+                accessibilityLabel={
+                    hasUnread ? `${LABELS['inbox']}, new activity` : LABELS['inbox']
+                }
             >
-                <Icon
-                    name={ICONS['inbox']}
-                    size={28}
-                    color={focusedRouteName === 'inbox' ? theme[950] : theme[200]}
-                />
+                <View>
+                    <Icon
+                        name={ICONS['inbox']}
+                        size={28}
+                        color={focusedRouteName === 'inbox' ? theme[950] : theme[200]}
+                    />
+                    {hasUnread ? (
+                        <View
+                            style={{
+                                position: 'absolute',
+                                top: -2,
+                                right: -4,
+                                width: 10,
+                                height: 10,
+                                borderRadius: 5,
+                                backgroundColor: Status.error,
+                                borderWidth: 1.5,
+                                borderColor: theme[50],
+                            }}
+                        />
+                    ) : null}
+                </View>
             </Pressable>
             <Pressable
                 key="create"

@@ -64,7 +64,8 @@ export default function InboxScreen() {
 
     const notificationsQuery = useQuery({
         queryKey: user ? qk.notifications.list(user.id) : ['notifications', 'list', 'anon'],
-        queryFn: () => (user ? listMyNotifications(user.id) : Promise.resolve([])),
+        queryFn: () =>
+            user ? listMyNotifications(user.id).then((p) => p.items) : Promise.resolve([]),
         staleTime: 15_000,
         enabled: !!user && tab === 'activity',
     });

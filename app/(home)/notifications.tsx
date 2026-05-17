@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
     ActivityIndicator,
     FlatList,
@@ -8,7 +8,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
+import type { QueryDocumentSnapshot } from 'firebase/firestore';
 import { ScreenHeader } from '@/components/base/ScreenHeader';
 import { ThemedText } from '@/components/base/ThemedText';
 import { ThemedView } from '@/components/base/ThemedView';
@@ -19,6 +20,7 @@ import {
     listMyNotifications,
     markAllRead,
     markNotificationRead,
+    type NotificationsPage,
 } from '@/lib/services/notificationsService';
 import type { AdlerNotification } from '@/lib/types/notification';
 import { formatRelative } from '@/lib/utils/dates';
@@ -38,23 +40,49 @@ export default function NotificationsScreen() {
     const [markingAll, setMarkingAll] = useState(false);
     const [rowBusy, setRowBusy] = useState<Record<string, boolean>>({});
 
-    const notificationsQuery = useQuery({
+    const notificationsQuery = useInfiniteQuery<NotificationsPage>({
         queryKey: user ? qk.notifications.list(user.id) : ['notifications', 'list', 'anon'],
         enabled: !!user,
-        queryFn: () => listMyNotifications(user!.id),
+        initialPageParam: null as QueryDocumentSnapshot | null,
+        queryFn: ({ pageParam }) =>
+            listMyNotifications(user!.id, pageParam as QueryDocumentSnapshot | null),
+        getNextPageParam: (last) => last.nextCursor ?? undefined,
     });
 
-    const notifications = notificationsQuery.data ?? [];
+    const notifications = useMemo(
+        () => (notificationsQuery.data?.pages ?? []).flatMap((p) => p.items),
+        [notificationsQuery.data],
+    );
     const unreadCount = notifications.filter((n) => !n.read).length;
 
     const onOpenRow = async (item: AdlerNotification) => {
+        // Optimistic read-flag flip so the row updates instantly. The
+        // network call backfills the same state; we invalidate the unread
+        // counter separately so the inbox-tab badge follows.
+        if (!item.read && user) {
+            queryClient.setQueryData(
+                qk.notifications.list(user.id),
+                (data: { pages: NotificationsPage[] } | undefined) =>
+                    data
+                        ? {
+                              ...data,
+                              pages: data.pages.map((p) => ({
+                                  ...p,
+                                  items: p.items.map((n) =>
+                                      n.id === item.id ? { ...n, read: true } : n,
+                                  ),
+                              })),
+                          }
+                        : data,
+            );
+        }
         try {
             if (!item.read) {
                 setRowBusy((old) => ({ ...old, [item.id]: true }));
                 await markNotificationRead(item.id);
                 if (user) {
                     queryClient.invalidateQueries({
-                        queryKey: qk.notifications.list(user.id),
+                        queryKey: [...qk.notifications.list(user.id), 'unread'],
                     });
                 }
             }
@@ -69,15 +97,39 @@ export default function NotificationsScreen() {
     const onMarkAll = async () => {
         if (!user || unreadCount < 1 || markingAll) return;
         setMarkingAll(true);
+        // Optimistic flip on every cached page.
+        queryClient.setQueryData(
+            qk.notifications.list(user.id),
+            (data: { pages: NotificationsPage[] } | undefined) =>
+                data
+                    ? {
+                          ...data,
+                          pages: data.pages.map((p) => ({
+                              ...p,
+                              items: p.items.map((n) => ({ ...n, read: true })),
+                          })),
+                      }
+                    : data,
+        );
         try {
             await markAllRead(notifications);
             await queryClient.invalidateQueries({
-                queryKey: qk.notifications.list(user.id),
+                queryKey: [...qk.notifications.list(user.id), 'unread'],
             });
         } catch (err: any) {
             toast.error(err?.message ?? 'Could not mark all read');
+            // Re-fetch to reconcile the optimistic state on error.
+            queryClient.invalidateQueries({
+                queryKey: qk.notifications.list(user.id),
+            });
         } finally {
             setMarkingAll(false);
+        }
+    };
+
+    const onEndReached = () => {
+        if (notificationsQuery.hasNextPage && !notificationsQuery.isFetchingNextPage) {
+            notificationsQuery.fetchNextPage();
         }
     };
 
@@ -115,9 +167,18 @@ export default function NotificationsScreen() {
                         refreshControl={
                             <RefreshControl
                                 refreshing={notificationsQuery.isRefetching}
-                                onRefresh={notificationsQuery.refetch}
+                                onRefresh={() => notificationsQuery.refetch()}
                                 tintColor={theme[500]}
                             />
+                        }
+                        onEndReached={onEndReached}
+                        onEndReachedThreshold={0.4}
+                        ListFooterComponent={
+                            notificationsQuery.isFetchingNextPage ? (
+                                <View style={{ paddingVertical: 12, alignItems: 'center' }}>
+                                    <ActivityIndicator color={theme[500]} />
+                                </View>
+                            ) : null
                         }
                         ListEmptyComponent={
                             <View className="pt-12 items-center">

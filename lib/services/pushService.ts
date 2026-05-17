@@ -99,15 +99,13 @@ function asRecord(value: unknown): Record<string, unknown> {
 
 function hrefFromPushData(payload: unknown): string | null {
     const data = asRecord(payload);
+    // Backend always sets `href` for current notification kinds. The old
+    // `order` / `gigApplication` fallbacks are gone — that data model was
+    // dropped before Adler's bounty pivot and the routes they produced
+    // no longer exist.
     if (typeof data.href === 'string' && data.href.trim().length > 0) {
         const href = data.href.trim();
         return href.startsWith('/') ? href : `/${href}`;
-    }
-    if (data.kind === 'order' && typeof data.orderId === 'string') {
-        return `/inbox/order_${data.orderId}`;
-    }
-    if (data.kind === 'gigApplication' && typeof data.applicationId === 'string') {
-        return `/inbox/application_${data.applicationId}`;
     }
     return null;
 }
