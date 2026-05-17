@@ -17,7 +17,6 @@ import { SolanaIcon } from '@/components/ui/SolanaIcon';
 import { qk } from '@/lib/constants/queryKeys';
 import { getGroup } from '@/lib/services/groupService';
 import { useBountyEscrow } from '@/hooks/useBountyEscrow';
-import { useMyGroupIds } from '@/hooks/useMyGroupIds';
 import { toast, toastError } from '@/lib/utils/toast';
 import type { Bounty } from '@/lib/types/bounty';
 import type { Submission } from '@/lib/types/submission';
@@ -53,8 +52,6 @@ function BountyItemCard({
     onLongPress,
 }: BountyItemCardProps) {
     const { theme } = useTheme();
-    const myGroupIds = useMyGroupIds();
-    const membersOnly = !!groupId && !myGroupIds.has(groupId);
 
     const groupQuery = useQuery({
         queryKey: groupId ? qk.groups.detail(groupId) : ['groups', 'detail', 'none'],
@@ -97,28 +94,6 @@ function BountyItemCard({
                         >
                             {group.name}
                         </ThemedText>
-                        {membersOnly ? (
-                            <View
-                                style={{
-                                    flexDirection: 'row',
-                                    alignItems: 'center',
-                                    gap: 3,
-                                    marginLeft: 4,
-                                    paddingHorizontal: 6,
-                                    paddingVertical: 1,
-                                    borderRadius: 999,
-                                    backgroundColor: theme[200],
-                                }}
-                            >
-                                <Icon name="lock.fill" size={9} color={theme[700]} />
-                                <ThemedText
-                                    type="caption-semibold"
-                                    style={{ color: theme[700], fontSize: 9, letterSpacing: 0.4 }}
-                                >
-                                    MEMBERS ONLY
-                                </ThemedText>
-                            </View>
-                        ) : null}
                     </View>
                 ) : (
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
