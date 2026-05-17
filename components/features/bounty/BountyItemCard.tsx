@@ -171,22 +171,16 @@ function ScopeTag({ locked }: { locked: boolean }) {
     return (
         <View
             style={{
-                flexDirection: 'row',
+                width: 22,
+                height: 22,
+                borderRadius: 11,
                 alignItems: 'center',
-                gap: 3,
-                paddingHorizontal: 6,
-                paddingVertical: 2,
-                borderRadius: 999,
+                justifyContent: 'center',
                 backgroundColor: theme[200],
             }}
+            accessibilityLabel={locked ? 'Members only' : 'Public'}
         >
-            <Icon name={locked ? 'lock.fill' : 'globe'} size={9} color={theme[700]} />
-            <ThemedText
-                type="caption-semibold"
-                style={{ color: theme[700], fontSize: 9, letterSpacing: 0.4 }}
-            >
-                {locked ? 'LOCKED' : 'PUBLIC'}
-            </ThemedText>
+            <Icon name={locked ? 'lock.fill' : 'globe'} size={11} color={theme[700]} />
         </View>
     );
 }
