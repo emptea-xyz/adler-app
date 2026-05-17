@@ -1,5 +1,6 @@
 import {
     collection,
+    deleteDoc,
     doc,
     getDocs,
     limit,
@@ -255,6 +256,16 @@ export async function listMySubmissions(uid: string, max = 100): Promise<Submiss
         ),
     );
     return snap.docs.map((d) => rowToSubmission(d.id, d.data() as Record<string, unknown>));
+}
+
+/**
+ * Withdraw your own submission before the poster picks a winner. The
+ * rule allows owner-delete only when `isWinner == false`;
+ * `decrementSubmissionCountOnDelete` keeps the parent counter accurate.
+ */
+export async function withdrawSubmission(submissionId: string): Promise<void> {
+    requireAuth();
+    await deleteDoc(doc(db, SUBMISSIONS, submissionId));
 }
 
 export async function listMySubmissionsForBounty(

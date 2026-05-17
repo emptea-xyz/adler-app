@@ -33,6 +33,7 @@ import { useBountyEscrow } from '@/hooks/useBountyEscrow';
 import {
     listSubmissionsForBounty,
     listMySubmissionsForBounty,
+    withdrawSubmission,
 } from '@/lib/services/submissionService';
 import { getProfile } from '@/lib/services/profileService';
 import { listMyMemberships } from '@/lib/services/groupService';
@@ -324,6 +325,27 @@ export default function BountyDetailScreen() {
                     <WonCard bounty={bounty} winner={winner} />
                 ) : null}
 
+                {/* Submitter view: surface their own submission with a
+                    status pill + withdraw button (when permitted). The
+                    delete rule only allows owner-delete when isWinner is
+                    false; we additionally hide the button outside the
+                    submission window so a poster who's mid-review isn't
+                    surprised by a vanishing entry. */}
+                {!isPoster && mine.length > 0 ? (
+                    <YourSubmissionSection
+                        bounty={bounty}
+                        submission={mine[0]}
+                        submissionWindowOpen={submissionWindowOpen}
+                        onWithdrawn={async () => {
+                            await Promise.all([
+                                queryClient.invalidateQueries({ queryKey: qk.submissions.byBounty(bounty.id) }),
+                                queryClient.invalidateQueries({ queryKey: qk.submissions.mineForBounty(bounty.id, user!.id) }),
+                                queryClient.invalidateQueries({ queryKey: qk.bounties.detail(bounty.id) }),
+                            ]);
+                        }}
+                    />
+                ) : null}
+
                 {/* Poster sees the full submission list to pick a winner.
                     For everyone else, the count is already shown inline above. */}
                 {isPoster ? (
@@ -468,6 +490,134 @@ const STATUS_RANK: Record<BountyItemStatus, number> = {
     hidden: 1,
     closed: 0,
 };
+function YourSubmissionSection({
+    bounty,
+    submission,
+    submissionWindowOpen,
+    onWithdrawn,
+}: {
+    bounty: import('@/lib/types/bounty').Bounty;
+    submission: Submission;
+    submissionWindowOpen: boolean;
+    onWithdrawn: () => Promise<void>;
+}) {
+    const { theme } = useTheme();
+    const [withdrawing, setWithdrawing] = useState(false);
+    const [confirmOpen, setConfirmOpen] = useState(false);
+
+    const cardStatus = submissionStatusToCard(submission, bounty);
+    const canWithdraw =
+        !submission.isWinner &&
+        bounty.status === 'open' &&
+        submissionWindowOpen;
+
+    const subtitle =
+        submission.linkUrl
+            ? submission.linkUrl
+            : submission.videoUrl
+                ? 'Video submitted'
+                : submission.photoUrl
+                    ? 'Photo submitted'
+                    : 'Submitted';
+
+    const onWithdraw = async () => {
+        if (withdrawing) return;
+        setWithdrawing(true);
+        try {
+            haptic('medium');
+            await withdrawSubmission(submission.id);
+            haptic('heavy');
+            toast.success('Submission withdrawn.');
+            setConfirmOpen(false);
+            await onWithdrawn();
+        } catch (err) {
+            toastError(err, "Couldn't withdraw");
+        } finally {
+            setWithdrawing(false);
+        }
+    };
+
+    return (
+        <View style={{ gap: 8 }}>
+            <SectionLabel label="YOUR SUBMISSION" />
+            <Card variant="outline">
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 }}>
+                    {submission.photoUrl ? (
+                        <Image
+                            source={{ uri: submission.photoUrl }}
+                            style={{
+                                width: 56,
+                                height: 56,
+                                borderRadius: 10,
+                                backgroundColor: theme[100],
+                            }}
+                        />
+                    ) : (
+                        <View
+                            style={{
+                                width: 56,
+                                height: 56,
+                                borderRadius: 10,
+                                backgroundColor: theme[100],
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                            }}
+                        >
+                            <Icon
+                                name={submission.linkUrl ? 'link' : 'play.rectangle.fill'}
+                                size={22}
+                                color={theme[600]}
+                            />
+                        </View>
+                    )}
+                    <View style={{ flex: 1, gap: 2 }}>
+                        <ThemedText
+                            type="body-md-semibold"
+                            style={{ color: theme[950] }}
+                            numberOfLines={1}
+                        >
+                            {submission.bountyTitle ?? bounty.title}
+                        </ThemedText>
+                        <ThemedText type="caption" style={{ color: theme[500] }} numberOfLines={1}>
+                            {subtitle}
+                        </ThemedText>
+                    </View>
+                    <BountyStatusPill status={cardStatus} iconSize={12} />
+                </View>
+                {canWithdraw ? (
+                    <View
+                        style={{
+                            paddingHorizontal: 12,
+                            paddingBottom: 12,
+                            paddingTop: 0,
+                            flexDirection: 'row',
+                            justifyContent: 'flex-end',
+                        }}
+                    >
+                        <Button
+                            variant="tertiary"
+                            size="default"
+                            title="Withdraw"
+                            onPress={() => setConfirmOpen(true)}
+                            disabled={withdrawing}
+                        />
+                    </View>
+                ) : null}
+            </Card>
+            <Alert
+                visible={confirmOpen}
+                title="Withdraw submission?"
+                message="You can re-enter later if the bounty is still open."
+                confirmText={withdrawing ? 'Withdrawing…' : 'Withdraw'}
+                cancelText="Keep"
+                isDestructive
+                onConfirm={onWithdraw}
+                onCancel={() => setConfirmOpen(false)}
+            />
+        </View>
+    );
+}
+
 function pickBestSubmissionStatus(
     subs: Submission[],
     bounty: import('@/lib/types/bounty').Bounty,
