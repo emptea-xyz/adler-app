@@ -157,6 +157,12 @@ export async function removeGroupMember(input: {
     await fn(input);
 }
 
+/** Self-leave path: any member calls this; last admin gets a friendly error. */
+export async function leaveGroup(input: { groupId: string }): Promise<void> {
+    const fn = httpsCallable(functions, 'leaveGroup');
+    await fn(input);
+}
+
 // ── Join requests ──────────────────────────────────────────────────────
 
 export async function listJoinRequests(groupId: string, max = 100): Promise<JoinRequest[]> {

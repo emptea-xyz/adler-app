@@ -26,6 +26,7 @@ import {
     approveJoinRequest,
     getGroup,
     getMyJoinRequest,
+    leaveGroup,
     listGroupMembers,
     listJoinRequests,
     listMyMemberships,
@@ -91,10 +92,13 @@ export default function GroupDetailScreen() {
     });
     const hasPendingRequest = !!myJoinRequestQuery.data;
 
+    // Group bounties are publicly browseable now (submission stays gated
+    // to members in the rules) so non-members can preview before
+    // deciding whether to request access.
     const bountiesQuery = useQuery({
         queryKey: qk.bounties.listGroup([id], 'open'),
         queryFn: () => listGroupBounties([id]),
-        enabled: !!id && tab === 'bounties' && isActive && isMember,
+        enabled: !!id && tab === 'bounties' && isActive,
         staleTime: 30_000,
     });
 
@@ -229,7 +233,9 @@ export default function GroupDetailScreen() {
         );
     }
 
-    const tabs = isMember ? (['Bounties', 'Members'] as const) : (['Members'] as const);
+    // Tabs always include Bounties so non-members can preview content
+    // before requesting access.
+    const tabs = ['Bounties', 'Members'] as const;
     const activeTabLabel = tab === 'bounties' ? 'Bounties' : 'Members';
     const pendingRequests = joinRequestsQuery.data ?? [];
 
@@ -539,19 +545,25 @@ function MemberRow({
     const isSelf = viewerUid === member.uid;
     const adminCount = members.filter((m) => m.role === 'admin').length;
     const cannotRemoveLastAdmin = member.role === 'admin' && adminCount <= 1;
-    const canRemove = viewerIsAdmin && !cannotRemoveLastAdmin;
+    // Admins can remove anyone (subject to last-admin protection); a
+    // non-admin still needs a "Leave group" option on their own row.
+    const canRemove =
+        (viewerIsAdmin || isSelf) && !cannotRemoveLastAdmin;
 
     const removeMutation = useMutation({
-        mutationFn: () => removeGroupMember({ groupId: group.id, uid: member.uid }),
+        mutationFn: () =>
+            isSelf
+                ? leaveGroup({ groupId: group.id })
+                : removeGroupMember({ groupId: group.id, uid: member.uid }),
         onSuccess: () => {
             haptic('heavy');
-            toast.success(`${display} removed`);
+            toast.success(isSelf ? 'Left group' : `${display} removed`);
             queryClient.invalidateQueries({ queryKey: qk.groups.members(group.id) });
             queryClient.invalidateQueries({ queryKey: qk.groups.detail(group.id) });
             queryClient.invalidateQueries({ queryKey: ['groups', 'myMemberships'] });
         },
         onError: (err) => {
-            toastError(err, 'Could not remove');
+            toastError(err, isSelf ? "Couldn't leave" : 'Could not remove');
         },
     });
 

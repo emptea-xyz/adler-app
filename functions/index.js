@@ -1337,6 +1337,58 @@ export const removeGroupMember = onCall(async (request) => {
   return { ok: true };
 });
 
+// leaveGroup({ groupId })
+//   Self-leave path for any signed-in member. An admin can leave too,
+//   but only if another admin remains. Mirrors the last-admin protection
+//   in removeGroupMember.
+export const leaveGroup = onCall(async (request) => {
+  const callerUid = request.auth?.uid;
+  if (!callerUid) throw new HttpsError('unauthenticated', 'Sign-in required');
+  const groupId = requireString(request.data?.groupId, 'groupId');
+
+  const memberRef = admin
+    .firestore()
+    .collection('groupMembers')
+    .doc(`${groupId}_${callerUid}`);
+  const groupRef = admin.firestore().collection('groups').doc(groupId);
+
+  await admin.firestore().runTransaction(async (tx) => {
+    const memberSnap = await tx.get(memberRef);
+    if (!memberSnap.exists) {
+      throw new HttpsError('not-found', "You're not a member of this group");
+    }
+    const groupSnap = await tx.get(groupRef);
+    if (!groupSnap.exists) throw new HttpsError('not-found', 'Group not found');
+
+    if (memberSnap.data()?.role === 'admin') {
+      const adminsSnap = await admin
+        .firestore()
+        .collection('groupMembers')
+        .where('groupId', '==', groupId)
+        .where('role', '==', 'admin')
+        .get();
+      const remaining = adminsSnap.docs.filter((d) => d.id !== memberRef.id).length;
+      if (remaining === 0) {
+        throw new HttpsError(
+          'failed-precondition',
+          'You are the only admin. Promote someone first.',
+        );
+      }
+    }
+
+    tx.delete(memberRef);
+    const currentCount =
+      typeof groupSnap.data()?.memberCount === 'number'
+        ? groupSnap.data().memberCount
+        : 0;
+    tx.update(groupRef, {
+      memberCount: Math.max(0, currentCount - 1),
+    });
+  });
+
+  return { ok: true };
+});
+
 // createGroup({ name, description?, ownerId, status? })
 //   Super-admin only. Provisions a new group + seeds ownerId as 'admin'.
 //   Default status is 'pending' so the admin sees the "not ready" banner
