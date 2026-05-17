@@ -1,4 +1,12 @@
-import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import {
+    arrayRemove,
+    arrayUnion,
+    doc,
+    getDoc,
+    serverTimestamp,
+    setDoc,
+    updateDoc,
+} from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import type { NotificationKind } from '@/lib/types/notification';
 import {
@@ -20,6 +28,7 @@ const KINDS: NotificationKind[] = [
     'group_join_requested',
     'group_join_approved',
     'group_join_rejected',
+    'group_bounty_new',
     'system',
 ];
 
@@ -45,9 +54,11 @@ export async function getPreferences(uid: string): Promise<UserPreferences> {
         };
     }
     const data = snap.data() as Record<string, unknown>;
+    const mutedGroupsRaw = Array.isArray(data.mutedGroups) ? data.mutedGroups : [];
     return {
         uid,
         notifications: mergeNotificationPrefs(data.notifications),
+        mutedGroups: mutedGroupsRaw.filter((g): g is string => typeof g === 'string'),
         updatedAt: tsMs(data.updatedAt),
     };
 }
@@ -66,4 +77,35 @@ export async function setNotificationPreference(
         },
         { merge: true },
     );
+}
+
+/**
+ * Toggle the per-user mute for a single group. Mute suppresses the
+ * new-group-bounty push fan-out for this user (see functions/index.js).
+ * Uses arrayUnion/arrayRemove so concurrent writes converge. Ensures the
+ * preferences doc exists first so the array field has somewhere to land.
+ */
+export async function setGroupMute(
+    uid: string,
+    groupId: string,
+    muted: boolean,
+): Promise<void> {
+    const ref = doc(db, PREFERENCES, uid);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) {
+        await setDoc(
+            ref,
+            {
+                uid,
+                mutedGroups: muted ? [groupId] : [],
+                updatedAt: serverTimestamp(),
+            },
+            { merge: true },
+        );
+        return;
+    }
+    await updateDoc(ref, {
+        mutedGroups: muted ? arrayUnion(groupId) : arrayRemove(groupId),
+        updatedAt: serverTimestamp(),
+    });
 }

@@ -35,6 +35,8 @@ function rowToGroup(id: string, data: Record<string, unknown>): Group {
         openBountyTotalLamports:
             typeof data.openBountyTotalLamports === 'number' ? data.openBountyTotalLamports : 0,
         logoUrl: (data.logoUrl as string | null | undefined) ?? null,
+        rules: (data.rules as string) ?? '',
+        pinnedBountyId: (data.pinnedBountyId as string | null | undefined) ?? null,
     };
 }
 
@@ -96,6 +98,21 @@ export async function isGroupMember(groupId: string, uid: string): Promise<boole
     return snap.exists();
 }
 
+/**
+ * Authoritative single-doc membership lookup. Returns the full member
+ * row (with role) when present, or null. Use on the group detail screen
+ * so the action area resolves correctly without waiting on the broader
+ * `listMyMemberships` cache.
+ */
+export async function getMyMembership(
+    groupId: string,
+    uid: string,
+): Promise<GroupMember | null> {
+    const snap = await getDoc(doc(db, GROUP_MEMBERS, `${groupId}_${uid}`));
+    if (!snap.exists()) return null;
+    return rowToMember(snap.id, snap.data() as Record<string, unknown>);
+}
+
 export async function listMyMemberships(uid: string): Promise<GroupMember[]> {
     const snap = await getDocs(
         query(
@@ -130,6 +147,12 @@ export async function updateGroup(input: {
     description?: string;
     /** Pass `null` to clear the logo, a Firebase Storage URL to set one. */
     logoUrl?: string | null;
+    /** Admin-curated rules. Max 1000 chars; pass `''` to clear. */
+    rules?: string;
+    /** Pin a single open group bounty to the top of the Bounties tab.
+     *  Pass `null` to clear. Server validates that the bounty belongs to
+     *  this group, is `scope: 'group'`, and is open. */
+    pinnedBountyId?: string | null;
 }): Promise<void> {
     const fn = httpsCallable(functions, 'updateGroup');
     await fn(input);

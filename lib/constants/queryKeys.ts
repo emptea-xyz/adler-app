@@ -37,6 +37,8 @@ export const qk = {
     all: () => ['groups'] as const,
     detail: (id: string) => ['groups', 'detail', id] as const,
     myMemberships: (uid: string) => ['groups', 'myMemberships', uid] as const,
+    myMembership: (groupId: string, uid: string) =>
+      ['groups', 'myMembership', groupId, uid] as const,
     members: (groupId: string) => ['groups', 'members', groupId] as const,
     list: () => ['groups', 'list'] as const,
     search: (q: string) => ['groups', 'search', q] as const,

@@ -10,6 +10,7 @@ export type NotificationKind =
   | 'group_join_requested'
   | 'group_join_approved'
   | 'group_join_rejected'
+  | 'group_bounty_new'
   | 'system';
 
 export interface NotificationRefs {

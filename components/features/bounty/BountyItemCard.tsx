@@ -16,7 +16,6 @@ import { Icon } from '@/components/ui/Icon';
 import { SolanaIcon } from '@/components/ui/SolanaIcon';
 import { qk } from '@/lib/constants/queryKeys';
 import { getGroup } from '@/lib/services/groupService';
-import { getProfile } from '@/lib/services/profileService';
 import { useBountyEscrow } from '@/hooks/useBountyEscrow';
 import { useMyGroupIds } from '@/hooks/useMyGroupIds';
 import { toast, toastError } from '@/lib/utils/toast';
@@ -39,8 +38,6 @@ interface BountyItemCardProps {
     title: string;
     amountLamports: number;
     status: BountyItemStatus;
-    /** Poster's uid — used to surface their @username below the title. */
-    posterId?: string | null;
     /** When set, a small group logo + name is shown above the title. */
     groupId?: string | null;
     onPress?: () => void;
@@ -51,7 +48,6 @@ function BountyItemCard({
     title,
     amountLamports,
     status,
-    posterId,
     groupId,
     onPress,
     onLongPress,
@@ -67,14 +63,6 @@ function BountyItemCard({
         staleTime: 5 * 60_000,
     });
     const group = groupQuery.data ?? null;
-
-    const posterQuery = useQuery({
-        queryKey: posterId ? qk.profiles.detail(posterId) : ['profiles', 'detail', 'none'],
-        queryFn: () => (posterId ? getProfile(posterId) : Promise.resolve(null)),
-        enabled: !!posterId,
-        staleTime: 5 * 60_000,
-    });
-    const poster = posterQuery.data ?? null;
 
     return (
         <Pressable
@@ -152,16 +140,6 @@ function BountyItemCard({
                 >
                     {title}
                 </ThemedText>
-
-                {poster?.username ? (
-                    <ThemedText
-                        type="caption"
-                        style={{ color: theme[500] }}
-                        numberOfLines={1}
-                    >
-                        @{poster.username}
-                    </ThemedText>
-                ) : null}
 
                 <View
                     style={{
@@ -278,7 +256,6 @@ export function BountyCardForBounty({ bounty }: { bounty: Bounty }) {
             title={bounty.title}
             amountLamports={bounty.bountyLamports}
             status={bountyStatusToCard(bounty)}
-            posterId={bounty.posterId}
             groupId={bounty.scope === 'group' ? bounty.groupId : null}
             onPress={() => {
                 haptic('light');
@@ -305,7 +282,6 @@ export function BountyCardForSubmission({
             title={bounty?.title ?? submission.bountyTitle ?? 'Bounty'}
             amountLamports={bounty?.bountyLamports ?? submission.bountyLamports ?? 0}
             status={submissionStatusToCard(submission, bounty)}
-            posterId={bounty?.posterId ?? submission.bountyPosterId ?? null}
             groupId={
                 bounty?.scope === 'group'
                     ? bounty.groupId

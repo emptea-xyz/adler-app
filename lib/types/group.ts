@@ -20,6 +20,11 @@ export interface Group {
   openBountyTotalLamports: number;
   /** Optional avatar/logo URL; falls back to an initial circle in the UI. */
   logoUrl?: string | null;
+  /** Admin-curated rules / about copy. Empty string when unset. Max 1000 chars. */
+  rules: string;
+  /** Id of a pinned bounty surfaced at the top of the Bounties tab. Cleared
+   *  server-side when that bounty closes (settle/refund/cancel/hidden). */
+  pinnedBountyId: string | null;
 }
 
 export interface GroupMember {

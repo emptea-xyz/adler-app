@@ -929,6 +929,101 @@ export const onBountyDeletedUpdateGroupTotals = onDocumentDeleted(
   },
 );
 
+// Clear `groups/{id}.pinnedBountyId` when the pinned bounty leaves
+// `open`. Keeps the Bounties tab pin from pointing at a settled / refunded
+// / cancelled / hidden bounty. Idempotent — transactional read ensures we
+// only clear when we're still pointing at this specific bounty.
+export const onPinnedBountyChangeClearPin = onDocumentUpdated(
+  'bounties/{bountyId}',
+  async (event) => {
+    const before = event.data?.before?.data();
+    const after = event.data?.after?.data();
+    if (!before || !after) return;
+    if (after.scope !== 'group') return;
+    const groupId = after.groupId;
+    if (!groupId) return;
+    if (before.status === 'open' && after.status !== 'open') {
+      try {
+        const ref = admin.firestore().collection('groups').doc(groupId);
+        await admin.firestore().runTransaction(async (tx) => {
+          const snap = await tx.get(ref);
+          if (!snap.exists) return;
+          if (snap.data()?.pinnedBountyId === event.params.bountyId) {
+            tx.update(ref, { pinnedBountyId: admin.firestore.FieldValue.delete() });
+          }
+        });
+      } catch (err) {
+        console.warn(`pinnedBountyId clear ${groupId} failed`, err);
+      }
+    }
+  },
+);
+
+// New group bounty → push every member who hasn't muted that group,
+// skipping the poster. Mute lives at `preferences/{uid}.mutedGroups[]`.
+// Standard `group_bounty_new` notification kind also gates per-user.
+export const onGroupBountyCreatedNotifyMembers = onDocumentCreated(
+  'bounties/{bountyId}',
+  async (event) => {
+    const data = event.data?.data();
+    const bountyId = event.params.bountyId;
+    if (!data) return;
+    if (data.scope !== 'group') return;
+    if (data.status !== 'open') return;
+    if (data.escrowFunded !== true) return;
+    const groupId = data.groupId;
+    if (!groupId) return;
+    const posterId = data.posterId;
+    const title = (typeof data.title === 'string' && data.title.trim()) || 'New bounty';
+
+    let groupName = 'Your group';
+    try {
+      const gSnap = await admin.firestore().collection('groups').doc(groupId).get();
+      const n = gSnap.data()?.name;
+      if (typeof n === 'string' && n.trim()) groupName = n;
+    } catch (err) {
+      console.warn(`groupName lookup ${groupId} failed`, err);
+    }
+
+    let membersSnap;
+    try {
+      membersSnap = await admin
+        .firestore()
+        .collection('groupMembers')
+        .where('groupId', '==', groupId)
+        .get();
+    } catch (err) {
+      console.warn(`group members fan-out lookup ${groupId} failed`, err);
+      return;
+    }
+
+    await Promise.all(
+      membersSnap.docs.map(async (m) => {
+        const uid = m.data()?.uid;
+        if (!uid || uid === posterId) return;
+        try {
+          const prefSnap = await admin.firestore().collection('preferences').doc(uid).get();
+          const muted =
+            prefSnap.exists &&
+            Array.isArray(prefSnap.data()?.mutedGroups) &&
+            prefSnap.data().mutedGroups.includes(groupId);
+          if (muted) return;
+        } catch (err) {
+          console.warn(`mute check ${uid}@${groupId} failed`, err);
+        }
+        await notifyUser({
+          recipientId: uid,
+          kind: 'group_bounty_new',
+          title: groupName,
+          body: title.length > 120 ? `${title.slice(0, 117)}…` : title,
+          href: `/(home)/bounty/${bountyId}`,
+          refs: { bountyId, groupId },
+        });
+      }),
+    );
+  },
+);
+
 // ─────────────────────────────────────────────────────────────────────────
 // Account deletion (cascade bounty data)
 // ─────────────────────────────────────────────────────────────────────────
@@ -1152,8 +1247,11 @@ async function resolveIdentifierToUid(identifier) {
   return uid;
 }
 
-// updateGroup({ groupId, name?, description? })
+// updateGroup({ groupId, name?, description?, logoUrl?, rules?, pinnedBountyId? })
 //   Admin-only. Updates the editable fields. Skips no-op writes.
+//   - `rules`: free-text admin curated copy, max 1000 chars; pass '' to clear.
+//   - `pinnedBountyId`: id of an open group bounty in this group (validated),
+//     or null to clear.
 export const updateGroup = onCall(async (request) => {
   const callerUid = request.auth?.uid;
   const groupId = requireString(request.data?.groupId, 'groupId');
@@ -1173,6 +1271,13 @@ export const updateGroup = onCall(async (request) => {
       throw new HttpsError('invalid-argument', 'Description must be ≤ 500 characters');
     }
     update.description = description;
+  }
+  if (typeof request.data?.rules === 'string') {
+    const rules = request.data.rules.trim();
+    if (rules.length > 1000) {
+      throw new HttpsError('invalid-argument', 'Rules must be ≤ 1000 characters');
+    }
+    update.rules = rules;
   }
   if (request.data?.logoUrl !== undefined) {
     const logoUrl = request.data.logoUrl;
@@ -1197,6 +1302,27 @@ export const updateGroup = onCall(async (request) => {
       update.logoUrl = logoUrl;
     } else {
       throw new HttpsError('invalid-argument', 'logoUrl must be a string or null');
+    }
+  }
+  if (request.data?.pinnedBountyId !== undefined) {
+    const pinned = request.data.pinnedBountyId;
+    if (pinned === null || pinned === '') {
+      update.pinnedBountyId = admin.firestore.FieldValue.delete();
+    } else if (typeof pinned === 'string') {
+      const bountySnap = await admin.firestore().collection('bounties').doc(pinned).get();
+      if (!bountySnap.exists) {
+        throw new HttpsError('not-found', 'Pinned bounty not found');
+      }
+      const b = bountySnap.data() ?? {};
+      if (b.scope !== 'group' || b.groupId !== groupId) {
+        throw new HttpsError('failed-precondition', 'Bounty does not belong to this group');
+      }
+      if (b.status !== 'open') {
+        throw new HttpsError('failed-precondition', 'Only open bounties can be pinned');
+      }
+      update.pinnedBountyId = pinned;
+    } else {
+      throw new HttpsError('invalid-argument', 'pinnedBountyId must be a string or null');
     }
   }
   if (Object.keys(update).length === 0) return { ok: true };
