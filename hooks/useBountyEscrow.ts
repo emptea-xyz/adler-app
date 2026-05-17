@@ -189,11 +189,13 @@ export function useBountyEscrow(): UseBountyEscrowReturn {
                     // The bounty is now stuck in `cancelling` for the
                     // poster. The next sweep of `expireBounties` will
                     // observe `cancelling` past expiresAt and reconcile
-                    // via on-chain refund. Logged but not surfaced — we
-                    // don't want to mask the original error.
-                    abortCancel(input.bountyId, cancelledFrom).catch((err) =>
-                        console.warn('abortCancel failed', err),
-                    );
+                    // via on-chain refund. We do still try to revert the
+                    // status client-side so the next post/cancel attempt
+                    // isn't blocked; if revert ALSO fails the sweeper
+                    // catches it.
+                    abortCancel(input.bountyId, cancelledFrom).catch((err) => {
+                        if (__DEV__) console.warn('abortCancel failed', err);
+                    });
                 }
                 throw e;
             }

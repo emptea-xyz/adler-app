@@ -39,6 +39,7 @@ import { listMyMemberships } from '@/lib/services/groupService';
 import { reportBounty, hasReported } from '@/lib/services/reportService';
 import { qk } from '@/lib/constants/queryKeys';
 import { formatSol } from '@/lib/utils/formatNumber';
+import { computeNetSol } from '@/lib/utils/protocolFee';
 import { formatRelative, formatRemaining } from '@/lib/utils/dates';
 import { haptic } from '@/lib/utils/haptic';
 import { toast, toastError } from '@/lib/utils/toast';
@@ -662,15 +663,35 @@ function PickWinnerSheet({
 }) {
     const { settleManual, pending } = useBountyEscrow();
     const queryClient = useQueryClient();
+
+    // Pre-fetch the winner's profile so the confirm sheet can show their
+    // @handle and so we surface a "no wallet on file" state before the
+    // poster taps Award and gets a delayed toast.
+    const winnerQuery = useQuery({
+        queryKey: qk.profiles.detail(submission.submitterId),
+        queryFn: () => getProfile(submission.submitterId),
+        staleTime: 60_000,
+    });
+    const winnerProfile = winnerQuery.data ?? null;
+    const winnerWalletAddress = winnerProfile?.walletAddress ?? null;
+    const winnerHandle =
+        winnerProfile?.username ? `@${winnerProfile.username}` : 'winner';
+    const winnerMissingWallet =
+        winnerQuery.isSuccess && !winnerWalletAddress;
+
+    const netSol = formatSol(computeNetSol(bounty.bountyLamports));
+    const message = winnerQuery.isLoading
+        ? 'Loading winner…'
+        : winnerMissingWallet
+            ? `${winnerHandle}'s account is no longer active. Pick another submission.`
+            : `${winnerHandle} will receive ${netSol} SOL (0.5% protocol fee deducted on-chain). This cannot be undone.`;
+
     const onConfirm = async () => {
+        if (winnerMissingWallet || !winnerWalletAddress) {
+            toast.error('Pick a different submission — this winner has no wallet on file.');
+            return;
+        }
         try {
-            const winnerProfile = await getProfile(submission.submitterId);
-            const winnerWalletAddress = winnerProfile?.walletAddress;
-            if (!winnerWalletAddress) {
-                toast.error('Winner has no wallet on file.');
-                onClose();
-                return;
-            }
             haptic('medium');
             await settleManual({
                 bountyId: bounty.id,
@@ -692,10 +713,11 @@ function PickWinnerSheet({
         <Alert
             visible={true}
             title="Award this submission?"
-            message={`${formatSol(bounty.bountyLamports / 1e9)} SOL will be sent on-chain. This cannot be undone.`}
-            confirmText={pending ? 'Awarding…' : 'Award'}
+            message={message}
+            confirmText={pending ? 'Awarding…' : winnerMissingWallet ? 'OK' : 'Award'}
             cancelText="Cancel"
-            onConfirm={onConfirm}
+            isDestructive={false}
+            onConfirm={winnerMissingWallet ? onClose : onConfirm}
             onCancel={onClose}
         />
     );
