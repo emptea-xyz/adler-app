@@ -239,6 +239,18 @@ export const mintFirebaseToken = onCall(
       throw new HttpsError('unauthenticated', 'Invalid Privy access token');
     }
 
+    // Defence in depth: `verifyAccessToken` enforces audience + issuer
+    // against the JWKS internally, but we also assert the audience here so
+    // the contract is explicit and survives any future SDK change.
+    if (claims.app_id !== appId) {
+      console.warn('Privy token app_id mismatch', { expected: appId, got: claims.app_id });
+      throw new HttpsError('unauthenticated', 'Privy token audience mismatch');
+    }
+    if (claims.issuer !== 'privy.io') {
+      console.warn('Privy token issuer mismatch', { got: claims.issuer });
+      throw new HttpsError('unauthenticated', 'Privy token issuer mismatch');
+    }
+
     const uid = claims.user_id;
     if (typeof uid !== 'string' || uid.length === 0) {
       throw new HttpsError('unauthenticated', 'Privy claims missing user_id');
@@ -391,6 +403,13 @@ export const enforceSubmissionCap = onDocumentCreated(
         if (!bountySnap.exists) return 'no_bounty';
         const bounty = bountySnap.data();
 
+        // Explicit per-status branches so future statuses (e.g. paused)
+        // can't accidentally fall through the "anything not open" net.
+        if (bounty.status === 'in_review') return 'in_review';
+        if (bounty.status === 'cancelling' || bounty.status === 'cancelled') return 'cancelled';
+        if (bounty.status === 'settled') return 'settled';
+        if (bounty.status === 'refunded') return 'refunded';
+        if (bounty.status === 'hidden') return 'hidden';
         if (bounty.status !== 'open') return 'status_closed';
 
         const now = Date.now();
@@ -420,7 +439,15 @@ export const enforceSubmissionCap = onDocumentCreated(
     const body =
       outcome === 'window_closed'
         ? 'The submission window for this bounty has ended.'
-        : 'This bounty is no longer accepting submissions.';
+        : outcome === 'in_review'
+          ? 'Submissions are closed — the poster is reviewing.'
+          : outcome === 'settled'
+            ? 'A winner has already been picked for this bounty.'
+            : outcome === 'refunded' || outcome === 'cancelled'
+              ? 'This bounty was cancelled or refunded.'
+              : outcome === 'hidden'
+                ? 'This bounty is no longer available.'
+                : 'This bounty is no longer accepting submissions.';
     await emitNotification({
       recipientId: submitterId,
       kind: 'system',
@@ -777,6 +804,132 @@ export const notifyBountySettled = onDocumentUpdated(
 );
 
 // ─────────────────────────────────────────────────────────────────────────
+// Bounty: notify submitters when bounty is cancelled or refunded
+// ─────────────────────────────────────────────────────────────────────────
+
+export const notifyBountyTerminalToSubmitters = onDocumentUpdated(
+  'bounties/{bountyId}',
+  async (event) => {
+    const before = event.data?.before?.data();
+    const after = event.data?.after?.data();
+    if (!before || !after) return;
+
+    // Fire once on the open|in_review|cancelling → refunded transition.
+    // 'cancelled' is the same outcome from the submitter's POV.
+    const wasTerminal = ['refunded', 'cancelled'].includes(before.status);
+    const isTerminal = ['refunded', 'cancelled'].includes(after.status);
+    if (wasTerminal || !isTerminal) return;
+
+    const bountyId = event.params.bountyId;
+    const title = after.title ?? 'a bounty';
+    const href = `/(home)/bounty/${bountyId}`;
+    const kind = after.status === 'cancelled' ? 'bounty_cancelled' : 'bounty_refunded';
+    const body =
+      after.status === 'cancelled'
+        ? `“${title}” was cancelled by the poster.`
+        : `“${title}” closed without a winner.`;
+
+    try {
+      const subs = await admin
+        .firestore()
+        .collection('submissions')
+        .where('bountyId', '==', bountyId)
+        .limit(500)
+        .get();
+      const seen = new Set();
+      const sends = [];
+      for (const doc of subs.docs) {
+        const submitterId = doc.data()?.submitterId;
+        if (!submitterId || seen.has(submitterId)) continue;
+        seen.add(submitterId);
+        sends.push(
+          notifyUser({
+            recipientId: submitterId,
+            kind,
+            title: after.status === 'cancelled' ? 'Bounty cancelled' : 'Bounty refunded',
+            body,
+            href,
+            refs: { bountyId },
+          }),
+        );
+      }
+      await Promise.all(sends);
+    } catch (err) {
+      console.warn(`notifyBountyTerminalToSubmitters ${bountyId} failed`, err);
+    }
+  },
+);
+
+// ─────────────────────────────────────────────────────────────────────────
+// Groups: keep `openBountyTotalLamports` accurate
+// ─────────────────────────────────────────────────────────────────────────
+
+// Net delta to a group's openBountyTotalLamports based on a single
+// bounty-doc transition. Returns 0 if neither side counts (e.g. public
+// scope, or both states are non-open).
+function openLamportsDelta(before, after) {
+  const beforeCounts =
+    before && before.scope === 'group' && before.status === 'open' && typeof before.bountyLamports === 'number';
+  const afterCounts =
+    after && after.scope === 'group' && after.status === 'open' && typeof after.bountyLamports === 'number';
+  if (!beforeCounts && !afterCounts) return { delta: 0, groupId: null };
+  // Use the after-doc's groupId when present; fall back to before.
+  const groupId = after?.groupId ?? before?.groupId ?? null;
+  if (!groupId) return { delta: 0, groupId: null };
+  const beforeAmount = beforeCounts ? before.bountyLamports : 0;
+  const afterAmount = afterCounts ? after.bountyLamports : 0;
+  return { delta: afterAmount - beforeAmount, groupId };
+}
+
+async function bumpGroupOpenLamports(groupId, delta) {
+  if (!groupId || delta === 0) return;
+  const ref = admin.firestore().collection('groups').doc(groupId);
+  try {
+    await admin.firestore().runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists) return;
+      const current =
+        typeof snap.data()?.openBountyTotalLamports === 'number'
+          ? snap.data().openBountyTotalLamports
+          : 0;
+      tx.update(ref, {
+        openBountyTotalLamports: Math.max(0, current + delta),
+      });
+    });
+  } catch (err) {
+    console.warn(`bumpGroupOpenLamports ${groupId} failed`, err);
+  }
+}
+
+export const onBountyCreatedUpdateGroupTotals = onDocumentCreated(
+  'bounties/{bountyId}',
+  async (event) => {
+    const after = event.data?.data();
+    const { delta, groupId } = openLamportsDelta(null, after);
+    if (groupId) await bumpGroupOpenLamports(groupId, delta);
+  },
+);
+
+export const onBountyStatusChangeUpdateGroupTotals = onDocumentUpdated(
+  'bounties/{bountyId}',
+  async (event) => {
+    const before = event.data?.before?.data();
+    const after = event.data?.after?.data();
+    const { delta, groupId } = openLamportsDelta(before, after);
+    if (groupId) await bumpGroupOpenLamports(groupId, delta);
+  },
+);
+
+export const onBountyDeletedUpdateGroupTotals = onDocumentDeleted(
+  'bounties/{bountyId}',
+  async (event) => {
+    const before = event.data?.data();
+    const { delta, groupId } = openLamportsDelta(before, null);
+    if (groupId) await bumpGroupOpenLamports(groupId, delta);
+  },
+);
+
+// ─────────────────────────────────────────────────────────────────────────
 // Account deletion (cascade bounty data)
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -794,19 +947,36 @@ async function deletePrivyUser(uid, appId, appSecret) {
   }
 }
 
+// Firestore batches are capped at 500 ops. Pages a query into batched
+// deletes so we don't trip the limit during account cleanup.
+async function deleteQueryInBatches(query, label) {
+  const PAGE = 400;
+  let total = 0;
+  while (true) {
+    const snap = await query.limit(PAGE).get();
+    if (snap.empty) break;
+    const batch = admin.firestore().batch();
+    snap.docs.forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+    total += snap.size;
+    if (snap.size < PAGE) break;
+  }
+  if (total > 0) console.log(`[deleteUserAccount] ${label}: ${total} doc(s) removed`);
+}
+
 export const deleteUserAccount = onCall(
   { secrets: [PRIVY_APP_ID, PRIVY_APP_SECRET] },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError('unauthenticated', 'Sign-in required');
+    const db = admin.firestore();
 
     // H6: block deletion if the user has non-terminal funded bounties.
     // After we delete the Privy user, embedded-wallet keys are gone —
     // refund/settle on those bounties becomes impossible. Surface a
     // failed-precondition so the client can show actionable copy
     // pointing the user at each bounty.
-    const activeFunded = await admin
-      .firestore()
+    const activeFunded = await db
       .collection('bounties')
       .where('posterId', '==', uid)
       .where('status', 'in', ['open', 'in_review', 'cancelling'])
@@ -819,16 +989,18 @@ export const deleteUserAccount = onCall(
       );
     }
 
-    // Hide any unfunded `open` bounties — they have nothing on-chain so
-    // it's safe to retire them.
-    const openUnfunded = await admin
-      .firestore()
+    // Hide any unfunded `open` / `in_review` / `cancelling` bounties —
+    // they have nothing on-chain so it's safe to retire them. Includes
+    // `escrowFunded == false` only to avoid hiding a bounty whose
+    // status flipped between the active-funded check above and now.
+    const openUnfunded = await db
       .collection('bounties')
       .where('posterId', '==', uid)
-      .where('status', '==', 'open')
+      .where('status', 'in', ['open', 'in_review', 'cancelling'])
+      .where('escrowFunded', '==', false)
       .get();
     if (!openUnfunded.empty) {
-      const batch = admin.firestore().batch();
+      const batch = db.batch();
       openUnfunded.docs.forEach((d) =>
         batch.update(d.ref, {
           status: 'hidden',
@@ -837,6 +1009,19 @@ export const deleteUserAccount = onCall(
       );
       await batch.commit();
     }
+
+    // Purge the user's domain data BEFORE identity deletion. Best-effort —
+    // any failure here is logged; we still proceed to identity deletion so
+    // the user can re-attempt later and not be locked out indefinitely.
+    await Promise.all([
+      deleteQueryInBatches(db.collection('submissions').where('submitterId', '==', uid), 'submissions'),
+      deleteQueryInBatches(db.collection('notifications').where('recipientId', '==', uid), 'notifications'),
+      deleteQueryInBatches(db.collection('joinRequests').where('requesterId', '==', uid), 'joinRequests'),
+      deleteQueryInBatches(db.collection('groupMembers').where('uid', '==', uid), 'groupMembers'),
+      deleteQueryInBatches(db.collection('reports').where('reporterId', '==', uid), 'reports'),
+    ]);
+    await db.collection('preferences').doc(uid).delete().catch(() => {});
+    await db.collection('profilePrivate').doc(uid).delete().catch(() => {});
 
     // M9: Privy first, then Firebase. If Privy fails we abort — the
     // user is still signed-in and can retry. If Firebase fails AFTER
@@ -849,17 +1034,12 @@ export const deleteUserAccount = onCall(
       throw new HttpsError('internal', 'Account deletion failed at Privy step. Try again.');
     }
 
-    const profileRef = admin.firestore().collection('profiles').doc(uid);
+    const profileRef = db.collection('profiles').doc(uid);
     const profileSnap = await profileRef.get();
     if (profileSnap.exists) {
       const username = profileSnap.data()?.username;
       if (username) {
-        await admin
-          .firestore()
-          .collection('usernames')
-          .doc(username)
-          .delete()
-          .catch(() => {});
+        await db.collection('usernames').doc(username).delete().catch(() => {});
       }
       await profileRef.delete();
     }

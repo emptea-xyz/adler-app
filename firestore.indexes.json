@@ -21,6 +21,15 @@
       "collectionGroup": "bounties",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "escrowFunded", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "bounties",
+      "queryScope": "COLLECTION",
+      "fields": [
         { "fieldPath": "scope", "order": "ASCENDING" },
         { "fieldPath": "status", "order": "ASCENDING" },
         { "fieldPath": "settledAt", "order": "DESCENDING" }

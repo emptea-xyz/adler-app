@@ -21,6 +21,7 @@ import {
 } from '@/lib/types/profile';
 import { tsMs } from '@/lib/utils/firestoreTimestamp';
 import { requireAuthAs } from '@/lib/utils/requireAuth';
+import { isReservedUsername } from '@/lib/constants/reservedUsernames';
 
 // IMPORTANT: collection name + document shape must stay in lockstep with
 // the deployed firestore.rules. Any divergence triggers
@@ -45,13 +46,22 @@ function pick<T>(arr: readonly T[]): T {
 }
 
 function generateUsername(userId: string): string {
-    const adj = pick(ADJECTIVES).toLowerCase();
-    const noun = pick(NOUNS).toLowerCase();
-    const idTail = userId.replace(/[^a-z0-9]/gi, '').slice(-4).toLowerCase();
-    const suffix = idTail.length >= 4
-        ? idTail
-        : Math.floor(1000 + Math.random() * 9000).toString();
-    return `${adj}${noun}${suffix}`;
+    // The adj+noun+4digit shape has ~16 * 16 * 9000 ≈ 2.3M combinations;
+    // the reserved list has ~30 entries. A collision is statistically
+    // ~zero, but retry once anyway so the call site never sees a reserved
+    // slug for the auto path.
+    for (let i = 0; i < 4; i++) {
+        const adj = pick(ADJECTIVES).toLowerCase();
+        const noun = pick(NOUNS).toLowerCase();
+        const idTail = userId.replace(/[^a-z0-9]/gi, '').slice(-4).toLowerCase();
+        const suffix = idTail.length >= 4
+            ? idTail
+            : Math.floor(1000 + Math.random() * 9000).toString();
+        const slug = `${adj}${noun}${suffix}`;
+        if (!isReservedUsername(slug)) return slug;
+    }
+    // Last resort — pad with timestamp so we're definitely unique.
+    return `user${Date.now().toString().slice(-8)}`;
 }
 
 function generateDisplayName(): string {
@@ -94,6 +104,7 @@ export async function isUsernameAvailable(
 ): Promise<boolean> {
     const slug = username.trim().toLowerCase();
     if (!USERNAME_REGEX.test(slug)) return false;
+    if (isReservedUsername(slug)) return false;
     const snap = await getDoc(doc(db, USERNAMES_COLLECTION, slug));
     if (!snap.exists()) return true;
     if (exceptUserId && snap.data()?.userId === exceptUserId) return true;
@@ -278,6 +289,9 @@ export async function changeUsername(userId: string, newUsername: string): Promi
     const slug = newUsername.trim().toLowerCase();
     if (!USERNAME_REGEX.test(slug)) {
         throw new Error('Username must be 3–20 chars: lowercase letters, digits, underscores.');
+    }
+    if (isReservedUsername(slug)) {
+        throw new Error('That username is reserved.');
     }
 
     const profileRef = doc(db, COLLECTION, userId);
