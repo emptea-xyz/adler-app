@@ -19,6 +19,12 @@ interface AuthContextType {
     user: AuthUser | null;
     privyUserId: string | null;
     walletAddress: string | null;
+    /**
+     * Privy embedded wallet status. `connecting` | `creating` |
+     * `reconnecting` means the wallet may still resolve to an address;
+     * anything else is terminal. `null` before Privy mounts.
+     */
+    walletStatus: string | null;
     isReady: boolean;
     isBridging: boolean;
     isConnected: boolean;
@@ -165,18 +171,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return solana.wallets?.[0]?.address ?? null;
     }, [solana.wallets]);
 
+    const walletStatus = (solana as { status?: string } | null)?.status ?? null;
+
     const value = useMemo<AuthContextType>(
         () => ({
             user: firebaseUser,
             privyUserId,
             walletAddress,
+            walletStatus,
             isReady: privyReady,
             isBridging: bridging,
             isConnected,
             signOut,
             runIfOnline,
         }),
-        [firebaseUser, privyUserId, walletAddress, privyReady, bridging, isConnected, signOut, runIfOnline],
+        [firebaseUser, privyUserId, walletAddress, walletStatus, privyReady, bridging, isConnected, signOut, runIfOnline],
     );
 
     // Keep children mounted underneath the loader so the loader's fade-out

@@ -20,8 +20,17 @@ interface UserContextType {
 
 const UserContext = createContext<UserContextType | null>(null);
 
+// If Privy's wallet is still spinning up when the bridge completes, we
+// hold off the first fetchProfile so the profile doc is created WITH a
+// walletAddress (and the H6 rule check on bounty post doesn't reject
+// it). 4s is enough for the embedded wallet to settle on first sign-in;
+// after that we proceed regardless so a wallet-creation failure doesn't
+// permanently brick the app.
+const WALLET_GRACE_MS = 4000;
+
 export function UserProvider({ children }: { children: React.ReactNode }) {
-    const { user, walletAddress, isBridging } = useAuth();
+    const { user, walletAddress, walletStatus, isBridging } = useAuth();
+    const [walletGraceElapsed, setWalletGraceElapsed] = useState(false);
     const [profile, setProfile] = useState<Profile | null>(null);
     const [loading, setLoading] = useState(true);
     const [pushPromptVisible, setPushPromptVisible] = useState(false);
@@ -107,10 +116,32 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         }
     }, [user, walletAddress]);
 
+    // Reset the grace flag whenever the signed-in user changes so a new
+    // sign-in gets its own fresh wait.
+    useEffect(() => {
+        setWalletGraceElapsed(false);
+        if (!user) return;
+        const t = setTimeout(() => {
+            if (isMounted.current) setWalletGraceElapsed(true);
+        }, WALLET_GRACE_MS);
+        return () => clearTimeout(t);
+    }, [user]);
+
     useEffect(() => {
         if (!user || isBridging) return;
+        // Hold the first fetch until Privy's wallet either resolves to an
+        // address or reaches a terminal state. After WALLET_GRACE_MS we
+        // proceed anyway — ensureProfileExists will backfill walletAddress
+        // on the next render once the address materialises.
+        const walletStillResolving =
+            !walletAddress &&
+            walletStatus !== null &&
+            (walletStatus === 'connecting' ||
+                walletStatus === 'creating' ||
+                walletStatus === 'reconnecting');
+        if (walletStillResolving && !walletGraceElapsed) return;
         fetchProfile();
-    }, [user, walletAddress, isBridging, fetchProfile]);
+    }, [user, walletAddress, walletStatus, walletGraceElapsed, isBridging, fetchProfile]);
 
     useEffect(() => {
         if (!user) return;

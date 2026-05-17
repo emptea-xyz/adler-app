@@ -46,6 +46,37 @@ export default function SettingsProfileScreen() {
     const [saving, setSaving] = useState(false);
     const [avatarBusy, setAvatarBusy] = useState(false);
 
+    // Refresh on mount so the form starts from the freshest server state
+    // (a parallel-device edit between sessions shouldn't be overwritten
+    // by a stale local cache on save).
+    useEffect(() => {
+        refreshProfile().catch(() => {});
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Resync form fields whenever the server profile changes AND the user
+    // hasn't dirtied that specific field. Comparing against the field's
+    // current value catches the "user has typed something" case without
+    // needing a separate dirty flag per input.
+    const lastSyncedProfileRef = React.useRef<string | null>(null);
+    useEffect(() => {
+        if (!profile) return;
+        const stamp = `${profile.username}|${profile.displayName}|${profile.bio}|${profile.location.kind === 'country' ? profile.location.country : 'global'}`;
+        if (lastSyncedProfileRef.current === stamp) return;
+        const prev = lastSyncedProfileRef.current;
+        lastSyncedProfileRef.current = stamp;
+        // First sync (mount) was already done via initial useState. Only
+        // overwrite local form on subsequent updates if it matches the
+        // previously-synced server value (i.e. user hasn't typed).
+        if (prev === null) return;
+        const [pu, pd, pb, pc] = prev.split('|');
+        if (username === pu) setUsername(profile.username);
+        if (displayName === pd) setDisplayName(profile.displayName);
+        if (bio === pb) setBio(profile.bio);
+        const newCountry = profile.location.kind === 'country' ? profile.location.country : null;
+        if (countryCode === (pc === 'global' ? null : pc)) setCountryCode(newCountry);
+    }, [profile, username, displayName, bio, countryCode]);
+
     const lastChange = profile?.lastUsernameChangeAt ?? 0;
     const cooldownRemainingMs =
         lastChange > 0 ? Math.max(0, USERNAME_COOLDOWN_MS - (Date.now() - lastChange)) : 0;

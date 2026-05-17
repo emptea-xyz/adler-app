@@ -113,7 +113,8 @@ export async function isUsernameAvailable(
 
 /**
  * Prefix search over the `profiles.username` field. Usernames are stored
- * lowercase, so we lowercase the needle and bracket with `` for a
+ * lowercase, so we lowercase the needle and bracket with U+F8FF (Private
+ * Use Area highest point) for a
  * Firestore range query. Returns up to `max` matches ordered by username.
  */
 export async function searchProfilesByUsername(
