@@ -4,6 +4,7 @@ import { Icon, type IconName } from "@/components/ui/Icon";
 import { cn } from "@/lib/utils/cn";
 import { ThemedText } from "@/components/base/ThemedText";
 import { Status } from "@/constants/StatusColors";
+import { Neutral } from "@/constants/NeutralColors";
 import { useTheme } from "@/contexts/ThemeContext";
 
 type ToastVariant = "success" | "error" | "info" | "warn";
@@ -41,9 +42,17 @@ function ToastCard({
   return (
     <Pressable
       onPress={onPress}
-      style={{ zIndex: 10000, elevation: 10000, backgroundColor: theme[100], borderColor: theme[200] }}
+      style={{
+        zIndex: 10000,
+        backgroundColor: theme[50],
+        shadowColor: Neutral.black,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        elevation: 6,
+      }}
       className={cn(
-        "w-[90%] min-h-[72px] px-5 py-4 rounded-[24px] flex-row items-center self-center border"
+        "w-[90%] min-h-[72px] px-5 py-4 rounded-[24px] flex-row items-center self-center"
       )}
     >
       <View className="mr-3">
@@ -56,7 +65,7 @@ function ToastCard({
           </ThemedText>
         ) : null}
         {text2?.trim() ? (
-          <ThemedText type="body-md" className="mt-1 opacity-80">
+          <ThemedText type="body-md" className="mt-1 font-semibold opacity-80">
             {text2}
           </ThemedText>
         ) : null}
