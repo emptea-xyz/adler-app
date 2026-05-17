@@ -152,6 +152,30 @@ function TagChip({ icon, bgColor }: { icon: IconName; bgColor: string }) {
     );
 }
 
+/**
+ * Compact circular scope badge — lock for group-only, globe for public.
+ * Used on bounty list cards and the bounty detail header row to give an
+ * at-a-glance read on who can submit.
+ */
+export function ScopeTag({ locked }: { locked: boolean }) {
+    const { theme } = useTheme();
+    return (
+        <View
+            style={{
+                width: 22,
+                height: 22,
+                borderRadius: 11,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: theme[200],
+            }}
+            accessibilityLabel={locked ? 'Members only' : 'Public'}
+        >
+            <Icon name={locked ? 'lock.fill' : 'globe'} size={11} color={theme[700]} />
+        </View>
+    );
+}
+
 export function GroupLogoDot({
     name,
     logoUrl,

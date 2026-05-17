@@ -11,7 +11,7 @@ import {
     BountyStatusPill,
     type BountyItemStatus,
 } from '@/components/features/bounty/BountyStatusIcon';
-import { GroupLogoDot } from '@/components/features/bounty/BountyTags';
+import { GroupLogoDot, ScopeTag } from '@/components/features/bounty/BountyTags';
 import { Icon } from '@/components/ui/Icon';
 import { SolanaIcon } from '@/components/ui/SolanaIcon';
 import { qk } from '@/lib/constants/queryKeys';
@@ -163,25 +163,6 @@ function BountyItemCard({
                 </View>
             </View>
         </Pressable>
-    );
-}
-
-function ScopeTag({ locked }: { locked: boolean }) {
-    const { theme } = useTheme();
-    return (
-        <View
-            style={{
-                width: 22,
-                height: 22,
-                borderRadius: 11,
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: theme[200],
-            }}
-            accessibilityLabel={locked ? 'Members only' : 'Public'}
-        >
-            <Icon name={locked ? 'lock.fill' : 'globe'} size={11} color={theme[700]} />
-        </View>
     );
 }
 

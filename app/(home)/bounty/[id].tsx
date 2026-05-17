@@ -15,7 +15,7 @@ import { Pill } from '@/components/ui/Pill';
 import Card from '@/components/ui/Card';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Alert } from '@/components/ui/Alert';
-import { BountyTags } from '@/components/features/bounty/BountyTags';
+import { BountyTags, ScopeTag } from '@/components/features/bounty/BountyTags';
 import {
     BountyStatusPill,
     type BountyItemStatus,
@@ -249,9 +249,24 @@ export default function BountyDetailScreen() {
             >
                 {/* Hero: title + prompt is the content the user came for. */}
                 <View style={{ gap: 12 }}>
-                    <ThemedText type="h2" style={{ color: theme[950] }}>
-                        {bounty.title}
-                    </ThemedText>
+                    <View
+                        style={{
+                            flexDirection: 'row',
+                            alignItems: 'flex-start',
+                            justifyContent: 'space-between',
+                            gap: 12,
+                        }}
+                    >
+                        <ThemedText
+                            type="h2"
+                            style={{ color: theme[950], flex: 1 }}
+                        >
+                            {bounty.title}
+                        </ThemedText>
+                        <View style={{ marginTop: 4 }}>
+                            <ScopeTag locked={bounty.scope === 'group'} />
+                        </View>
+                    </View>
                     {poster ? (
                         <Pressable
                             onPress={() => {
