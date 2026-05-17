@@ -80,33 +80,57 @@ function BountyItemCard({
                     borderRadius: 16,
                 }}
             >
-                {group ? (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <GroupLogoDot
-                            name={group.name}
-                            logoUrl={group.logoUrl ?? null}
-                            size={16}
-                        />
-                        <ThemedText
-                            type="caption-semibold"
-                            style={{ color: theme[500] }}
-                            numberOfLines={1}
+                <View
+                    style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: 8,
+                    }}
+                >
+                    {group ? (
+                        <View
+                            style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                gap: 6,
+                                flexShrink: 1,
+                            }}
                         >
-                            {group.name}
-                        </ThemedText>
-                    </View>
-                ) : (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <Icon name="globe" size={14} color={theme[500]} />
-                        <ThemedText
-                            type="caption-semibold"
-                            style={{ color: theme[500] }}
-                            numberOfLines={1}
+                            <GroupLogoDot
+                                name={group.name}
+                                logoUrl={group.logoUrl ?? null}
+                                size={16}
+                            />
+                            <ThemedText
+                                type="caption-semibold"
+                                style={{ color: theme[500] }}
+                                numberOfLines={1}
+                            >
+                                {group.name}
+                            </ThemedText>
+                        </View>
+                    ) : (
+                        <View
+                            style={{
+                                flexDirection: 'row',
+                                alignItems: 'center',
+                                gap: 6,
+                                flexShrink: 1,
+                            }}
                         >
-                            Public
-                        </ThemedText>
-                    </View>
-                )}
+                            <Icon name="globe" size={14} color={theme[500]} />
+                            <ThemedText
+                                type="caption-semibold"
+                                style={{ color: theme[500] }}
+                                numberOfLines={1}
+                            >
+                                Public
+                            </ThemedText>
+                        </View>
+                    )}
+                    <ScopeTag locked={!!group} />
+                </View>
 
                 <ThemedText
                     type="body-md-semibold"
@@ -139,6 +163,31 @@ function BountyItemCard({
                 </View>
             </View>
         </Pressable>
+    );
+}
+
+function ScopeTag({ locked }: { locked: boolean }) {
+    const { theme } = useTheme();
+    return (
+        <View
+            style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 3,
+                paddingHorizontal: 6,
+                paddingVertical: 2,
+                borderRadius: 999,
+                backgroundColor: theme[200],
+            }}
+        >
+            <Icon name={locked ? 'lock.fill' : 'globe'} size={9} color={theme[700]} />
+            <ThemedText
+                type="caption-semibold"
+                style={{ color: theme[700], fontSize: 9, letterSpacing: 0.4 }}
+            >
+                {locked ? 'LOCKED' : 'PUBLIC'}
+            </ThemedText>
+        </View>
     );
 }
 
