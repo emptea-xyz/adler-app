@@ -141,30 +141,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
     }, [privyLogout, queryClient]);
 
-    // Debounced network state.
+    // Debounced network state. Start `null` ("unknown") so the offline
+    // banner doesn't flash on cold-boot before NetInfo settles, and so
+    // runIfOnline doesn't false-positive a "you're offline" toast in
+    // that window.
     const netInfo = useNetInfo();
-    const [isConnected, setIsConnected] = useState(true);
+    const [isConnectedState, setIsConnectedState] = useState<boolean | null>(null);
     const netDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
     useEffect(() => {
+        // Wait for NetInfo to actually report — its initial state has
+        // `isConnected === null`, which is the "haven't measured yet"
+        // signal.
+        if (netInfo.isConnected === null) return;
         const newValue = !!(netInfo.isConnected && netInfo.isInternetReachable !== false);
-        if (newValue === isConnected) return;
+        if (newValue === isConnectedState) return;
         clearTimeout(netDebounceRef.current);
         netDebounceRef.current = setTimeout(() => {
-            if (isMounted.current) setIsConnected(newValue);
+            if (isMounted.current) setIsConnectedState(newValue);
         }, 300);
         return () => clearTimeout(netDebounceRef.current);
-    }, [netInfo.isConnected, netInfo.isInternetReachable, isConnected]);
+    }, [netInfo.isConnected, netInfo.isInternetReachable, isConnectedState]);
+
+    // Expose `true` when unknown so existing consumers default to "online".
+    // The OfflineBanner reads the raw state via the same field but the
+    // banner-show useEffect already keys on `!isConnected` so unknown ==
+    // no banner.
+    const isConnected = isConnectedState ?? true;
 
     const runIfOnline = useCallback(
         (callback: () => void) => {
-            if (!isConnected) {
+            // Only block when we *know* we're offline — never on the
+            // unknown initial state.
+            if (isConnectedState === false) {
                 toast.error('You are offline. This action is disabled.');
                 return;
             }
             callback();
         },
-        [isConnected],
+        [isConnectedState],
     );
 
     const walletAddress = useMemo(() => {

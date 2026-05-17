@@ -8,10 +8,9 @@ import {
     type SettingsRowSpec,
 } from '@/components/ui/SettingsRow';
 import { SignOutSheet } from '@/components/features/account/SignOutSheet';
-import { DeleteAccountSheet } from '@/components/features/account/DeleteAccountSheet';
 import { useAuth } from '@/contexts/AuthContext';
-import { deleteAccount } from '@/lib/services/privyAuthService';
 import { toast } from '@/lib/utils/toast';
+import { haptic } from '@/lib/utils/haptic';
 
 const TERMS_URL = 'https://emptea.xyz/terms-of-service';
 const PRIVACY_URL = 'https://emptea.xyz/privacy-policy';
@@ -22,10 +21,9 @@ export default function SettingsIndexScreen() {
     const router = useRouter();
     const [signOutSheet, setSignOutSheet] = useState(false);
     const [signingOut, setSigningOut] = useState(false);
-    const [deleteSheet, setDeleteSheet] = useState(false);
-    const [deleting, setDeleting] = useState(false);
 
     const onSignOut = useCallback(async () => {
+        haptic('medium');
         setSigningOut(true);
         try {
             await signOut();
@@ -36,20 +34,9 @@ export default function SettingsIndexScreen() {
             setSigningOut(false);
         }
     }, [signOut, router]);
-
-    const onDeleteAccount = useCallback(async () => {
-        setDeleting(true);
-        try {
-            await deleteAccount();
-            await signOut().catch(() => null);
-            toast.success('Account deleted');
-            setDeleteSheet(false);
-            router.replace('/(auth)/sign-in');
-        } catch (err: any) {
-            toast.error(err?.message ?? 'Account deletion failed');
-            setDeleting(false);
-        }
-    }, [signOut, router]);
+    // Account deletion is intentionally NOT mirrored here — it lives in
+    // /settings/account with the username-confirm guard so it can't be
+    // tripped from a tap-deep stack.
 
     const accountRows: SettingsRowSpec[] = [
         {
@@ -108,13 +95,6 @@ export default function SettingsIndexScreen() {
             destructive: true,
             trailing: 'none',
         },
-        {
-            icon: 'trash.fill',
-            title: 'Delete account',
-            onPress: () => setDeleteSheet(true),
-            destructive: true,
-            trailing: 'none',
-        },
     ];
 
     return (
@@ -141,13 +121,6 @@ export default function SettingsIndexScreen() {
                 onClose={() => setSignOutSheet(false)}
                 onConfirm={onSignOut}
                 submitting={signingOut}
-            />
-
-            <DeleteAccountSheet
-                visible={deleteSheet}
-                onClose={() => setDeleteSheet(false)}
-                onConfirm={onDeleteAccount}
-                submitting={deleting}
             />
         </>
     );

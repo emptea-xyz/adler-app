@@ -12,6 +12,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useUser } from '@/contexts/UserContext';
 import { deleteAccount } from '@/lib/services/privyAuthService';
 import { toast } from '@/lib/utils/toast';
+import { haptic } from '@/lib/utils/haptic';
 
 function ReadoutRow({
     label,
@@ -45,6 +46,7 @@ export default function SettingsAccountScreen() {
     const canDelete = expectedDeleteText.length > 0 && confirmText.trim() === expectedDeleteText;
 
     const onSignOut = async () => {
+        haptic('medium');
         setSigningOut(true);
         try {
             await signOut();
@@ -58,6 +60,7 @@ export default function SettingsAccountScreen() {
 
     const onDelete = async () => {
         if (!canDelete) return;
+        haptic('medium');
         setDeleting(true);
         try {
             await deleteAccount();

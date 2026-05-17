@@ -146,6 +146,9 @@ export default function SignInScreen() {
                       <Image
                         source={slide.image}
                         resizeMode="contain"
+                        accessible
+                        accessibilityRole="image"
+                        accessibilityLabel={slide.title}
                         style={{ width: '100%', height: '100%' }}
                       />
                       <Svg

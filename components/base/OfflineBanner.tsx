@@ -61,14 +61,22 @@ export function OfflineBanner() {
             className="items-center justify-center w-full absolute top-0 left-0 right-0 z-50"
         >
             {!isConnected ? (
-                <ThemedText type="body-md-semibold" className="!text-white">
-                    ⚠️ No Internet Connection
-                </ThemedText>
+                <View className="flex-row items-center gap-1.5">
+                    <Icon
+                        name="exclamationmark.triangle.fill"
+                        size={16}
+                        color={Neutral.white}
+                        weight="semibold"
+                    />
+                    <ThemedText type="body-md-semibold" style={{ color: Neutral.white }}>
+                        No internet connection
+                    </ThemedText>
+                </View>
             ) : (
                 <View className="flex-row items-center gap-1.5">
                     <Icon name="checkmark" size={16} color={Neutral.white} weight="semibold" />
-                    <ThemedText type="body-md-semibold" className="!text-white">
-                        Back Online
+                    <ThemedText type="body-md-semibold" style={{ color: Neutral.white }}>
+                        Back online
                     </ThemedText>
                 </View>
             )}
