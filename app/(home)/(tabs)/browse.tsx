@@ -121,7 +121,7 @@ export default function BrowseScreen() {
             {isLoading ? (
                 <View style={{ paddingHorizontal: 8, gap: 12, paddingTop: 8 }}>
                     {[0, 1, 2, 3].map((k) => (
-                        <Skeleton key={k} height={84} />
+                        <Skeleton key={k} height={116} />
                     ))}
                 </View>
             ) : (
@@ -133,7 +133,9 @@ export default function BrowseScreen() {
                     refreshControl={
                         <RefreshControl
                             refreshing={
-                                tab === 'public' ? publicQuery.isFetching : groupsQuery.isFetching
+                                tab === 'public'
+                                    ? publicQuery.isRefetching
+                                    : groupsQuery.isRefetching || membershipsQuery.isRefetching
                             }
                             onRefresh={onRefresh}
                             tintColor={theme[950]}

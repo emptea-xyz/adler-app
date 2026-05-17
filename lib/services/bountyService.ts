@@ -184,13 +184,16 @@ export async function getBounty(id: string): Promise<Bounty | null> {
     return rowToBounty(snap.id, snap.data() as Record<string, unknown>);
 }
 
-// Returns all open bounties (public + group). Group bounties are
+// Returns all open + funded bounties (public + group). Group bounties are
 // publicly browseable for discovery; submissions are gated to members.
+// Filtering on escrowFunded keeps un-funded ghost docs (on-chain create
+// failed, awaiting `expireBounties` Pass 0 reconcile) out of the feed.
 export async function listOpenPublicBounties(max = 50): Promise<Bounty[]> {
     const snap = await getDocs(
         query(
             collection(db, BOUNTIES),
             where('status', '==', 'open'),
+            where('escrowFunded', '==', true),
             orderBy('createdAt', 'desc'),
             limit(max),
         ),

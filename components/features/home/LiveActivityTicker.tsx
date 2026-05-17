@@ -52,7 +52,7 @@ export function LiveActivityTicker() {
     const { theme } = useTheme();
 
     const postsQuery = useQuery({
-        queryKey: qk.bounties.listPublic('open'),
+        queryKey: qk.bounties.ticker(),
         queryFn: () => listOpenPublicBounties(POST_LIMIT),
         staleTime: 30_000,
     });
@@ -126,7 +126,11 @@ export function LiveActivityTicker() {
         );
     }
 
-    if (events.length === 0) return null;
+    // Reserve TICKER_HEIGHT even when empty so the underlying FlatList
+    // doesn't jump up when posts/settles arrive after a cold load.
+    if (events.length === 0) {
+        return <View style={{ height: TICKER_HEIGHT }} />;
+    }
 
     return (
         <View
@@ -221,7 +225,7 @@ function TickerItem({
         <Pressable
             onPress={() => {
                 haptic('light');
-                router.push(`/(home)/bounty/${event.bountyId}`);
+                router.push(`/bounty/${event.bountyId}`);
             }}
             style={{
                 flexDirection: 'row',

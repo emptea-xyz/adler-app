@@ -20,6 +20,9 @@ export const qk = {
       ['bounties', 'list', 'group', [...groupIds].sort(), status] as const,
     byPoster: (uid: string) => ['bounties', 'byPoster', uid] as const,
     recentSettled: () => ['bounties', 'recentSettled'] as const,
+    // Distinct from `listPublic` — the ticker fetches a smaller page so
+    // sharing a key would let it overwrite browse's larger result.
+    ticker: () => ['bounties', 'ticker'] as const,
   },
   submissions: {
     all: () => ['submissions'] as const,
